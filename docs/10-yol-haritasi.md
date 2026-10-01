@@ -66,7 +66,8 @@ href.li, uqload, videoapi vb. tükendi).
 - Bot duvarlı host'lar (voe, dood, byse) ve MEGA: HTTP kanıtı üretmiyor; tarayıcı/API katmanı.
 - ✅ **Günlük otomatik döngü (01.10):** tarama dilimi → `veri` → `build` → `yayin:hazirla`,
   politika D1'de, iş yerel makinede saatlik zamanlayıcıda; sonuç panele yazılır
-  ([09](09-link-sagligi-otomasyonu.md) §10). Tarama artık elle hatırlamaya bağlı değil.
+  ([09](09-link-sagligi-otomasyonu.md) §10). Derleme `out/` kilidine dayanıklıdır (kilitte bekleyip
+  artan beklemeyle tekrarlar). Tarama artık elle hatırlamaya bağlı değil.
 - ✅ Kullanıcı bildirimleri (01.10): oynatıcı → Worker → `tools/cache/bildirim.jsonl` →
   `npm run link:tara -- --bildirim` ile kuyruğun önü. Kullanıcı bildirimi **karar** değil
   önceliktir; durum yine kanıtla belirlenir. ([11](11-hesaplar-uygulama.md))

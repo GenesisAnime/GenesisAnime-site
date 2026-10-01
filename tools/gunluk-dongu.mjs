@@ -12,6 +12,10 @@
  *     depoda yoktur (ADR-0004), bu yüzden tarama+veri+derleme üçlüsü arşivin
  *     bulunduğu makinede koşar. Zamanlayıcı saatte bir uyandırır; "günde bir"
  *     kuralı `tools/lib/dongu.mjs` içindeki saf karar fonksiyonundadır (test edilir).
+ *   · **Derleme kilide dayanıklı:** `out/` başka bir süreçte açıksa Windows'ün
+ *     `EBUSY: rmdir 'out'` hatası gecelik koşuyu düşürmez; söküm bekleyerek
+ *     tekrarlanır, derleme kilit hatasında artan beklemeyle yeniden denenir
+ *     (`tools/lib/derleme.mjs`, ağsız test edilir).
  *
  * Kullanım:
  *   npm run dongu:gunluk                        # panel ayarına göre karar ver ve (gerekirse) koş
@@ -31,6 +35,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { ROOT, YOLLAR, baslik, log } from './lib/ortak.mjs';
 import { donguKarari, kararMetni, yerelGun } from './lib/dongu.mjs';
+import {
+  derlemeTekrarKarari,
+  kilitHatasiMi,
+  kilitOnerisi,
+  kilitliDene,
+  outSok,
+} from './lib/derleme.mjs';
 
 const AYAR = {
   dilim: null,
@@ -133,6 +144,48 @@ function adim(ad, komut, args, kabuk = false) {
   return { ad, kod: sonuc.status ?? 1, ms: Date.now() - basla };
 }
 
+/**
+ * Derlemeyi çıktısını yakalayarak koşar: kilit hatasında (`EBUSY`/`EPERM`)
+ * artan beklemeyle birkaç kez daha dener. Kilit dışı hata tekrar edilmez —
+ * gerçek hatayı gizlememek için (bkz. tools/lib/derleme.mjs).
+ */
+async function derlemeAdimi() {
+  const calistir = () => {
+    log('\n▶ Statik site derleniyor');
+    log('   $ npm run build');
+    if (AYAR.deneme) return { kod: 0, ms: 0, cikti: '' };
+    const basla = Date.now();
+    let sonuc;
+    try {
+      // Çıktıyı yakalamak zorundayız: kilit hatası ancak metinden anlaşılır.
+      sonuc = spawnSync('npm', ['run', 'build'], {
+        cwd: ROOT,
+        shell: true,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        maxBuffer: 32 * 1024 * 1024,
+      });
+    } catch (e) {
+      return { kod: 1, ms: Date.now() - basla, cikti: (e && e.message) || String(e) };
+    }
+    const cikti = `${sonuc.stdout || ''}${sonuc.stderr || ''}`;
+    if (cikti) process.stdout.write(cikti.endsWith('\n') ? cikti : `${cikti}\n`);
+    return { kod: sonuc.status ?? 1, ms: Date.now() - basla, cikti };
+  };
+  const { son, denemeler } = await kilitliDene({
+    calistir,
+    karar: derlemeTekrarKarari,
+    bildir: (metin) => log(`   ! derleme: ${metin}`),
+  });
+  return {
+    ad: denemeler.length > 1 ? `Statik site derleniyor (${denemeler.length} deneme)` : 'Statik site derleniyor',
+    kod: son.kod,
+    ms: denemeler.reduce((t, d) => t + d.sure_ms, 0),
+    denemeler: denemeler.length,
+    kilit: son.kod !== 0 && kilitHatasiMi(son.cikti),
+  };
+}
+
 /** Tarama kapsamını ölçer (panel satırında görünür). */
 function kapsamOlc() {
   if (AYAR.deneme) return 'deneme';
@@ -224,14 +277,28 @@ async function main() {
   const push = AYAR.push ?? ayar.push === 1;
 
   if (tarama.kod === 0 && !AYAR.kuru) {
-    for (const [ad, script] of [
-      ['Site verisi tazeleniyor', 'veri'],
-      ['Statik site derleniyor', 'build'],
-      ['Yayına hazırlanıyor', 'yayin:hazirla'],
-    ]) {
-      const r = adim(ad, 'npm', ['run', script], true);
-      adimlar.push(r);
-      if (r.kod !== 0) break;
+    const veri = adim('Site verisi tazeleniyor', 'npm', ['run', 'veri'], true);
+    adimlar.push(veri);
+    if (veri.kod === 0) {
+      // Derleme `out/`u baştan yazar. Klasörü başka bir süreç tutuyorsa (yerel
+      // önizleme sunucusu, açık gezgin) burada kilit çözülmeye çalışılır.
+      // `--deneme` hiçbir şeye dokunmaz: söküm de yapılmaz.
+      const sokum = AYAR.deneme
+        ? { ok: true, denemeler: 0, hata: '', kilit: false }
+        : await outSok({ yol: path.join(ROOT, 'out'), bildir: (m) => log(`   ! ${m}`) });
+      if (!sokum.ok) {
+        const ilk = (sokum.hata || '').split('\n')[0];
+        log(`   ! out/ sökülemedi (${sokum.denemeler} deneme): ${ilk}`);
+        derlemeUyarilari.push(`out/ sökülemedi (${sokum.denemeler} deneme): ${ilk}. ${kilitOnerisi()}`);
+      }
+      const derleme = await derlemeAdimi();
+      adimlar.push(derleme);
+      if (derleme.kod !== 0 && derleme.kilit) {
+        derlemeUyarilari.push(`Derleme out/ kilidi yüzünden düştü (${derleme.denemeler} deneme). ${kilitOnerisi()}`);
+      }
+      if (derleme.kod === 0) {
+        adimlar.push(adim('Yayına hazırlanıyor', 'npm', ['run', 'yayin:hazirla'], true));
+      }
     }
   }
 

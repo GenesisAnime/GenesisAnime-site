@@ -291,9 +291,29 @@ kendiliğinden açıldı: log `[18:11:01] dongu basladi` → `panel: dilim 1500 
 `karar: bugün zaten koştu` → `iş yapılmadı (bugun-kostu)`; panelde kalp atışı 18:11:02'ye ilerledi
 (`son_karar: bugun-kostu`). Yani uyandırma + panel okuma + karar + kalp atışı zinciri insan eli
 değmeden koşuyor; tam bir iş koşusu (veri + derleme) zaten yukarıda uçtan uca doğrulanmıştı.
+- **Yerel panel önizlemesi ve geçici CORS (sonra geri alındı):** paneli canlı görmek için `out/`
+  öneksiz derlenip bir junction üzerinden `python -m http.server 8010` ile sunuldu (sunucu `out/`u
+  tutarken döngünün derlemesi `EBUSY` ile düşmesin diye). Worker'a `--var
+  CORS_EXTRA:http://127.0.0.1:8010` ile **geçici** izin verildi (sürüm `a7e99689`), deneme bitince
+  izinsiz yeniden dağıtıldı (`7400d597`). Doğrulama (`GET` ve `OPTIONS`, jetonlu): `Origin:
+  http://127.0.0.1:8010` → `Access-Control-Allow-Origin` **yok**; `Origin: https://nutaliaxd.github.io`
+  → **var**; `Vary: Origin` iki durumda da duruyor. Üretim yeniden yalnızca site kaynağına açık.
 - **Testler:** yeni `tools/testler/dongu.test.mjs` (8: gün anahtarı, kapalı, saat, günde bir, hata
   sonrası bekleme, `hemen`/`--zorla`, ayarsız güvenli davranış, karar metni) + `bildirim.test.mjs`'e
   yönetici uçlarının yol çözümü ve ayar/koşu normalizasyonu (3) → toplam **92/92**; `tsc` 0 hata.
+- **Derlemenin `out/` kilidine dayanıklılığı (H-27):** gecelik koşuyu tek satırda düşüren
+  `EBUSY: rmdir 'out'` tuzağı kapatıldı: derlemeden önce `out/` sökümü 5 sn arayla 6 kez denenir,
+  derleme yine kilit hatasıyla düşerse 15/45 sn beklenerek en çok 3 denemeye çıkılır; kilit dışı
+  hatalar (tip hatası, eksik modül) **tekrar edilmez** ve kilit sürerse koşu panel notuna nedeni +
+  çözüm önerisi yazılarak `hata` damgalanır. Mantık `tools/lib/derleme.mjs` içinde saf tutuldu
+  (14 test; sahte `fs` + sahte `bekle`, gerçek dosya ve saat yok) ve `--deneme` kipinin hiçbir şeye
+  dokunmadığı korundu (söküm dry-run'da atlanır). **Gerçek kilit ölçümü:** projenin kendi `out/`u
+  (açık önizleme onu sunuyor) riske atılmadan, aynı düzeni taklit eden geçici bir klasörde
+  (`%TEMP%/ga-kilit-sinama/out`) çalışma dizini o klasör olan ayrı bir Node süreciyle kilit kuruldu;
+  kilit sürerken söküm 3 denemede `ok:false`/`kilit:true`,
+  kilit kalkınca 6. denemede `ok:true` ve klasör gerçekten silindi (≈6 sn). Windows bu senaryoda
+  `EBUSY` değil **`EPERM, Permission denied`** verdi — algılama bu yüzden tek koda değil kilit sınıfına
+  bakıyor. Yeni toplam: **106/106**.
 - **Kalan:** döngünün birkaç günlük doğal gözlemi (zamanlayıcı kurulu ve elle koşuyor; "gece
   boyunca" iddiası ancak birkaç ardıl koşudan sonra kanıtlanır), yayın boyutunu küçültme ve
   analytics/dağıtım kararı (kullanıcıda).

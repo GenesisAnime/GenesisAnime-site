@@ -61,7 +61,7 @@ Her iş paketinden sonra:
 Bir iş "bitti" sayılmadan önce:
 
 ```bash
-npm test                                # tools/ birim + veri/çıktı bütünlüğü testleri (ağsız, ~14 sn, 92 test)
+npm test                                # tools/ birim + veri/çıktı bütünlüğü testleri (ağsız, ~11 sn, 106 test)
 npm run api:test                        # api/ değiştiyse: çalışan Worker'a (wrangler dev) uçtan uca duman testi
 npm run typecheck                       # tip hatası yok
 npm run build                           # 7.442 sayfa üretilmeli, hata yok
@@ -82,8 +82,10 @@ yazılır (testler ağsız ve bağımlılıksız kalır — API testleri sahte D
 düzeltilmez — bkz. §1.3). CI, derlemeden sonra `npm test` koşar; arşiv sağlık dosyası CI'da
 yoktur, bu yüzden kaydı bulunamayan rozetler “doğrulanamadı” sayılır ve raporda bildirilir.
 
-Veri değişikliğinden önce tarayıcı sunucusu kapatılır: python sunucusu `out/` klasörünü tutarken
-derleme `EBUSY: rmdir 'out'` ile düşer ve **eski çıktı sunulmaya devam eder**.
+Elle derlemeden önce tarayıcı sunucusu kapatılır: python sunucusu `out/` klasörünü tutarken derleme
+`EBUSY: rmdir 'out'` ile düşer ve **eski çıktı sunulmaya devam eder**. (Günlük döngü bu duruma karşı
+korunmuştur — aşağıdaki “Otomatik döngü ve yönetici paneli” bölümü — ama elle koşulan derlemede
+kapatmak yine gerekir.)
 
 Ayrıca tarayıcıda gerçek tıklama testi: ana sayfa → arama → anime detayı → bölüm → oynatıcı.
 Konsolda hata olmamalı (`document.documentElement.dataset.hata` boş olmalı; sitede her zaman
@@ -101,7 +103,11 @@ gitignore'lu kök **`.env`** dosyasından okunur, **asla** depoya yazılmaz. `ap
 - Döngünün `npm run build` adımı **`NEXT_PUBLIC_API`, `NEXT_PUBLIC_BILDIRIM_API`, `BASE_PATH`**
 ve `NEXT_PUBLIC_SITE_URL` değerlerini kök `.env`'den alır; yoksa ürettiği site API'siz/öneksiz
 kalır. Döngü bunları eksik görürse log'a ve panel kaydına UYARI yazar.
-- `npm run build` öncesi tarayıcı sunucusu kapatılır (§4): aksi hâlde `EBUSY: rmdir 'out'`.
+- Döngünün derleme adımı `out/` kilidine **dayanıklıdır** (`tools/lib/derleme.mjs`): derlemeden
+  önce klasör sökümü 5 sn arayla 6 kez denenir, derleme yine kilit hatasıyla düşerse 15/45 sn
+  beklenerek en çok 3. denemeye çıkılır. Kilit dışı hatalar (tip hatası, eksik modül) tekrar
+  edilmez ve kilit sürerse koşu panel notunda nedeni + çözüm önerisiyle `hata` damgalanır.
+  Yine de elle derleme öncesi tarayıcı sunucusu kapatılır (§4).
 - Panel/API değişikliğinde `api/migrations/0002-tarama.sql` şeması hem yerelde hem uzakta
 uygulanmalıdır (`npm run db:yerel` / `npm run db:uzak`); yeni uçlar `ADMIN_TOKEN` ister.
 

@@ -274,6 +274,16 @@ başarısız koşudan sonra 3 saat bekler; makine gece kapalıydıysa gün için
 kaçırmaz (görev saatte bir uyandığı için). Koşu ayrıca `tools/rapor/gunluk-dongu.jsonl` ve
 `docs/gunluk/kayit.jsonl` dosyalarına birer satır yazar; tarama kesintiye dayanıklıdır.
 
+Derleme adımı da **kilide dayanıklıdır** (`tools/lib/derleme.mjs`): `out/` klasörü başka bir süreçte
+açıksa (yerel önizleme sunucusu, dosya gezgini, senkron aracı) Windows `EBUSY`/`EPERM` verir ve
+günün bütün işi tek satır hataya düşerdi. Artık derlemeden önce `out/` sökümü 5 sn arayla 6 kez
+denenir; derleme yine kilit hatasıyla düşerse 15 ve 45 sn bekleyip en çok 3 denemeye çıkar. Kilit
+dışı hatalar (tip hatası, eksik modül) **tekrar edilmez** — hata gizlenmez, boşuna beklenmez. Kilit
+sürerse koşu `hata` olur ve panel notuna nedeni + çözüm önerisi yazılır. Ölçüm: gerçek kilit
+kurulup kaldırıldı — kilit sürerken 3 denemede `ok:false`, kilit kalkınca 6. denemede `ok:true`.
+(Kilit hatası ancak çıktı metninden anlaşıldığı için derlemenin çıktısı yakalanır ve bittiğinde
+log'a yazılır; yani derleme sırasında satır satır akmaz.)
+
 ### Yönetici jetonu ve derleme ortamı (iki kere yaşanan tuzak)
 
 1. **Jeton:** döngü ve panel aynı `ADMIN_TOKEN`ı kullanır. Döngü jetonu sırayla `--token=`,
@@ -297,9 +307,26 @@ cd out && python -m http.server 8010
 # → http://127.0.0.1:8010/yonetim/  (jeton: üretimdeki ADMIN_TOKEN)
 ```
 
-> Sunucu `out/` klasörünü tutarken döngünün derleme adımı `EBUSY: rmdir 'out'` ile düşebilir;
-> denemeyi bitirince sunucuyu kapat (§ Doğrulama). Döngü bir sonraki uyanışında `out/`'u zaten
-> yeniden üretir (önekiyle), yani bu geçici derleme kalıcı bir sapma bırakmaz.
+Bu hâliyle sayfa çizilir ama **API'ye erişemez**: CORS yalnızca `SITE_ORIGIN`e açıktır, panel
+“Sunucuya ulaşılamadı” der. Veriyi tarayıcıdan görmek için Worker'a geçici izin verilir ve iş
+bitince **mutlaka geri alınır** (kaynak tam eşleşmeli: şema + ana makine + port):
+
+```bash
+cd api && npx wrangler deploy --var CORS_EXTRA:http://127.0.0.1:8010   # geçici izin
+cd api && npx wrangler deploy                                          # izni geri al
+```
+
+Geri almayı iki adımda doğrula: `wrangler deploy` çıktısında bağlamalar **yalnızca `env.SITE_ORIGIN`**
+göstermeli, `curl` yanıtlarında ise `Origin: http://127.0.0.1:8010` → `Access-Control-Allow-Origin`
+**yok**, `Origin: https://nutaliaxd.github.io` → **var** olmalı (`Vary: Origin` her iki durumda da
+kalır). 01.10.2026'da bu yol birebir böyle işledi: geçici sürüm `a7e99689`, izinsiz sürüm
+`7400d597`.
+
+> Sunucu `out/` klasörünü tutarken döngünün derlemesi artık düşmez: klasör sökümü kilit geçene kadar
+> bekler, derleme kilit hatasında artan beklemeyle tekrarlanır (yukarıdaki kilit dayanıklılığı).
+> Kilit gece boyunca sürerse koşu yine `hata` damgalar; en temiz yol denemeyi bitirince sunucuyu
+> kapatmaktır (§ Doğrulama). Döngü bir sonraki uyanışında `out/`u zaten yeniden üretir (önekiyle),
+> yani bu geçici derleme kalıcı bir sapma bırakmaz.
 
 ### Neden GitHub Actions değil?
 

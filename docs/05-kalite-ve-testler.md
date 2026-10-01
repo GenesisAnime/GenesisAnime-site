@@ -6,7 +6,7 @@
 
 | Kontrol | Komut | Beklenen |
 |---|---|---|
-| Birim testleri | `npm test` | 92/92 geçer (~14 sn; ağ/DB yok) |
+| Birim testleri | `npm test` | 106/106 geçer (~11 sn; ağ/DB yok) |
 | Tip denetimi | `npm run typecheck` | 0 hata |
 | Derleme | `npm run build` | `✓ Compiled successfully`, 7.442 statik sayfa |
 | Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.046 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
@@ -274,6 +274,15 @@ gelmeden koşmama, aynı gün ikinci kez koşmama, başarısız koşudan sonra 3
 `hemen`/`--zorla` bayraklarının kararı ezmesi, panel ayarı okunamazsa güvenli (koşmayan) davranış
 ve karar metninin kararlı olması. Ret veren her dal için girdi sentetik olarak kurulur.
 
+**`derleme.test.mjs`** (14) derleme adımının kilit/tekrar mantığını sınar (ağsız, gerçek dosya yok,
+gecikme yok): kilit hatalarının tanınması (`EBUSY`/`EPERM`/`EACCES`/`ENOTEMPTY` ve Windows'un
+“being used by another process” metni), gerçek derleme hatalarının kilit **sanılmaması** (tip hatası,
+eksik modül, boş disk), beklemelerin artan sırası ve sınırda durması, kilit geçiciyse bekleyip
+başarıya ulaşılması, kilit sürerse sınırlı denemeyle `hata` dönülmesi, kilit dışı hatanın **tekrar
+edilmemesi** (gerçek hata gizlenmez) ve `out/` sökümünün kilit dışı hatada beklemeden dönmesi.
+Sahte `fs` + sahte `bekle` kullanılır; testler ne diske ne saate dokunur (gerçek kilitli klasörle
+ölçüm H-27'de).
+
 **`hesap.test.mjs`** (7) yerel/sunucu birleştirmesini sınar: “en yeni kazanır” (ilerleme,
 izlenen, liste), eşit zamanda yerel üstünlüğü, tercihlerde yerel kazanması, çalışmayanlar
 birleşimi + 500 sınırı, boş sunucu kopyasının yerel veriyi silmemesi.
@@ -286,8 +295,8 @@ desteklenmiyorsa test atlanır), `jsonLdGuvenli` kaçışı ve JSON anlamının 
 yapısal denetim: sunucu bileşenlerinde `new Date(…).toLocale*` bulunmamalı, iframe izin listeleri
 `fullscreen` içermeli ve `allowFullScreen` kullanılmamalı.
 
-Ölçüm: **92 test / 92 geçti**, yerelde ~14 sn (son ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
-veri 8 · döngü 8 · çıktı 7 · hesap 7 · biçim 6; soğuk disk önbelleğinde böyle — out verisi
+Ölçüm: **106 test / 106 geçti**, yerelde ~11 sn (son ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
+derleme 14 · veri 8 · döngü 8 · çıktı 7 · hesap 7 · biçim 6; soğuk disk önbelleğinde böyle — out verisi
 ~1,4 sn + html/txt taraması ~2,9 sn + veri taraması ~1,9 sn, kalanı 6 bin anime/961 seri dosyası;
 sıcakta ~7 sn); CI simülasyonunda (arşiv sağlık dosyası yokken)
 aynı sonuç — 941 rozet “doğrulanamadı” olarak raporlanır. Testlerin gerçekten hata yakaladığı üç yoldan ölçüldü:
@@ -421,6 +430,23 @@ sayfası da düzeltildi: eylem düğmeleri iki sütunlu ızgarada 42px'e çıkt�
 sarmak yerine hizalı ızgaraya oturdu (dar ekranda 2×152px), uzun fansub adları kırpılmak yerine iki
 satıra sarıyor. Ölçüm (390×844, üretim derlemesi): taşan düğme 0 · `scrollWidth 373 < 390` ·
 ana sayfa/keşfet/künye sayfalarında da yatay taşma yok.
+
+### H-27 · `out/` kilidi gecelik derlemeyi düşürüyordu (koşu boşa gidiyordu)
+
+Gecelik döngü statik çıktıyı baştan yazarken `out/` klasörü başka bir süreçte açıksa (yerel önizleme
+sunucusu, açık dosya gezgini, senkron aracı) Node Windows'ta `EBUSY`/`EPERM` verir. Tarama ve veri
+adımları tamamlanmış olmasına rağmen koşu `hata` damgası alıyor ve “hata sonrası 3 saat bekle”
+kuralı yüzünden gün boşa gidiyordu. Düzeltme: derlemeden **önce** `out/` sökümü 5 sn arayla 6 kez
+denenir; derleme yine kilit hatasıyla düşerse 15 ve 45 sn beklenerek en çok 3 denemeye çıkar. Kilit
+dışı hatalar (tip hatası, eksik modül, boş disk) **tekrar edilmez** — gerçek hata gizlenmez. Kilit
+yine sürerse koşu `hata` olur ama panel notuna nedeni ve çözüm önerisi yazılır.
+
+**Ölçüm (gerçek kilit):** projenin kendi `out/`u riske atılmadan, aynı düzeni taklit eden geçici bir
+klasörde çalışma dizini o klasör olan ayrı bir süreçle kilit kuruldu. Kilit sürerken
+söküm 3 denemede `ok:false` döndü ve `kilit:true` işaretlendi; kilit kalkınca 6. denemede `ok:true`
+ve klasör gerçekten silindi (≈6 sn bekleme). Dikkat çeken ayrıntı: Windows bu senaryoda `EBUSY`
+değil **`EPERM, Permission denied`** verdi — algılama bu yüzden tek bir koda değil, kilit sınıfına
+bakıyor. Ayrıntı: `tools/lib/derleme.mjs`, testler `tools/testler/derleme.test.mjs` (14).
 
 ### Link tarama testleri
 
