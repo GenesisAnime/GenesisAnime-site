@@ -53,8 +53,7 @@ export default function FragmanKatmani({ kimlik, ad, kapat }: Props) {
           <iframe
             src={`https://www.youtube-nocookie.com/embed/${kimlik}?autoplay=1&rel=0`}
             title={`${ad} fragmanı`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
           />
         </div>
       </div>

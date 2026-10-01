@@ -75,6 +75,44 @@ export function sureBicim(dk: number | null): string {
   return kalan ? `${saat} sa ${kalan} dk` : `${saat} sa`;
 }
 
+/**
+ * Veri/derleme zaman damgasını (ISO 8601) biçimlendirir.
+ *
+ * Neden saat dilimi UTC'ye sabit? Bu metin sunucuda, derleme sırasında üretilir:
+ * CI (GitHub Actions) UTC, geliştirici makinesi UTC+3 olabilir. Yerel saat dilimine
+ * bırakılırsa aynı kaynak koddan farklı HTML çıkar ve "yerelde çalışıyordu" tipi
+ * yanıltıcı farklar doğar. Sabit UTC ile derleme tekrarlanabilir kalır; çıktıya
+ * "(UTC)" eklenerek okurun yanlış yorumlaması da engellenir.
+ */
+export function damgaBicim(iso: string, saatli = false): string {
+  const t = new Date(iso);
+  if (Number.isNaN(t.getTime())) return '—';
+  const secenekler: Intl.DateTimeFormatOptions = {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  };
+  if (saatli) {
+    secenekler.hour = '2-digit';
+    secenekler.minute = '2-digit';
+    secenekler.hour12 = false;
+  }
+  return `${new Intl.DateTimeFormat('tr-TR', secenekler).format(t)} (UTC)`;
+}
+
+/**
+ * JSON-LD gövdesini `<script>` içine gömülebilir hâle getirir.
+ *
+ * `JSON.stringify` `<` karakterini kaçırmaz; veri içinde `</script>` geçen tek bir
+ * alan (ör. dizi/özet metni) betiği erken kapatıp sayfaya HTML enjekte edebilir.
+ * `<` yerine `\u003c` yazmak JSON anlamını değiştirmez, tarayıcıda aynı değere
+ * çözülür — ama betik etiketini kapatamaz.
+ */
+export function jsonLdGuvenli(deger: unknown): string {
+  return JSON.stringify(deger).replace(/</g, '\\u003c');
+}
+
 export function tarihBicim(zaman: number): string {
   const fark = Date.now() - zaman;
   const dk = Math.floor(fark / 60000);

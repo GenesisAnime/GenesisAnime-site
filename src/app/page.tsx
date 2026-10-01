@@ -10,6 +10,7 @@ import type { AnaSayfaSatiri } from '@/lib/tipler';
 
 export const metadata: Metadata = {
   title: 'GenesisAnime — Türkçe anime izleme arşivi',
+  alternates: { canonical: '/' },
 };
 
 /** Satır başlığına karşılık gelen /kesfet filtre bağlantısı. */

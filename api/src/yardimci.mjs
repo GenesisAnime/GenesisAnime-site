@@ -274,17 +274,20 @@ export function corsBasliklari(origin, env) {
  * (ör. "bildirim:2026-10-01", "giris:2026-10-01T05").
  */
 export async function oranAsildi(db, anahtar, pencere, sinir) {
-  const satir = await db.prepare('SELECT pencere, sayi FROM oran WHERE anahtar = ?').bind(anahtar).first();
-  if (!satir || satir.pencere !== pencere) {
-    await db
-      .prepare('INSERT INTO oran (anahtar, pencere, sayi) VALUES (?, ?, 1) ON CONFLICT(anahtar) DO UPDATE SET pencere = excluded.pencere, sayi = 1')
-      .bind(anahtar, pencere)
-      .run();
-    return false;
-  }
-  if (satir.sayi >= sinir) return true;
-  await db.prepare('UPDATE oran SET sayi = sayi + 1 WHERE anahtar = ?').bind(anahtar).run();
-  return false;
+  // Pencereyi tazele: aynı pencerede sayacı koru, yeni pencerede sıfırla (tek ifade).
+  await db
+    .prepare(
+      'INSERT INTO oran (anahtar, pencere, sayi) VALUES (?, ?, 0) ON CONFLICT(anahtar) DO UPDATE SET sayi = CASE WHEN oran.pencere = excluded.pencere THEN oran.sayi ELSE 0 END, pencere = excluded.pencere'
+    )
+    .bind(anahtar, pencere)
+    .run();
+  // Sayacı YALNIZCA sınırın altındaysa artır. Karar ve artırma tek ifadede olduğu için
+  // eşzamanlı istekler sınırı aşamaz (eski SELECT + UPDATE sürümünde yarış koşulu vardı).
+  const sonuc = await db
+    .prepare('UPDATE oran SET sayi = sayi + 1 WHERE anahtar = ? AND pencere = ? AND sayi < ?')
+    .bind(anahtar, pencere, sinir)
+    .run();
+  return Number(sonuc?.meta?.changes ?? 0) === 0;
 }
 
 /** Aynı IP aynı URL'i 24 saat içinde bildirdiyse tekrar yazma. */

@@ -336,7 +336,6 @@ export default function IzleIstemci() {
                 src={aktifKaynak[2]}
                 title={`${anime.ad} ${bolumNumarasi(bolum?.no ?? null, bolumSira)}. bölüm — ${playerAd(aktifKaynak[0])}`}
                 allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                allowFullScreen
                 referrerPolicy="no-referrer"
                 loading="eager"
                 sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-forms"

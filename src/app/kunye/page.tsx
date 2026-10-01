@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { kunyeOku, saglikOku, taksonomiOku } from '@/lib/veri';
-import { formatAd, playerAd, sayiBicim } from '@/lib/bicim';
+import { damgaBicim, formatAd, playerAd, sayiBicim } from '@/lib/bicim';
 
 export const metadata: Metadata = {
   title: 'Künye ve veri kalitesi',
@@ -258,7 +258,7 @@ export default function KunyeSayfasi() {
       </div>
 
       <p style={{ color: 'var(--tx3)', fontSize: 12.5, marginTop: 30 }}>
-        Veri üretim zamanı: {new Date(kunye.uretim).toLocaleString('tr-TR')} · Format çeşitleri:{' '}
+        Veri üretim zamanı: {damgaBicim(kunye.uretim, true)} · Format çeşitleri:{' '}
         {taksonomi.formatlar.slice(0, 5).map((f) => `${formatAd(f.ad)} (${f.sayi})`).join(', ')}
       </p>
     </div>

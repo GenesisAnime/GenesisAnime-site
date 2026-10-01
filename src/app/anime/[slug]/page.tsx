@@ -5,7 +5,7 @@ import AnimeEylemler from '@/components/AnimeEylemler';
 import BolumListesi from '@/components/BolumListesi';
 import Kart from '@/components/Kart';
 import { animeOku, fansublarDosyaOku, kunyeOku, serilerOku, tumSluglar } from '@/lib/veri';
-import { durumAd, formatAd, kisalt, puanBicim, sayiBicim, sureBicim } from '@/lib/bicim';
+import { durumAd, formatAd, jsonLdGuvenli, kisalt, puanBicim, sayiBicim, sureBicim } from '@/lib/bicim';
 import { SITE } from '@/lib/site';
 
 export const dynamicParams = false;
@@ -100,7 +100,7 @@ export default async function AnimeSayfasi({ params }: { params: Promise<{ slug:
 
   return (
     <div className="kap" style={{ paddingTop: 26 }}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdGuvenli(jsonLd) }} />
 
       <nav className="kirinti" aria-label="Sayfa yolu">
         <Link href="/">Ana Sayfa</Link>
@@ -241,8 +241,7 @@ export default async function AnimeSayfasi({ params }: { params: Promise<{ slug:
                   src={`https://www.youtube.com/embed/${anime.fragman.id}`}
                   title={`${anime.ad} fragmanı`}
                   loading="lazy"
-                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
+                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                 />
               </div>
             </section>

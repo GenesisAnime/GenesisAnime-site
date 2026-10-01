@@ -285,11 +285,15 @@ function sahteOranDb() {
             },
             async run() {
               if (s.startsWith('INSERT INTO oran')) {
-                satirlar.set(p[0], { pencere: p[1], sayi: 1 });
+                const mevcut = satirlar.get(p[0]);
+                const sayi = mevcut && mevcut.pencere === p[1] ? mevcut.sayi : 0;
+                satirlar.set(p[0], { pencere: p[1], sayi });
                 return { meta: { changes: 1 } };
               }
               if (s.startsWith('UPDATE oran SET sayi = sayi + 1')) {
-                satirlar.get(p[0]).sayi++;
+                const satir = satirlar.get(p[0]);
+                if (!satir || satir.pencere !== p[1] || satir.sayi >= p[2]) return { meta: { changes: 0 } };
+                satir.sayi++;
                 return { meta: { changes: 1 } };
               }
               throw new Error(`beklenmeyen sorgu: ${s}`);
@@ -310,6 +314,17 @@ test('oranAsildi: sınır aşılınca kilitlenir, pencere değişince sıfırlan
   assert.equal(await oranAsildi(db, 'bildirim:ip1', '2026-10-01', sinir), true, '4. istekte sınır aşılmalı');
   assert.equal(await oranAsildi(db, 'bildirim:ip1', '2026-10-02', sinir), false, 'yeni pencerede sayaç sıfırlanmalı');
   assert.equal(await oranAsildi(db, 'bildirim:ip2', '2026-10-02', sinir), false, 'başka anahtar bağımsız olmalı');
+});
+
+// Eski sürüm SELECT + UPDATE ayrı adımlardı: eşzamanlı istekler sınırı aşabiliyordu.
+// Bu test, kararın ve artırmanın tek atomik ifadede olduğunu çiviler.
+test('oranAsildi: eşzamanlı istekler sınırı aşamaz (atomik koşullu artırma)', async () => {
+  const db = sahteOranDb();
+  const sinir = 3;
+  const sonuclar = await Promise.all(Array.from({ length: 10 }, () => oranAsildi(db, 'bildirim:es', '2026-10-01', sinir)));
+  const engellenen = sonuclar.filter(Boolean).length;
+  assert.equal(engellenen, 10 - sinir, `10 eşzamanlı istekte tam ${sinir} tanesi geçmeli; engellenen=${engellenen}`);
+  assert.equal(db.satirlar.get('bildirim:es').sayi, sinir, 'sayaç sınırın üzerine çıkmamalı');
 });
 
 test('bildirimTekrarMi: aynı IP son 24 saatte aynı URL’i bildirdiyse tekrar', async () => {

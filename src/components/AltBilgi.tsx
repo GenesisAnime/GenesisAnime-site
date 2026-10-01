@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { SITE } from '@/lib/site';
 import type { Kunye } from '@/lib/tipler';
-import { sayiBicim } from '@/lib/bicim';
+import { damgaBicim, sayiBicim } from '@/lib/bicim';
 
 export default function AltBilgi({ kunye }: { kunye: Kunye }) {
   return (
@@ -66,7 +66,7 @@ export default function AltBilgi({ kunye }: { kunye: Kunye }) {
             sayfasındaki <b>“Kaynak çalışmıyor”</b> düğmesini kullanabilirsin.
           </p>
           <p style={{ marginTop: 14, fontSize: 12, color: 'var(--tx3)' }}>
-            Veri derlemesi: {new Date(kunye.uretim).toLocaleDateString('tr-TR', { dateStyle: 'long' })}
+            Veri derlemesi: {damgaBicim(kunye.uretim)}
           </p>
         </div>
       </div>
