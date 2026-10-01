@@ -1,0 +1,570 @@
+'use client';
+/**
+ * IzleIstemci.tsx — oynatıcı çekirdeği
+ *
+ * Akış: /izle/?a=<slug>&b=<bölüm sırası>
+ *  1. anime verisi (public/data/anime/<slug>.json) ve player güvenilirliği indirilir
+ *  2. bölümün kaynakları listelenir; kullanıcının "çalışmıyor" dedikleri gizlenir
+ *  3. doğrulanmış + tercih edilen player öne alınarak bir kaynak seçilir
+ *  4. kaynak iframe ile gömülür (video barındırılmaz, üçüncü taraf sayfa gösterilir)
+ *  5. sayfada geçirilen süre ölçülür ve "izlemeye devam et" kaydı güncellenir
+ *
+ * Kısıt (dürüstçe): iframe içeriği farklı kaynakta olduğu için videonun gerçek
+ * oynatma konumu/süresi okunamaz. Bu yüzden ilerleme "sayfada geçirilen süre"
+ * olarak tutulur ve bölüm, 90 saniye sonra izlendi sayılır.
+ */
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Anime, Taksonomi } from '@/lib/tipler';
+import { animeVeriYolu, genelYol } from '@/lib/yollar';
+import { bolumNumarasi, embedUygun, kaynakEtiketi, kaynakGrupla, playerAd, sayiBicim } from '@/lib/bicim';
+import { bildirimGonder } from '@/lib/bildirim';
+import { useBaglandi, useCalismayanlar, useTercihler } from '@/lib/depo/kanca';
+import { calismayanIsaretle, ilerlemeKaydet, izlenenEkle, izlenenHaritasi } from '@/lib/depo/yerel';
+import { AraIkon, DisBaglantiIkon, OynatIkon, SagIkon, SolIkon, TikIkon } from './Ikon';
+
+const IZLENDI_SAYILMA_SANIYESI = 90;
+
+export default function IzleIstemci() {
+  const aramalar = useSearchParams();
+  const router = useRouter();
+  const slug = aramalar.get('a') ?? '';
+  const bParam = aramalar.get('b');
+
+  const baglandi = useBaglandi();
+  const calismayanlar = useCalismayanlar();
+  const tercihler = useTercihler();
+
+  const [anime, setAnime] = useState<Anime | null>(null);
+  const [taksonomi, setTaksonomi] = useState<Taksonomi | null>(null);
+  const [hata, setHata] = useState<string | null>(null);
+  const [yukleniyor, setYukleniyor] = useState(true);
+
+  const [bolumSira, setBolumSira] = useState(1);
+  const [kaynakSira, setKaynakSira] = useState(0);
+  const [saniye, setSaniye] = useState(0);
+  const [tamEkran, setTamEkran] = useState(false);
+  const [bildirildi, setBildirildi] = useState(false);
+
+  const kutuRef = useRef<HTMLDivElement>(null);
+  const saniyeRef = useRef(0);
+  const izlendiRef = useRef(false);
+  saniyeRef.current = saniye;
+
+  /* ------------------------- veri indirme ------------------------- */
+
+  useEffect(() => {
+    if (!slug) {
+      setYukleniyor(false);
+      setHata('adres-yok');
+      return;
+    }
+    let iptal = false;
+    setYukleniyor(true);
+    setHata(null);
+
+    Promise.all([
+      fetch(animeVeriYolu(slug)).then((y) => {
+        if (y.status === 404) throw new Error('404');
+        if (!y.ok) throw new Error(String(y.status));
+        return y.json() as Promise<Anime>;
+      }),
+      fetch(genelYol('/data/taksonomi.json'))
+        .then((y) => (y.ok ? (y.json() as Promise<Taksonomi>) : null))
+        .catch(() => null),
+    ])
+      .then(([a, t]) => {
+        if (iptal) return;
+        setAnime(a);
+        setTaksonomi(t);
+        setYukleniyor(false);
+      })
+      .catch((e: Error) => {
+        if (iptal) return;
+        setHata(e.message === '404' ? 'bulunamadi' : 'ag-hatasi');
+        setYukleniyor(false);
+      });
+
+    return () => {
+      iptal = true;
+    };
+  }, [slug]);
+
+  /* --------------------- bölüm seçimi ve adres --------------------- */
+
+  useEffect(() => {
+    if (!anime) return;
+    const istenen = Number(bParam);
+    if (Number.isFinite(istenen) && istenen >= 1) {
+      const varMi = anime.bolumler.some((b) => b.n === istenen);
+      setBolumSira(varMi ? istenen : (anime.bolumler[0]?.n ?? 1));
+      return;
+    }
+    // bölüm belirtilmemiş: kayıtlı ilerleme varsa oradan devam et
+    const kayit = ilerlemeKaydetYoksaDevam();
+    setBolumSira(kayit ?? anime.bolumler[0]?.n ?? 1);
+
+    function ilerlemeKaydetYoksaDevam(): number | null {
+      try {
+        const ham = window.localStorage.getItem('genesisanime:v1:ilerleme');
+        if (!ham) return null;
+        const harita = JSON.parse(ham) as Record<string, { bolum: number }>;
+        return harita[slug]?.bolum ?? null;
+      } catch {
+        return null;
+      }
+    }
+  }, [anime, bParam, slug]);
+
+  // bölüm değişince kaynak seçimini başa al
+  useEffect(() => {
+    setKaynakSira(0);
+    setBildirildi(false);
+  }, [bolumSira]);
+
+  const bolum = useMemo(
+    () => anime?.bolumler.find((b) => b.n === bolumSira) ?? anime?.bolumler[0] ?? null,
+    [anime, bolumSira]
+  );
+
+  /* --------------------------- kaynaklar --------------------------- */
+
+  const kaynaklar = useMemo(() => {
+    if (!bolum) return [];
+    const temiz = bolum.src.filter((k) => !calismayanlar.includes(k[2]));
+    const dayanak = temiz.length ? temiz : bolum.src;
+    return [...dayanak].sort((x, y) => {
+      if (tercihler.dogrulanmisOncelik) {
+        const dx = x[3] === 'ok' ? 0 : 1;
+        const dy = y[3] === 'ok' ? 0 : 1;
+        if (dx !== dy) return dx - dy;
+      }
+      if (tercihler.kaynakTercihi) {
+        const px = x[0] === tercihler.kaynakTercihi ? 0 : 1;
+        const py = y[0] === tercihler.kaynakTercihi ? 0 : 1;
+        if (px !== py) return px - py;
+      }
+      return 0;
+    });
+  }, [bolum, calismayanlar, tercihler.dogrulanmisOncelik, tercihler.kaynakTercihi]);
+
+  const aktifKaynak = kaynaklar[Math.min(kaynakSira, Math.max(0, kaynaklar.length - 1))] ?? null;
+
+  const guvenlik = useMemo(() => {
+    const harita = new Map<string, { guvenilirlik: number; ok: number; kontrol: number }>();
+    for (const p of taksonomi?.playerlar ?? []) {
+      harita.set(p.ad, { guvenilirlik: p.guvenilirlik, ok: p.ok, kontrol: p.kontrol });
+    }
+    return harita;
+  }, [taksonomi]);
+
+  /* -------------------------- ilerleme kaydı -------------------------- */
+
+  useEffect(() => {
+    if (!anime || !bolum) return;
+    izlendiRef.current = Boolean(izlenenHaritasi()[`${anime.slug}|${bolum.n}`]);
+    setSaniye(0);
+  }, [anime, bolum]);
+
+  useEffect(() => {
+    if (!anime || !bolum) return;
+    const zamanlayici = setInterval(() => setSaniye((s) => s + 1), 1000);
+    return () => clearInterval(zamanlayici);
+  }, [anime, bolum]);
+
+  const kaydet = useCallback(() => {
+    if (!anime || !bolum) return;
+    const izlendi = saniyeRef.current >= IZLENDI_SAYILMA_SANIYESI || izlendiRef.current;
+    ilerlemeKaydet(
+      {
+        slug: anime.slug,
+        ad: anime.ad,
+        poster: anime.poster,
+        bolum: bolum.n,
+        bolumAdi: bolum.ad || `${bolumNumarasi(bolum.no, bolum.n)}. Bölüm`,
+        saniye: saniyeRef.current,
+      },
+      izlendi
+    );
+    if (izlendi) izlendiRef.current = true;
+  }, [anime, bolum]);
+
+  useEffect(() => {
+    const zamanlayici = setInterval(kaydet, 15000);
+    return () => {
+      clearInterval(zamanlayici);
+      kaydet();
+    };
+  }, [kaydet]);
+
+  /* --------------------------- gezinme --------------------------- */
+
+  const oncekiVar = bolum ? anime?.bolumler.some((b) => b.n === bolum.n - 1) : false;
+  const sonrakiVar = bolum ? anime?.bolumler.some((b) => b.n === bolum.n + 1) : false;
+
+  const bolumeGit = useCallback(
+    (n: number) => {
+      if (!anime) return;
+      if (!anime.bolumler.some((b) => b.n === n)) return;
+      kaydet();
+      setBolumSira(n);
+      router.replace(`/izle/?a=${encodeURIComponent(anime.slug)}&b=${n}`, { scroll: false });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    [anime, kaydet, router]
+  );
+
+  /* -------------------------- klavye kısayolları -------------------------- */
+
+  useEffect(() => {
+    const tusla = (e: KeyboardEvent) => {
+      const hedef = e.target as HTMLElement | null;
+      if (hedef && (hedef.tagName === 'INPUT' || hedef.tagName === 'TEXTAREA' || hedef.isContentEditable)) return;
+      if (e.key === 'ArrowRight' || e.key === 'n' || e.key === 'N') {
+        if (sonrakiVar) {
+          e.preventDefault();
+          bolumeGit(bolumSira + 1);
+        }
+      } else if (e.key === 'ArrowLeft' || e.key === 'p' || e.key === 'P') {
+        if (oncekiVar) {
+          e.preventDefault();
+          bolumeGit(bolumSira - 1);
+        }
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        tamEkranAc();
+      } else if (/^[1-9]$/.test(e.key)) {
+        const hedefSira = Number(e.key) - 1;
+        if (hedefSira < kaynaklar.length) {
+          e.preventDefault();
+          setKaynakSira(hedefSira);
+        }
+      }
+    };
+    window.addEventListener('keydown', tusla);
+    return () => window.removeEventListener('keydown', tusla);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sonrakiVar, oncekiVar, bolumSira, kaynaklar.length, bolumeGit]);
+
+  function tamEkranAc() {
+    const el = kutuRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => undefined);
+      return;
+    }
+    el.requestFullscreen?.().catch(() => undefined);
+  }
+
+  useEffect(() => {
+    const dinle = () => setTamEkran(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', dinle);
+    return () => document.removeEventListener('fullscreenchange', dinle);
+  }, []);
+
+  /* ------------------------------- durumlar ------------------------------- */
+
+  if (!slug || hata === 'adres-yok') {
+    return (
+      <div className="kap">
+        <div className="bos-durum">
+          <div className="buyuk">🎬</div>
+          <h3>İzlemek için bir yapım seç</h3>
+          <p>Oynatıcı doğrudan bağlantıyla çalışır: /izle/?a=anime-adresi&amp;b=1</p>
+          <Link className="dugme dugme-birincil" href="/kesfet/">
+            Kataloğa göz at
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (yukleniyor) {
+    return (
+      <div className="kap" style={{ paddingTop: 30 }}>
+        <div className="iskelet" style={{ height: 30, width: 260, marginBottom: 18 }} />
+        <div className="oynatici-izgara">
+          <div className="iskelet" style={{ height: 420, borderRadius: 14 }} />
+          <div className="iskelet" style={{ height: 320, borderRadius: 14 }} />
+        </div>
+      </div>
+    );
+  }
+
+  if (hata || !anime) {
+    return (
+      <div className="kap">
+        <div className="bos-durum">
+          <div className="buyuk">🔌</div>
+          <h3>Yapım bulunamadı</h3>
+          <p>
+            {hata === 'ag-hatasi'
+              ? 'Veri indirilemedi. Bağlantını kontrol edip yeniden dene.'
+              : 'Bu adrese karşılık gelen bir yapım arşivde yok.'}
+          </p>
+          <Link className="dugme dugme-birincil" href="/kesfet/">
+            Kataloğa dön
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const gruplar = kaynakGrupla(kaynaklar);
+  const seciliK = kaynaklar[Math.min(kaynakSira, kaynaklar.length - 1)] ?? null;
+  const seciliEkip = seciliK && bolum ? bolum.ekip.find((e) => e.g === seciliK[1]) ?? null : null;
+  const guven = seciliK ? guvenlik.get(seciliK[0]) : undefined;
+  const gomulebilir = seciliK ? embedUygun(seciliK[2]) : true;
+
+  return (
+    <div className="kap" style={{ paddingTop: 22 }}>
+      <nav className="kirinti" aria-label="Sayfa yolu">
+        <Link href="/">Ana Sayfa</Link>
+        <span>/</span>
+        <Link href={`/anime/${anime.slug}/`}>{anime.ad}</Link>
+        <span>/</span>
+        <span>{bolum ? bolumNumarasi(bolum.no, bolum.n) : ''}. bölüm</span>
+      </nav>
+
+      <div className="oynatici-izgara">
+        <div>
+          <div className="oynatici-kutu" ref={kutuRef}>
+            {aktifKaynak && gomulebilir ? (
+              <iframe
+                key={aktifKaynak[2]}
+                src={aktifKaynak[2]}
+                title={`${anime.ad} ${bolumNumarasi(bolum?.no ?? null, bolumSira)}. bölüm — ${playerAd(aktifKaynak[0])}`}
+                allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                allowFullScreen
+                referrerPolicy="no-referrer"
+                loading="eager"
+                sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-forms"
+              />
+            ) : (
+              <div className="oynatici-bos">
+                <div>
+                  <h3>{aktifKaynak ? 'Bu kaynak siteye gömülemiyor' : 'Çalışan kaynak bulunamadı'}</h3>
+                  <p>
+                    {aktifKaynak
+                      ? `${playerAd(aktifKaynak[0])} gömülü oynatmayı engelliyor. Kaynağı yeni sekmede açabilir ya da başka bir kaynak seçebilirsin.`
+                      : 'Bu bölüm için kayıtlı kaynakların tümü çalışmıyor olarak işaretlenmiş. Sağdaki listeden başka bir kaynak deneyebilir veya başka bir kaynak grubuna geçebilirsin.'}
+                  </p>
+                  {aktifKaynak ? (
+                    <a className="dugme dugme-birincil" href={aktifKaynak[2]} target="_blank" rel="noreferrer noopener">
+                      <DisBaglantiIkon /> Yeni sekmede aç
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="oynatici-cubuk">
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="dugme dugme-sade" onClick={() => bolumeGit(bolumSira - 1)} disabled={!oncekiVar}>
+                <SolIkon boyut={16} /> Önceki
+              </button>
+              <button
+                className={`dugme ${sonrakiVar ? 'dugme-birincil' : 'dugme-sade'}`}
+                onClick={() => bolumeGit(bolumSira + 1)}
+                disabled={!sonrakiVar}
+                title="Sonraki bölüm (kısayol: →)"
+              >
+                Sonraki <SagIkon boyut={16} />
+              </button>
+              <button className="dugme dugme-sade" onClick={tamEkranAc}>
+                {tamEkran ? 'Tam ekrandan çık' : 'Tam ekran'} <span style={{ fontSize: 11, color: 'var(--tx3)' }}>F</span>
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {aktifKaynak ? (
+                <a className="dugme dugme-sade" href={aktifKaynak[2]} target="_blank" rel="noreferrer noopener">
+                  <DisBaglantiIkon /> Kaynağı aç
+                </a>
+              ) : null}
+              <button
+                className="dugme dugme-sade"
+                disabled={bildirildi || !aktifKaynak}
+                onClick={() => {
+                  if (!aktifKaynak) return;
+                  calismayanIsaretle(aktifKaynak[2]);
+                  // API tanımlıysa bildirimi sunucuya da ilet (tarama önceliği).
+                  bildirimGonder({ url: aktifKaynak[2], anime: slug, bolum: bolumSira });
+                  setBildirildi(true);
+                  if (kaynakSira + 1 < kaynaklar.length) setKaynakSira(kaynakSira + 1);
+                }}
+              >
+                {bildirildi ? 'Bildirildi, teşekkürler' : 'Kaynak çalışmıyor'}
+              </button>
+              <button className="dugme dugme-sade" onClick={kaydet} title="Bu bölümü izlendi olarak işaretle">
+                <TikIkon boyut={15} /> İzledim
+              </button>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 16, display: 'grid', gap: 10 }}>
+            {seciliK && !gomulebilir ? (
+              <div className="uyari-kutu uyari">
+                <span aria-hidden="true">⚠️</span>
+                <span>
+                  <b>{playerAd(seciliK[0])}</b> dosya paylaşım servisi olduğu için gömülü
+                  oynatmayı desteklemez; kaynak yeni sekmede açılır.
+                </span>
+              </div>
+            ) : null}
+
+            <div className="uyari-kutu bilgi">
+              <span aria-hidden="true">🛡️</span>
+              <span>
+                Video bu sitede barındırılmaz; oynatma <b>{aktifKaynak ? playerAd(aktifKaynak[0]) : 'üçüncü taraf'}</b>{' '}
+                sunucularında gerçekleşir. Reklam/sekme açılması o platformun davranışıdır, kaynağı
+                değiştirerek bundan kaçınabilirsin.
+              </span>
+            </div>
+
+            {bolum && bolum.ks === 0 ? (
+              <div className="uyari-kutu hata">
+                <span aria-hidden="true">⛔</span>
+                <span>Bu bölümün kaynakları arşivde çalışmadığı için gizlendi.</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <aside style={{ display: 'grid', gap: 16 }}>
+          <div className="kaynak-panel">
+            <h3>
+              Kaynaklar <span style={{ color: 'var(--tx3)', fontWeight: 500 }}>({sayiBicim(kaynaklar.length)})</span>
+            </h3>
+            <p className="ipucu">
+              {bolum ? `${bolumNumarasi(bolum.no, bolum.n)}. bölüm · ${sayiBicim(bolum.ekip.length)} ekip kaydı` : ''}
+              {kaynaklar.length > 1 ? ' · klavyeden 1-9 ile hızlı seçim' : ''}
+            </p>
+
+            {kaynaklar.length === 0 ? (
+              <div className="uyari-kutu uyari">
+                <span aria-hidden="true">⚠️</span>
+                <span>Bu bölüm için kaynak yok.</span>
+              </div>
+            ) : (
+              gruplar.map((g) => {
+                const guv = guvenlik.get(g.player);
+                return (
+                  <div className="kaynak-grup" key={g.player}>
+                    <div className="kaynak-grup-basi">
+                      <span>
+                        {playerAd(g.player)} <span style={{ color: 'var(--tx3)' }}>· {g.kaynaklar.length}</span>
+                      </span>
+                      {guv && guv.kontrol > 0 ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span className="guven-cubuk" title={`${guv.ok}/${guv.kontrol} kaynak çalışıyor`}>
+                            <span style={{ width: `${Math.round(guv.guvenilirlik * 100)}%` }} />
+                          </span>
+                          <span style={{ fontSize: 11, color: 'var(--tx3)' }}>
+                            %{Math.round(guv.guvenilirlik * 100)}
+                          </span>
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="cipler">
+                      {g.kaynaklar.map(({ k, sira: i }) => (
+                        <button
+                          key={`${k[2]}-${i}`}
+                          className={`cip${i === kaynakSira ? ' etkin' : ''}`}
+                          onClick={() => setKaynakSira(i)}
+                          title={`${playerAd(k[0])} · ${kaynakEtiketi(k)}${k[1] ? ` · ${k[1]}` : ''}`}
+                        >
+                          {k[3] === 'ok' ? (
+                            <span className="ok-isaret" title="Çalıştığı doğrulanmış">
+                              ✓
+                            </span>
+                          ) : (
+                            <OynatIkon boyut={11} />
+                          )}
+                          {k[1] && k[1] !== k[0] ? <span className="fansub">{k[1]}</span> : null}
+                          <span>#{i + 1}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+
+            {seciliEkip ? (
+              <div className="ekip-bilgi">
+                <b>{seciliEkip.g}</b>
+                {seciliEkip.e ? <div style={{ marginTop: 4 }}>{seciliEkip.e}</div> : null}
+              </div>
+            ) : null}
+
+            {guven && guven.kontrol > 0 ? (
+              <p style={{ fontSize: 11.5, color: 'var(--tx3)', marginTop: 10 }}>
+                {playerAd(seciliK![0])} için bugüne kadar {sayiBicim(guven.kontrol)} kaynak kontrol
+                edildi, {sayiBicim(guven.ok)} tanesi çalışıyor.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="kaynak-panel">
+            <h3>
+              Bölümler <span style={{ color: 'var(--tx3)', fontWeight: 500 }}>({sayiBicim(anime.bolumler.length)})</span>
+            </h3>
+            <p className="ipucu">Klavyeden ← → ile bölüm değiştir.</p>
+            <div className="bolum-numaralari">
+              {anime.bolumler.map((b) => {
+                const izlendi = baglandi ? Boolean(izlenenHaritasi()[`${anime.slug}|${b.n}`]) : false;
+                const etkin = b.n === bolumSira;
+                return (
+                  <button
+                    key={b.n}
+                    className={`bolum-numara${etkin ? ' etkin' : ''}${izlendi ? ' izlendi' : ''}`}
+                    onClick={() => bolumeGit(b.n)}
+                    title={b.ad || `${b.n}. bölüm`}
+                    disabled={b.ks === 0}
+                  >
+                    {bolumNumarasi(b.no, b.n)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="kaynak-panel">
+            <h3>Kısayollar</h3>
+            <table className="tablo" style={{ fontSize: 12.5 }}>
+              <tbody>
+                <tr>
+                  <td>Sonraki / önceki bölüm</td>
+                  <td className="sayi">← →</td>
+                </tr>
+                <tr>
+                  <td>Kaynak seç</td>
+                  <td className="sayi">1-9</td>
+                </tr>
+                <tr>
+                  <td>Tam ekran</td>
+                  <td className="sayi">F</td>
+                </tr>
+                <tr>
+                  <td>Arama</td>
+                  <td className="sayi">/</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </aside>
+      </div>
+
+      <div style={{ marginTop: 30, color: 'var(--tx2)', fontSize: 14 }}>
+        <AraIkon boyut={14} />{' '}
+        <Link href={`/anime/${anime.slug}/`} style={{ color: 'var(--ac2)' }}>
+          {anime.ad}
+        </Link>{' '}
+        · bölüm bilgileri, özet ve fansub künyesi için detay sayfasına dön.
+      </div>
+    </div>
+  );
+}

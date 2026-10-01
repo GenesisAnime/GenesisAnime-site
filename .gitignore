@@ -1,0 +1,27 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.env*
+!.env.example
+
+# Üreteç önbellekleri (AniList yanıtları, raporlar — yeniden üretilebilir)
+# DİKKAT: `tools/cache/` yazılırsa git dizine hiç girmez ve aşağıdaki istisna çalışmaz.
+tools/cache/*
+tools/rapor/
+
+# İSTİSNA: link tarama durumu bir önbellek değil KANIT kaydıdır.
+# 317 bin URL'nin taranması saatler sürer; dosya kaybolursa sitenin 30 binden
+# fazla "doğrulanmış" rozeti bir sonraki `npm run veri` koşusunda sessizce
+# kaybolur. Bu yüzden sürüm kontrolünde tutulur (bkz. ADR-0007).
+!tools/cache/link-durum.jsonl
+
+# Cloudflare wrangler: yerel D1 durumu ve gizli değişkenler (jeton/anahtarlar).
+.wrangler/
+.dev.vars
+
+# NOT: public/data/ BİLEREK sürüm kontrolüne dahil edilir.
+# Gerekçe: veri hattı arşiv SQLite dosyasını (70 MB, depo dışında) gerektirir;
+# üretilmiş JSON'lar depoda tutulmazsa CI ortamı siteyi derleyemez.
+# Ayrıntı: docs/kararlar/ADR-0004-veri-dizini.md

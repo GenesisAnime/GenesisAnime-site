@@ -1,0 +1,154 @@
+# Günlük · 2026-10-01 · Faz 5/8 — Paketleme turu (A/D) + hesaplar ve bildirim hattı (B/C)
+
+## 1. İstenen
+
+> “Onaylanan 4 turlu planı uygula: Tur 1 A (OG kartı + PWA + hero fragmanı + cila), Tur 2 D
+> (seri/fansub sayfaları + rastgele bölüm), Tur 3 B (bildirim hattı: Cloudflare Workers + D1),
+> Tur 4+ C (hesaplar + senkron, `/hesap` + KVKK). Her tur sonunda kapı: `npm test` → typecheck →
+> build → `yayin:hazirla` + AGENTS §3 belgeleri.”
+
+## 2. Tur 1 A — paketleme ve cila
+
+| İş | Dosya | Sonuç |
+|---|---|---|
+| OG kartı + PWA ikonları | `tools/simge-uret.mjs`, `public/og.png`, `public/ikon/*`, `public/favicon.svg` | Bağımlılıksız PNG üreteci (zlib + CRC32); `npm run simge:uret`; `og.png` 1200×630, ikonlar 192/512/maskable/apple |
+| PWA | `src/app/manifest.ts`, `public/sw.js`, `src/components/ServisCalisani.tsx` | `genesisanime-v1`; statik + `/data` cache-first, HTML network-first, `/data` sınırı 90; kayıt yalnızca üretimde ve localhost dışında |
+| Meta | `src/app/layout.tsx` | `TABAN` (BASE_PATH) ön ekli OG/ikon yolları, `appleWebApp` |
+| Hero fragmanı | `src/components/FragmanKatmani.tsx`, `Hero.tsx`, `.katman` CSS | Tıkla-yükle `youtube-nocookie`, Escape/arka plan/✕ kapatır, gövde kilidi |
+| Rastgele bölüm | `src/components/RastgeleDugme.tsx` | Havuzdan rastgele bölüm → `/izle/?a=&b=` |
+| 404 zenginleştirme | `src/app/not-found.tsx` | En iyi 6 kart + rastgele havuz (400) + `/seriler/` |
+
+Doğrulama: hero'da iki düğme canlı; fragman `youtube-nocookie` iframe'i açtı, Escape kapattı,
+gövde kilidi çözüldü; rastgele düğme `/izle/?a=kusuriya-no-hitorigoto&b=14` açtı; `data-hata` null.
+
+## 3. Tur 2 D — seri ve fansub sayfaları
+
+- **Veri:** `tools/export-data.mjs` içine union-find tabanlı seri (franchise) grupları eklendi.
+  İlişki kümesi SEQUEL/PREQUEL/SIDE_STORY/SPIN_OFF/ALTERNATIVE/PARENT/SUMMARY; `KROS_AD = /\bvs\.?\b/i`
+  kuralıyla “vs” başlıklı çapraz yapımlar köprüdür sayılmaz (yoksa Lupin III + Detective Conan tüm
+  ağı birleştiriyordu). Kök = adı en çok üyenin öneki olan yapım. Ölçüm: **961 grup / 3.244 yapım**
+  (One Piece 42, Dragon Ball 40, Naruto 19, Lupin III 18).
+- **Fansub slug'ları:** `araAnahtari` + tire (`TAÇE` → `tace`); 363 grup; `taksonomi.fansublar` ve
+  `fansublar.json` artık `s` taşıyor.
+- **Sayfalar:** `/seriler/` (tablo indeks), `/seri/<slug>/` (kronolojik ızgara), `/fansub/<slug>/`
+  (katkı + katalog), anime detayında “Serinin tamamı” bölümü ve `/fansub/...` çipleri, sitemap'e
+  iki yeni sayfa türü.
+- **Testler:** `veri.test.mjs`'e seri grubu ve fansub bütünlüğü denetimleri (simetri: `anime.seri`
+  ↔ grup üyeliği; kaynaklardaki her fansub adı dizinde var).
+
+## 4. Tur 3 B — bildirim hattı (Worker + D1)
+
+- `api/package.json`, `api/wrangler.toml`, `api/migrations/0001.sql` (kullanici · oturum · durum ·
+  bildirim · oran), `api/src/index.mjs` (tek dosya, bağımlılıksız Worker: şema doğrulama, CORS,
+  IP tuzlama, oran sınırı, PBKDF2, senkron blob'u, KVKK, admin kuyruğu).
+- `tools/bildirim-cek.mjs` + `npm run link:bildirim`: geçersiz/yaşlı/tekrar süzgeçleri; çevrimdışı
+  içe aktarma (`--dosya`) ve `--kuru` raporu.
+- `tools/link-tara.mjs --bildirim`: bildirilen URL'ler tazelik denetimini atlar ve kuyruğun önüne
+  alınır — **karar değil öncelik** (AGENTS §1.4b).
+- `src/lib/bildirim.ts`: yerel-önce kuyruk; API kapalıysa no-op; ağ hatasında kuyruk korunur,
+  `online` olayında yeniden denenir. `IzleIstemci` “Kaynak çalışmıyor” düğmesine bağlandı.
+
+## 5. Tur 4+ C — hesaplar, senkron, KVKK
+
+- `src/lib/depo/durum-birlestir.mjs` (+ `.d.mts`): saf birleştirme mantığı — ilerleme/izlenen/liste
+  “en yeni kazanır”, tercihlerde yerel kazanır, çalışmayanlar birleşim (500 sınırı).
+- `src/lib/depo/api.ts`: oturum deposu, `/auth/*`, `/me/durum` iyimser kilit, 401'de tek yenileme
+  denemesi, `senkronDongusu()` (3 sn gecikmeli itme + `online`/görünürlük tetikleri), KVKK paketi.
+- `src/app/hesap/page.tsx` + `HesapIstemci.tsx` + `HesapSenkron.tsx` + `.hesap-*` CSS: API kapalıysa
+  bilgilendirme paneli, açıksa giriş/kayıt + senkron durumu + “Verilerimi indir” + “Hesabımı sil” /
+  “Bu cihazdaki verileri temizle”.
+- Karar: **PBKDF2-HMAC-SHA256 + opak taşıyıcı jeton**, D1'de yalnızca özetler; çerez yok →
+  [ADR-0008](../kararlar/ADR-0008-workers-parola-ve-jeton.md). Uygulama notu: `docs/11`.
+
+## 6. Bulunan hatalar (bu tur)
+
+- **H-15:** Worker'daki slug deseni 80 karakterle sınırlıydı; arşivde en uzun slug 144 karakter.
+  `veri.test.mjs`'in yeni seri denetimi ilk koşuda kırmızıya döndü; sınır üç yerde 200'e çekildi.
+- **H-16:** `kunye.seriGrubu` üretildi ama `/kunye/` sayfasında kartı yoktu → eklendi.
+- **H-17:** `NEXT_PUBLIC_API` boşken hesap sayfası işlemeyen giriş formu gösteriyordu → panel ile
+  değiştirildi.
+
+## 7. Kapı ölçümleri
+
+| Kapı | Sonuç |
+|---|---|
+| `npm test` | **69/69** (tarama 32 · veri 8 · çıktı 7 · bildirim 15 · hesap 7), ~6,7 sn, ağsız |
+| `npm run typecheck` | 0 hata |
+| `npm run build` | ✓ 7.446 statik sayfa (6.107 anime + 961 seri + 363 fansub + kabuklar) |
+| `npm run yayin:hazirla` | **21.043 dosya / 858,1 MB**; GitHub Pages uygun (1 GB); **CF Pages 20k sınırını aşıyor** (bilinçli: asıl hedef GitHub Pages, `docs/06`) |
+| Tarayıcı doğrulaması | `/seriler/` (961), `/seri/one-piece/` (42 kart), `/anime/naruto/` (seri + 8 fansub çipi), `/fansub/varsayilan/` (1.943 yapım), `/hesap/` (API kapalı paneli), manifest/sw/og 200; `data-hata` null |
+
+## 8. Kalan işler
+
+- **Deploy:** Cloudflare hesabı + `wrangler d1 create` + secret'lar; ardından `NEXT_PUBLIC_API` ve
+  `NEXT_PUBLIC_BILDIRIM_API` ile derleme. Kod ve yerel testler tamam.
+- Bildirim hattının ilk gerçek koşusu: API yayına alındıktan sonra `npm run link:bildirim`.
+- GitHub Pages 1 GB sınırı için boyut küçültme turu (bölüm listelerini istemciye taşımak) —
+  `docs/06`'da not edildi.
+
+## 9. Ek tur — API uçtan uca test (wrangler dev + yerel D1)
+
+İstek: “wrangler dev + yerel D1 ile bildirim, kayıt/giriş ve senkron akışını uçtan uca test et;
+bulunan sorunları düzelt.”
+
+- **Kurulum:** `api/` içinde `npm install`; wrangler **^3.90 → ^4.145** (3.114 uyumluluk tarihini
+  2025-07-18'e düşürüyordu, 4.145 tarihi aynen destekliyor). `npm run db:yerel` ile şema yerel D1'e
+  uygulandı; sırlar `.dev.vars` ile verildi (JWT_SECRET/ADMIN_TOKEN/IP_TUZ). Yerel port **8789**
+  seçildi çünkü 8787/8788/8790 bu makinede başka süreçlerce kullanılıyor. `.gitignore`'a
+  `.wrangler/` ve `.dev.vars` eklendi.
+- **Yeni araç:** `tools/api-uctan-uca.mjs` + `npm run api:test` — çalışan API'ye gerçek isteklerle
+  45 adımlık duman testi (CORS, bildirim + yönetici kuyruğu, oran sınırı `--oran`, kayıt/giriş,
+  senkron + 409, 413, yenileme rotasyonu, çıkış, KVKK indir/sil). Yerel D1'de 45/45 geçti.
+- **Bulunan hatalar:** **H-18** (kritik): workerd, işçinin giriş modülünden sabit dışa aktarımını
+  reddediyor — `wrangler dev` “The Workers runtime failed to start” ile düşüyordu ve deploy'da da
+  aynı hatayla açılmazdı. Tüm sabit/yardımcı katman `api/src/yardimci.mjs`'e taşındı; giriş artık
+  yalnızca `fetch` dışa aktarıyor. **H-19:** 64 KB genel gövde sınırı, `/me/durum`'daki 512 KB blob
+  denetimini gölgeliyordu (413 yolu ölü koddu, büyük paketler kaydedilemiyordu); sınır
+  parametreleşti, blob ölçüsü UTF-8 baytına geçti.
+- **Tarayıcıyla uçtan uca (Next dev + `NEXT_PUBLIC_API`/`NEXT_PUBLIC_BILDIRIM_API`):** UI'dan kayıt
+  → oynatıcıda “İzledim” + “Kaynak çalışmıyor” → veri sunucuya eşitlendi (`surum` 4; ilerleme,
+  tercih, çalışmayan listesi tam); oran kontenjanı doluyken POST 429 aldı ve bildirim istemci
+  kuyruğunda kaldı, `online` olayında yeniden deneyip kuyruğa düştü (`id 32`, `my.mail.ru`,
+  naruto/1); `link:bildirim` JSONL'e yazdı, ikinci koşu `tekrar: 1`; KVKK hesap silme sonrası
+  giriş 401 ve D1'de kullanıcı/durum/oturum 0. Not: tıklama testi sırasında sabit mobil alt menü
+  (z-index 60) kısa viewport'ta düğmeyi kapatıyor; `.alt` 96px alt dolgu sayesinde içerik
+  kaydırılarak erişilebiliyor — ürün hatası değil, test penceresi masaüstüne alındı.
+- **Ölçüm:** `npm test` **72/72** (bildirim 15 → 18: giriş modülü sözleşmesi, blob sınır ilişkisi,
+  UTF-8 bayt sayımı); e2e 45/45 (+`--oran` koşusunda 429 doğrulandı, 28 satır `gecersiz`
+  işaretlendi). Site kodu ve `out/` değişmedi (derleme etkilenmez).
+
+## 10. Ek tur — gerçek dağıtım (Cloudflare Workers + D1)
+
+İstek: “API'yi gerçek Cloudflare hesabına deploy et (D1 oluştur, secret'ları gir, site
+ değişkenleriyle derle) ve uzak adrese karşı `npm run api:test` ile doğrula.”
+
+- **Hesap engelleri (yeni hesapta tipik):** `wrangler login` OAuth ile açıldı (egecakar@nutaliaxd.info);
+  `secret put` önce `code: 10034` (e-posta doğrulanmadı) ile düştü, doğrulama sonrası Worker
+  oluşturuldu; `deploy` ise workers.dev alt alan adı kayıtlı olmadığı için durdu — panelden/API'den
+  (`PUT /accounts/<id>/workers/subdomain`) `genesisanime` kaydedildi.
+- **Dağıtım:** D1 `genesisanime` (`abde0636-74dd-4d0e-b9c6-12704d3b1f10`, WEUR) + şema; secret'lar
+  `JWT_SECRET`, `ADMIN_TOKEN`, `IP_TUZ` (rastgele üretildi); Worker
+  <https://genesisanime-api.genesisanime.workers.dev> adresinde yayında; `wrangler.toml`'daki
+  `database_id` gerçek kimlikle değiştirildi.
+- **H-20 (kritik, yalnızca üretimde göründü):** ilk uzak e2e koşusunda kayıt/giriş 500 döndü;
+  `wrangler tail` nedeni verdi: `NotSupportedError: Pbkdf2 failed: iteration counts above 100000 are
+  not supported (requested 210000)`. Yerel `wrangler dev` bu sınırı uygulamadığı için bütün yerel
+  testler geçmişti. `PBKDF2_TUR` platform tavanına (100.000) çekildi; tavandan yüksek kayıtlı
+  özetlerde doğrulama hata fırlatmak yerine reddeder; iki regresyon testi eklendi (74/74).
+- **Uzak doğrulama:** `GENESIS_API_URL=… npm run api:test -- --origin=https://nutaliaxd.github.io`
+  → **45/45** (tek atlanan: isteğe bağlı `--oran`). Kayıt isteği ölçümü: `cpuTime 28 ms`,
+  `wallTime 265 ms`, `outcome ok` — bu değer ücretsiz planın 10 ms bütçesini aştığı için hesap
+  Workers Paid tarafında görünüyor (panelden teyit edilmeli).
+- **Site derlemesi:** `NEXT_PUBLIC_API` + `NEXT_PUBLIC_BILDIRIM_API` ile `npm run build` +
+  `npm run yayin:hazirla` → 21.043 dosya / 858,1 MB; adres iki istemci parçasına gömüldü.
+- **Tarayıcı doğrulaması (uzak API'ye karşı):** geçici `CORS_EXTRA` ile `out/` :8000'de sunuldu:
+  kayıt → “Eşitlendi” (uzak D1'de `surum` 7, `izlenen: {"naruto|1": …}`); oynatıcıdan “Kaynak
+  çalışmıyor” → yönetici kuyruğunda `id 3 · my.mail.ru · naruto/1`; ardından hesap KVKK ile silindi
+  (`silindi:true`) ve test bildirimi `gecersiz` işaretlendi. Geçici izin kaldırılıp yeniden deploy
+  edildi; `OPTIONS` artık localhost kaynağına `ACAO` vermiyor (ilk kontrol uç önbelleği yüzünden
+  yanıltıcıydı — sorgu dizesiyle doğrulandı).
+- **Not (yerel ortam):** makinenin birincil DNS sunucuları (Cloudflare IPv6) yanıt vermiyor; ilk
+  uzak istek bu yüzden `fetch failed` ile düştü, üçüncül sunucu (1.1.1.1) ile çözülüyor. API ile
+  ilgisi yok.
+- **Kapı:** `npm test` 74/74 · typecheck 0 · build 7.446 sayfa · `yayin:hazirla` 21.043/858,1 MB ·
+  uzak `api:test` 45/45. Kalan tek adım: derlenmiş `out/`'u GitHub Pages'e push (kullanıcı kararı).

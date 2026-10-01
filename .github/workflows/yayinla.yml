@@ -1,0 +1,87 @@
+# GenesisAnime — GitHub Pages yayın iş akışı
+#
+# Önemli: Veri hattı (`npm run veri`) arşiv SQLite dosyasını gerektirir ve bu dosya
+# depoda tutulmaz. Bu nedenle üretilmiş `public/data/` içeriği depoya commit edilir
+# ve CI yalnızca derleme + test yapar. (Bkz. docs/kararlar/ADR-0004-veri-dizini.md)
+# Arşiv link sağlık dosyası CI'da yoktur; `cikti.test.mjs` bu durumda rozet
+# doğruluğunu "doğrulanamadı" sayar ve koşu raporunda bildirir.
+#
+# Yayın adresi proje alt dizinidir: https://<kullanıcı>.github.io/<depo>/
+# Kök alan adı kullanılacaksa BASE_PATH boş bırakılmalıdır.
+
+name: Yayınla
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  derle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Depoyu al
+        uses: actions/checkout@v4
+
+      - name: Node kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Bağımlılıkları kur
+        run: npm ci
+
+      - name: Veri dosyalarını doğrula
+        run: |
+          test -f public/data/katalog.json || (echo "public/data eksik — önce 'npm run veri' çalıştırıp commit edin" && exit 1)
+
+      - name: Tip denetimi
+        run: npm run typecheck
+
+      - name: Statik siteyi üret
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}
+          NEXT_PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+          # Hesap/senkron ve oynatıcı bildirimi API'si. DEĞERLER İSTEMCİYE DERLEME ANINDA
+          # GÖMÜLÜR; boş bırakılırsa site hesapsız yayınlanır ve /hesap/ "API kapalı" durumuna
+          # döner (sessiz kayıp). Worker'ın CORS listesi (SITE_ORIGIN) bu adresin kaynağıyla
+          # eşleşmelidir; API adresi değişirse Worker tarafında da güncellenmeli.
+          # Ayrıntı: docs/06-yayin-ve-deploy.md → "API dağıtımı".
+          NEXT_PUBLIC_API: https://genesisanime-api.genesisanime.workers.dev
+          NEXT_PUBLIC_BILDIRIM_API: https://genesisanime-api.genesisanime.workers.dev
+        run: npm run build
+
+      - name: Yayına hazırla (.nojekyll + rapor)
+        run: npm run yayin:hazirla
+
+      - name: Testler (birim + veri/çıktı bütünlüğü)
+        run: npm test
+
+      - name: Pages yapılandırması
+        uses: actions/configure-pages@v5
+
+      - name: Artefaktı yükle
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  yayinla:
+    needs: derle
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: GitHub Pages'e dağıt
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,26 @@
+# GenesisAnime API — Cloudflare Workers + D1
+# Kurulum (bir kez):
+#   cd api && npm install
+#   npx wrangler d1 create genesisanime          → çıkan database_id'yi aşağıya yaz
+#   npm run db:uzak                              → şemayı uygula
+#   npx wrangler secret put JWT_SECRET           → rastgele uzun bir dize
+#   npx wrangler secret put ADMIN_TOKEN          → bildirim listesi için yönetici jetonu
+#   npm run deploy
+# Yayın sonrası site tarafında şu değişkenlerle derle:
+#   NEXT_PUBLIC_API=https://<worker-adresi>            (hesap + senkron)
+#   NEXT_PUBLIC_BILDIRIM_API=https://<worker-adresi>  (oynatıcı bildirimi)
+# Ayrıntı ve uç listesi: ../docs/11-hesaplar-uygulama.md
+
+name = "genesisanime-api"
+main = "src/index.mjs"
+compatibility_date = "2025-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "genesisanime"
+database_id = "abde0636-74dd-4d0e-b9c6-12704d3b1f10"
+
+[vars]
+# Statik sitenin kaynağı; CORS yalnızca buraya açılır (virgülle ek adresler CORS_EXTRA'ya).
+SITE_ORIGIN = "https://nutaliaxd.github.io"
+# CORS_EXTRA = "http://127.0.0.1:8000,http://localhost:8000"
