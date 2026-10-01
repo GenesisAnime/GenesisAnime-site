@@ -188,6 +188,15 @@ export function kaynakEtiketi(k: Kaynak): string {
   return k[3] === 'ok' ? 'doğrulanmış' : 'doğrulanmamış';
 }
 
+/** Arşivde fansub künyesi olmayan kaynakların süzgeç etiketi (316.820 kaynağın ~64 bini böyle). */
+export const KUNYESIZ = 'Künyesiz';
+
+/** Kaynağın fansub (ekip) adı; künye yoksa `KUNYESIZ` döner (süzgeç düğmeleri için). */
+export function kaynakGrubu(k: Kaynak): string {
+  const ad = k[1]?.trim();
+  return ad ? ad : KUNYESIZ;
+}
+
 /** Kaynak listesini player bazında gruplar (çip satırı için). */
 export function kaynakGrupla(kaynaklar: Kaynak[]): { player: string; kaynaklar: { k: Kaynak; sira: number }[] }[] {
   const gruplar = new Map<string, { player: string; kaynaklar: { k: Kaynak; sira: number }[] }>();

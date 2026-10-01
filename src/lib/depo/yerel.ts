@@ -31,6 +31,8 @@ export interface Tercihler {
   dogrulanmisOncelik: boolean;
   /** /kesfet görünümü */
   gorunum: 'izgara' | 'liste';
+  /** oynatıcıda yalnızca bu fansub gruplarının kaynakları gösterilsin (boş = tümü) */
+  fansubSuzgeci: string[];
 }
 
 export const VARSAYILAN_TERCIH: Tercihler = {
@@ -38,6 +40,7 @@ export const VARSAYILAN_TERCIH: Tercihler = {
   kaynakTercihi: null,
   dogrulanmisOncelik: true,
   gorunum: 'izgara',
+  fansubSuzgeci: [],
 };
 
 /* ------------------------------ altyapı ------------------------------ */

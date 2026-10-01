@@ -9,6 +9,7 @@
     "link:durum": "node --no-warnings tools/link-tara.mjs --durum",
     "link:test": "node --no-warnings tools/link-tara.mjs --kendini-test",
     "link:bildirim": "node --no-warnings tools/bildirim-cek.mjs",
+    "dongu:gunluk": "node --no-warnings tools/gunluk-dongu.mjs",
     "api:test": "node --no-warnings tools/api-uctan-uca.mjs",
     "simge:uret": "node --no-warnings tools/simge-uret.mjs",
     "veri:anilist": "node --no-warnings tools/enrich-anilist.mjs",

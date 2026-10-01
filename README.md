@@ -47,7 +47,7 @@ depodadır. Kapalı bileşen, gizli veri işleme veya reklam/izleyici betiği yo
 | Testler | `npm test` **81/81** (ağsız) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
 | API | Cloudflare Worker + D1 yayında (bölge WEUR) · CORS yalnızca site kaynağına açık |
 | Son güncelleme | 1 Ekim 2026 |
-| Sıradaki işler | e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · topluluk fazı ([docs/10](docs/10-yol-haritasi.md)) |
+| Sıradaki işler | gece döngüsünün zamanlayıcıya bağlanması · analytics · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme ([docs/10](docs/10-yol-haritasi.md)) |
 
 ## Hızlı başlangıç
 
@@ -122,7 +122,7 @@ AniList GraphQL (önbellekli)┘            │                                 
 | `/kesfet/` | 6.107 yapım: tür/yıl/format/durum filtresi, 5 sıralama, ızgara/liste | ✔ |
 | `/ara/?q=` | Anlık arama, vurgulama, alaka sıralaması | ✔ (istemci arama) |
 | `/anime/<slug>/` | Detay: künye, özet, fragman, bölüm listesi, fansub künyesi, ilişkili yapımlar, yasal izleme | ✔ 6.107 sayfa |
-| `/izle/?a=<slug>&b=<no>` | Oynatıcı: kaynak çipleri, güvenilirlik sıralaması, bölüm geçişi, klavye kısayolları | ✔ (tek kabuk) |
+| `/izle/?a=<slug>&b=<no>` | Oynatıcı: kaynak çipleri, **fansub süzgeci**, güvenilirlik sıralaması, bölüm geçişi, klavye kısayolları | ✔ (tek kabuk) |
 | `/listem/` | İzleme listesi · izlemeye devam et · izlenen bölümler | ✔ (istemci) |
 | `/fansublar/` | 363 fansub grubu dizini, grup → yapım listesi | ✔ |
 | `/fansub/<slug>/` | Fansub grup profili: katkı ölçümü + kapsadığı yapımlar | ✔ 363 sayfa |
@@ -141,6 +141,7 @@ AniList GraphQL (önbellekli)┘            │                                 
 | `npm run link:durum` | Tarama kapsamı ve dağılımı + `tools/rapor/link-tarama.md` |
 | `npm run link:bildirim` | Worker'daki kullanıcı bildirimlerini yerel kuyruğa çeker (`--kuru` yazmadan gösterir) |
 | `npm run link:test` | Sınıflandırıcı kurallarının canlı URL sınaması (20 örnek) |
+| `npm run dongu:gunluk` | Günlük otomatik döngü: tarama dilimi → site verisi → derleme → yayın hazırlığı (`--yayinla` commit, `--push` yayın; `--deneme` plan) |
 | `npm run api:test` | Çalışan API'ye 45 adımlık uçtan uca duman testi (`--api=`, `--origin=`, `--token=`, `--oran`) |
 | `npm run simge:uret` | OG kartı + PWA ikonlarını üretir (`tools/simge-uret.mjs`) |
 | `npm run dev` | Geliştirme sunucusu |

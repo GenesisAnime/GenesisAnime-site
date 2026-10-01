@@ -220,3 +220,35 @@ denemeleri + negatif kontrollü regresyon testleri.
 - **Bekleyen:** push + GitHub Pages kaynağı (kullanıcıda); bildirim kuyruğu kalıcı 429/CORS'ta
   yalnızca tıklama/`online` olayında deniyor (kalıcı hatada kullanıcıya dürüst bir durum metni
   gösterilebilir); `tools/cache/link-durum.jsonl` 49,9 MB büyüdü (parçalama/sıkıştırma adayı).
+
+## 13. Mobil düzen, fansub süzgeci ve otomatik döngü
+
+İstek: “Mobil kısmını düzenle; kaynak listesi çok uzuyor, insanlar düğmeyle istediği fansubu
+seçsin; bu kaynak sistemini arkada canlı tutan otomatik bir şey yap (veya yaptın mı?); bir de
+siteye Google Analytics eklemek istiyorum, o yüzden GitHub Pages yapmayalım.”
+
+- **Mobil — anime detay sayfası (H-26):** ≤860px'te poster 130px'lik bir sütuna sıkışıyor ve eylem
+düğmeleri (0. bölüm / listeme ekle) rozetlerin üstüne taşıyordu. ≤700px için yeni kırılım: tek
+kolon, poster 168px ortada, düğmeler tam genişlik 44px. Ölçüm: 390×844'te taşan düğme 0,
+`scrollWidth 373 < 390`.
+- **Mobil — oynatıcı:** eylem düğmeleri iki sütunlu ızgaraya alındı (42px), kaynak çipleri dağınık
+sarmak yerine hizalı ızgaraya oturdu ve uzun fansub adları kırpılmak yerine iki satıra sarıyor;
+süzgeç paneli kaydırırken üstte yapışık kalıyor.
+- **Fansub süzgeci (yeni özellik):** kaynak panelinin başında **o bölümdeki** fansub grupları
+ düğme olarak listeleniyor (ad + kaynak sayısı). Tıklayınca liste süzülüyor, başlık `(6 / 17)` oluyor,
+ `1-9` kısayolları görünen listeye göre çalışıyor. Seçim kalıcı (`tercihler.fansubSuzgeci`) ve hesap
+ açıksa cihazlar arası eşitleniyor. Seçilen gruplardan hiçbiri o bölümde yoksa süzgeç uygulanmaz —
+ "Seçtiğin N fansub bu bölümde yok; tüm kaynaklar listeleniyor." notu çıkar. Künyesiz ~64 bin kaynak
+ tek düğmede (`Künyesiz`) toplanıyor. Doğrulama: 17 kaynaklı bir bölümde `YuushaSubs-BD` seçildi →
+ 6 kaynak, 4 player grubu, iframe ilk doğrulanmış kaynağa geçti; sayfa yenilendiğinde seçim korundu;
+ YuushaSubs'un olmadığı bölümde not görünüp tüm kaynaklar listelendi.
+- **Otomatik döngü (yeni araç):** `npm run dongu:gunluk` (`tools/gunluk-dongu.mjs`) — bildirimleri
+ öne alan tarama dilimi → `veri` → `build` → `yayin:hazirla` → (istenirse) commit/push. Her koşu
+ `tools/rapor/gunluk-dongu.jsonl` ve `docs/gunluk/kayit.jsonl`'e süre + kapsam satırı yazıyor.
+ **Kısıt dürüstçe belgelendi:** `npm run veri` arşiv SQLite'ını okuduğu için GitHub Actions bu adımı
+ koşamaz (CI yalnızca derler + test eder); bu yüzden döngü arşivin bulunduğu makinede zamanlayıcıya
+ bağlanır (Windows `schtasks` / cron komutları `docs/09` §10'da).
+- **Analytics ve dağıtım kararı kullanıcıya bırakıldı:** GitHub Pages statik bir analitik betiğini
+ engellemez (GA/Plausible/Cloudflare Web Analytics hepsi çalışır); karar verildiğinde KVKK metni ve
+ README'deki "izleyici betiği yok" iddiası da güncellenmeli.
+

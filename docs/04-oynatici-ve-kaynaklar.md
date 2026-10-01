@@ -58,6 +58,7 @@ gösterilir. Doğrulama örneklemindeki sonuçlar:
 | Özellik | Uygulama |
 |---|---|
 | Kaynak seçimi | Player bazında gruplanmış çipler (`#1`, `#2`, …), güvenilirlik çubuğu |
+| Fansub süzgeci | Aynı bölümde 2+ fansub grubu varsa kaynak panelinin başında grup düğmeleri; tıklayarak seçilen gruplar listelenir (`Tümünü göster` sıfırlar), sayı `(görünen / toplam)` olur |
 | Doğrulanmış işareti | `✓` — yalnızca kontrol edilip çalıştığı görülen kaynaklarda |
 | Klavye | `←/→` veya `N/P` bölüm, `1-9` kaynak, `F` tam ekran, `/` arama |
 | Tam ekran | `requestFullscreen` oynatıcı kabına uygulanır (iframe'e cross-origin erişim yok) |
@@ -66,6 +67,29 @@ gösterilir. Doğrulama örneklemindeki sonuçlar:
 | "Kaynak çalışmıyor" | URL tarayıcıda işaretlenir, kaynak listeden çıkar ve otomatik sonrakine geçer; `NEXT_PUBLIC_BILDIRIM_API` tanımlıysa bildirim Worker'a da iletilir (kuyruk çevrimdışı da dayanıklıdır) — `docs/11` |
 | "Kaynağı aç" | Her zaman görünür — iframe engellenirse kaçış yolu |
 | Ekip künyesi | Seçili kaynağın fansub grubu ve çevirmen/redaktör metni |
+
+### Fansub süzgeci (neden var?)
+
+Bazı bölümlerde 16-20 kaynak ve 6-7 farklı fansub grubu olabiliyor; düz liste hem uzuyor hem de
+gözle takip edilemiyor. Süzgeç bu yüzden eklendi:
+
+- Gruplar **o bölümdeki** kaynaklardan türetilir (kaynağı olmayan grup düğmesi gösterilmez) ve
+  yanında o gruptan kaç kaynak olduğu yazar (`YuushaSubs-BD 6`).
+- Künyesiz kaynaklar (arşivde fansub bilgisi olmayan ~64 bin kaynak) tek bir **Künyesiz**
+  düğmesinde toplanır — istenirse listeden çıkarılabilir.
+- Seçim **kalıcıdır** (`genesisanime:v1:tercih` → `fansubSuzgeci`) ve hesap açıksa cihazlar arası
+  eşitlenen tercihlerin bir parçasıdır.
+- Seçilen gruplardan hiçbiri o bölümde yoksa süzgeç uygulanmaz; kullanıcı boş listeyle kalmaz,
+  "Seçtiğin N fansub bu bölümde yok; tüm kaynaklar listeleniyor." notu gösterilir.
+- Süzgeç değişince seçili kaynak başa döner ve `1-9` kısayolları **görünen** listeye göre çalışır.
+
+### Mobil düzen
+
+Dar ekranda (≤860px) oynatıcı ve kaynak listesi için ayrı kurallar vardır: eylem düğmeleri iki
+sütunlu ızgarada 42px yüksekliğe çıkar, süzgeç paneli kaydırırken üstte yapışık kalır, kaynak çipleri
+dağınık sarmak yerine hizalı ızgaraya oturur ve uzun fansub adları kırpılmak yerine iki satıra sarar.
+Anime detay sayfası ≤700px'te tek kolona iner (poster 168px ortalanır, eylem düğmeleri tam genişlik)
+— önceki 130px'lik poster sütunu düğme metnini rozetlerin üstüne taşırıyordu.
 
 ## Gömüleme (embed) politikası
 

@@ -243,7 +243,53 @@ başına istek aralığıdır; sibnet 0,5–1 istek/sn'de kırılıyor (§6), ME
    havuzları (drive, yadi.sk, href.li, uqload, videoapi, ok.ru, videa, dailymotion vb.) tükendi;
    kapsamı büyütebilecek tek yol yukarıdaki 1–3. maddelerdir.
 
-## 10. Riskler
+## 10. Otomatik döngü (günlük)
+
+`tools/gunluk-dongu.mjs` tek komutla zinciri koşar: **bildirimleri öne alan tarama dilimi → site
+verisi → derleme → yayın hazırlığı → (istenirse) commit/push**.
+
+```bash
+npm run dongu:gunluk                       # tara → veri → build → hazirla (commit YOK)
+npm run dongu:gunluk -- --dilim=3000       # gecelik dilim boyutu (varsayılan 1500)
+npm run dongu:gunluk -- --yayinla          # ayrıca commit at
+npm run dongu:gunluk -- --yayinla --push   # commit + push (yayın iş akışını tetikler)
+npm run dongu:gunluk -- --kuru             # yalnızca tara (veri/derleme yok)
+npm run dongu:gunluk -- --deneme           # hiçbir adımı koşma, planı yaz
+```
+
+Her koşu `tools/rapor/gunluk-dongu.jsonl` **ve** `docs/gunluk/kayit.jsonl` dosyalarına birer satır
+yazar (süre + kapsam dağılımı); böylece "döngü gerçekten çalışıyor mu?" sorusunun yanıtı kayıtta
+durur. Tarama kesintiye dayanıklıdır — döngü yarıda kesilse bile bir sonraki koşu kaldığı yerden
+devam eder.
+
+### Neden GitHub Actions değil?
+
+`npm run veri` (`tools/export-data.mjs`) arşiv **SQLite** dosyasını okur ve bu dosya depoda tutulmaz
+([ADR-0004](kararlar/ADR-0004-veri-dizini.md)); 316 bin kaynağın rozet durumu tam da bu adımda
+site verisine işlenir. CI bu adımı koşamaz, bu yüzden otomatik döngü **arşivin bulunduğu makinede**
+çalışır. CI'da koşan şey derleme + testtir (`yayinla.yml`): veriyi tazeleyemez, yalnızca doğrular.
+Gerçek "sunucuda yaşayan" bir tarama istenirse yol bellidir: sıra ve durum D1'e taşınır, tarama bir
+Worker cron tetikleyicisinde koşar ve site rozetleri API'den okur (henüz yapılmadı — `docs/10`).
+
+### Zamanlayıcı kurulumu
+
+Windows (her gece 04:00, kullanıcı oturumu açıkken):
+
+```bat
+schtasks /Create /TN "GenesisAnime gunluk dongu" /SC DAILY /ST 04:00 ^
+  /TR "cmd /c cd /d C:\yol\site\genesisanime && npm run dongu:gunluk -- --yayinla --push"
+```
+
+macOS / Linux (`crontab -e`):
+
+```
+0 4 * * * cd /yol/site/genesisanime && npm run dongu:gunluk -- --yayinla --push >> /tmp/genesis-dongu.log 2>&1
+```
+
+> İpucu: `--yayinla` commit atar, `--push` yayın iş akışını tetikler. Zamanlayıcıya bağlamadan önce
+> birkaç gece `--yayinla` vermeden koşup `tools/rapor/gunluk-dongu.jsonl` satırlarını oku.
+
+## 11. Riskler
 
 - **Yanlış pozitif gizleme:** en pahalı hata. Karşılığı: ölü için somut kanıt şartı, `belirsiz`
   durumu ve kural değişikliklerinde canlı sınama (`npm run link:test`).

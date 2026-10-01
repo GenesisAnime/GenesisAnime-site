@@ -404,6 +404,17 @@ Diğer tüm sayfalarda `alternates.canonical` vardı (7.436/7.442), ana sayfada 
 `href="…/GenesisAnime/"` etiketi artık üretiliyor. Aynı adresin iki biçimi (`/index.html`,
 `?utm=…`) arama motorunda tek sayfaya toplanır ve kopya içerik riski kalkar.
 
+### H-26 · Mobilde anime detay sayfası taşıyordu (≤860px)
+
+Dar ekranda `.bilgi-izgara` `130px 1fr` iki kolona iniyordu: poster 130px'lik sütunda kalırken
+eylem düğmeleri ("1. Bölüm", "Listeme ekle") `white-space: nowrap` yüzünden bu sütundan taşıp
+yanındaki künye rozetlerinin üstüne biniyordu. ≤700px için yeni kırılım eklendi: tek kolon, poster
+168px ve ortada, düğmeler tam genişlik 44px, rozetler eşit bölüşen ızgarada. Aynı geçişte oynatıcı
+sayfası da düzeltildi: eylem düğmeleri iki sütunlu ızgarada 42px'e çıktı, kaynak çipleri dağınık
+sarmak yerine hizalı ızgaraya oturdu (dar ekranda 2×152px), uzun fansub adları kırpılmak yerine iki
+satıra sarıyor. Ölçüm (390×844, üretim derlemesi): taşan düğme 0 · `scrollWidth 373 < 390` ·
+ana sayfa/keşfet/künye sayfalarında da yatay taşma yok.
+
 ### Link tarama testleri
 
 `npm run link:test` sınıflandırıcıyı **canlı URL'lerle** sınar (20 örnek: canlı/ölü/belirsiz

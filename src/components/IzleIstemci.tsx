@@ -18,10 +18,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Anime, Taksonomi } from '@/lib/tipler';
 import { animeVeriYolu, genelYol } from '@/lib/yollar';
-import { bolumNumarasi, embedUygun, kaynakEtiketi, kaynakGrupla, playerAd, sayiBicim } from '@/lib/bicim';
+import { bolumNumarasi, embedUygun, kaynakEtiketi, kaynakGrubu, kaynakGrupla, playerAd, sayiBicim } from '@/lib/bicim';
 import { bildirimGonder } from '@/lib/bildirim';
 import { useBaglandi, useCalismayanlar, useTercihler } from '@/lib/depo/kanca';
-import { calismayanIsaretle, ilerlemeKaydet, izlenenEkle, izlenenHaritasi } from '@/lib/depo/yerel';
+import { calismayanIsaretle, ilerlemeKaydet, izlenenEkle, izlenenHaritasi, tercihKaydet } from '@/lib/depo/yerel';
 import { AraIkon, DisBaglantiIkon, OynatIkon, SagIkon, SolIkon, TikIkon } from './Ikon';
 
 const IZLENDI_SAYILMA_SANIYESI = 90;
@@ -149,7 +149,37 @@ export default function IzleIstemci() {
     });
   }, [bolum, calismayanlar, tercihler.dogrulanmisOncelik, tercihler.kaynakTercihi]);
 
-  const aktifKaynak = kaynaklar[Math.min(kaynakSira, Math.max(0, kaynaklar.length - 1))] ?? null;
+  /** Bölümdeki fansub grupları ve kaynak sayıları — süzgeç düğmeleri buradan üretilir. */
+  const epkGruplari = useMemo(() => {
+    if (!bolum) return [] as { ad: string; sayi: number }[];
+    const harita = new Map<string, number>();
+    for (const k of bolum.src) {
+      const ad = kaynakGrubu(k);
+      harita.set(ad, (harita.get(ad) ?? 0) + 1);
+    }
+    return [...harita]
+      .map(([ad, sayi]) => ({ ad, sayi }))
+      .sort((a, b) => b.sayi - a.sayi || a.ad.localeCompare(b.ad, 'tr'));
+  }, [bolum]);
+
+  const seciliFansublar: string[] = tercihler.fansubSuzgeci ?? [];
+  // Seçilen gruplardan hiçbiri bu bölümde yoksa süzgeci uygulamayız: kullanıcı boş listeyle
+  // baş başa kalmamalı (dizi/film aralarında fansub kadrosu tamamen değişebiliyor).
+  const gecerliSecim = useMemo(
+    () => seciliFansublar.filter((g) => epkGruplari.some((e) => e.ad === g)),
+    [seciliFansublar, epkGruplari]
+  );
+
+  const gosterilenKaynaklar = useMemo(
+    () => (gecerliSecim.length ? kaynaklar.filter((k) => gecerliSecim.includes(kaynakGrubu(k))) : kaynaklar),
+    [kaynaklar, gecerliSecim]
+  );
+
+  // Süzgeç değişince seçili kaynak başa döner (aksi hâlde kaynak "kaybolmuş" görünür).
+  useEffect(() => setKaynakSira(0), [gecerliSecim]);
+
+  const aktifKaynak =
+    gosterilenKaynaklar[Math.min(kaynakSira, Math.max(0, gosterilenKaynaklar.length - 1))] ?? null;
 
   const guvenlik = useMemo(() => {
     const harita = new Map<string, { guvenilirlik: number; ok: number; kontrol: number }>();
@@ -236,7 +266,7 @@ export default function IzleIstemci() {
         tamEkranAc();
       } else if (/^[1-9]$/.test(e.key)) {
         const hedefSira = Number(e.key) - 1;
-        if (hedefSira < kaynaklar.length) {
+        if (hedefSira < gosterilenKaynaklar.length) {
           e.preventDefault();
           setKaynakSira(hedefSira);
         }
@@ -245,7 +275,7 @@ export default function IzleIstemci() {
     window.addEventListener('keydown', tusla);
     return () => window.removeEventListener('keydown', tusla);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sonrakiVar, oncekiVar, bolumSira, kaynaklar.length, bolumeGit]);
+  }, [sonrakiVar, oncekiVar, bolumSira, gosterilenKaynaklar.length, bolumeGit]);
 
   function tamEkranAc() {
     const el = kutuRef.current;
@@ -311,8 +341,8 @@ export default function IzleIstemci() {
     );
   }
 
-  const gruplar = kaynakGrupla(kaynaklar);
-  const seciliK = kaynaklar[Math.min(kaynakSira, kaynaklar.length - 1)] ?? null;
+  const gruplar = kaynakGrupla(gosterilenKaynaklar);
+  const seciliK = gosterilenKaynaklar[Math.min(kaynakSira, gosterilenKaynaklar.length - 1)] ?? null;
   const seciliEkip = seciliK && bolum ? bolum.ekip.find((e) => e.g === seciliK[1]) ?? null : null;
   const guven = seciliK ? guvenlik.get(seciliK[0]) : undefined;
   const gomulebilir = seciliK ? embedUygun(seciliK[2]) : true;
@@ -360,7 +390,7 @@ export default function IzleIstemci() {
           </div>
 
           <div className="oynatici-cubuk">
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className="oynatici-cubuk-grup">
               <button className="dugme dugme-sade" onClick={() => bolumeGit(bolumSira - 1)} disabled={!oncekiVar}>
                 <SolIkon boyut={16} /> Önceki
               </button>
@@ -377,7 +407,7 @@ export default function IzleIstemci() {
               </button>
             </div>
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className="oynatici-cubuk-grup">
               {aktifKaynak ? (
                 <a className="dugme dugme-sade" href={aktifKaynak[2]} target="_blank" rel="noreferrer noopener">
                   <DisBaglantiIkon /> Kaynağı aç
@@ -392,7 +422,7 @@ export default function IzleIstemci() {
                   // API tanımlıysa bildirimi sunucuya da ilet (tarama önceliği).
                   bildirimGonder({ url: aktifKaynak[2], anime: slug, bolum: bolumSira });
                   setBildirildi(true);
-                  if (kaynakSira + 1 < kaynaklar.length) setKaynakSira(kaynakSira + 1);
+                  if (kaynakSira + 1 < gosterilenKaynaklar.length) setKaynakSira(kaynakSira + 1);
                 }}
               >
                 {bildirildi ? 'Bildirildi, teşekkürler' : 'Kaynak çalışmıyor'}
@@ -435,14 +465,60 @@ export default function IzleIstemci() {
         <aside style={{ display: 'grid', gap: 16 }}>
           <div className="kaynak-panel">
             <h3>
-              Kaynaklar <span style={{ color: 'var(--tx3)', fontWeight: 500 }}>({sayiBicim(kaynaklar.length)})</span>
+              Kaynaklar{' '}
+              <span style={{ color: 'var(--tx3)', fontWeight: 500 }}>
+                ({sayiBicim(gosterilenKaynaklar.length)}
+                {gecerliSecim.length ? ` / ${sayiBicim(kaynaklar.length)}` : ''})
+              </span>
             </h3>
             <p className="ipucu">
               {bolum ? `${bolumNumarasi(bolum.no, bolum.n)}. bölüm · ${sayiBicim(bolum.ekip.length)} ekip kaydı` : ''}
-              {kaynaklar.length > 1 ? ' · klavyeden 1-9 ile hızlı seçim' : ''}
+              {gosterilenKaynaklar.length > 1 ? ' · klavyeden 1-9 ile hızlı seçim' : ''}
             </p>
 
-            {kaynaklar.length === 0 ? (
+            {epkGruplari.length > 1 || seciliFansublar.length > 0 ? (
+              <div className="fansub-suzgec">
+                <div className="suzgec-basi">
+                  <span>Fansub süzgeci</span>
+                  {seciliFansublar.length > 0 ? (
+                    <button className="suzgec-temizle" onClick={() => tercihKaydet({ fansubSuzgeci: [] })}>
+                      Tümünü göster
+                    </button>
+                  ) : null}
+                </div>
+                <div className="suzgec-dugmeleri">
+                  {epkGruplari.map((e) => {
+                    const secili = seciliFansublar.includes(e.ad);
+                    return (
+                      <button
+                        key={e.ad}
+                        className={`suzgec-dugme${secili ? ' etkin' : ''}`}
+                        aria-pressed={secili}
+                        title={`${e.ad} — bu bölümde ${e.sayi} kaynak`}
+                        onClick={() =>
+                          tercihKaydet({
+                            fansubSuzgeci: secili
+                              ? seciliFansublar.filter((g) => g !== e.ad)
+                              : [...seciliFansublar, e.ad],
+                          })
+                        }
+                      >
+                        <span className="suzgec-ad">{e.ad}</span>
+                        <span className="suzgec-sayi">{e.sayi}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {seciliFansublar.length > 0 && gecerliSecim.length === 0 ? (
+                  <p className="suzgec-not">
+                    Seçtiğin {sayiBicim(seciliFansublar.length)} fansub bu bölümde yok; tüm kaynaklar
+                    listeleniyor.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {gosterilenKaynaklar.length === 0 ? (
               <div className="uyari-kutu uyari">
                 <span aria-hidden="true">⚠️</span>
                 <span>Bu bölüm için kaynak yok.</span>
