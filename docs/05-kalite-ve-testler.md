@@ -2,9 +2,9 @@
 
 > Son güncelleme: 2026-10-01
 
-## Doğrulama kapısı
+## Kontroller (CI ile aynı komutlar)
 
-| Kapı | Komut | Beklenen |
+| Kontrol | Komut | Beklenen |
 |---|---|---|
 | Birim testleri | `npm test` | 81/81 geçer (~15 sn; ağ/DB yok) |
 | Tip denetimi | `npm run typecheck` | 0 hata |
@@ -12,7 +12,7 @@
 | Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.043 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
 | Veri hattı | `npm run veri` | 6.107 anime dosyası, çıktı sayıları DB ile uyuşur |
 | Tarayıcı duman testi | elle / önizleme paneli | Konsolda hata yok, akış tamamlanır |
-| API uçtan uca | `api && npx wrangler dev` + `npm run api:test` | 45 adım geçer (yerel D1 + gerçek HTTP; yönetici jetonuyla) |
+| API uçtan uca | `api && npx wrangler dev` + `npm run api:test` | 45 adım geçer (isteğe bağlı `--oran` ile 46; yerel D1 + gerçek HTTP; yönetici jetonuyla) |
 
 ## Bulunan ve düzeltilen hatalar
 
@@ -261,7 +261,7 @@ küme denetimleri tam çalışır. `npm test` CI'da derlemeden **sonra** koşar
 **`bildirim.test.mjs`** (21) bildirim hattını sınar: kuyruk süzgeçleri (geçersiz/yaşlı/tekrar),
 URL–host doğrulaması (IP, localhost, `.local` ve tek etiketli adlar reddedilir), host'un URL'den
 türetilmesi, `yolCoz` yönlendirme tablosu, PBKDF2 gidiş-dönüşü ve hatalı parola reddi, sabit süreli
-karşılaştırma, IP tuzlama (ham IP saklanmaz), CORS kapısı, admin jetonu, oran penceresi ve
+karşılaştırma, IP tuzlama (ham IP saklanmaz), CORS denetimi, admin jetonu, oran penceresi ve
 24 saat tekilleştirme (sentetik sahte D1 ile; ağ yok). H-18/H-19/H-20 regresyonları: Worker giriş
 modülü handler dışında değer dışa aktaramaz (workerd sözleşmesi), blob taşıma sınırı blob sınırını
 gölgelememeli ve PBKDF2 iterasyon sayısı platform tavanını aşmamalı (tavan üstü kayıt doğrulamada
@@ -288,7 +288,7 @@ aynı sonuç — 941 rozet “doğrulanamadı” olarak raporlanır. Testlerin g
 kod doğrusunu; (2) `veri.test.mjs`'e bilerek sahte bir ölü kaynak enjekte edilince sayaç, sızıntı
 ve künye testleri aynı anda kırmızıya döndü; (3) `out/data` kopyasına ölü URL + sahte/eksik rozet
 enjekte edilince üç çıktı denetimi kırmızıya döndü (her iki deneyde dosyalar birebir geri
-yüklendi) — yani hata geri gelirse yayın kapısı kırmızıya döner.
+yüklendi) — yani hata geri gelirse CI kontrolleri kırmızıya döner.
 
 Test edilen kod ile üretimde koşan kod aynı dosyadır: `link-tara.mjs` modül olarak içe alındığında
 CLI akışını çalıştırmaz ve durum dosyasına yazma tanıtıcısı açmaz (mantığın ikinci bir kopyası
@@ -322,7 +322,7 @@ ExportedHandler biçimli dışa aktarıma izin verir; `api/src/index.mjs` ise sa
 yardımcıları test edilebilirlik için dışa aktarıyordu. Deploy'da da aynı hatayla açılmazdı.
 Düzeltme: tüm sabit + yardımcı katman `api/src/yardimci.mjs`'e taşındı; giriş yalnızca varsayılan
 fetch'i dışa aktarır. Regresyon: `bildirim.test.mjs` giriş modülünün her dışa aktarımının
-handler olduğunu denetler (bu test, hata geri gelirse `npm test` kapısını kırmızıya döndürür).
+handler olduğunu denetler (bu test, hata geri gelirse `npm test`'i kırmızıya döndürür).
 
 ### H-19 · 512 KB blob sınırı ulaşılamazdı; büyük senkron paketleri kaydedilemiyordu
 
@@ -347,8 +347,8 @@ Yerel `wrangler dev` bu sınırı **uygulamaz**: 210.000 iterasyonla bütün yer
 (45/45) ve birim testleri geçiyordu, çünkü sınır yalnızca üretim işçisindedir. Düzeltme: `PBKDF2_TUR`
 platform tavanı olan **100.000**'e çekildi (`PBKDF2_TAVAN`), tavandan yüksek iterasyonlu kayıtlar için
 `parolaDogrula` hata fırlatmak yerine reddeder (`false`). Regresyon testi iterasyon sayısının
-tavanı aşmadığını ve tavan üstü kaydın temiz reddedildiğini çiviler; kapı artık bu hatayı yerelde
-yakalar. Ders: **platform sınırları yerel çalışma zamanında görünmeyebilir — ilk gerçek deploy bir
+tavanı aşmadığını ve tavan üstü kaydın temiz reddedildiğini çiviler; `npm test` artık bu hatayı
+yerelde yakalar. Ders: **platform sınırları yerel çalışma zamanında görünmeyebilir — ilk gerçek deploy bir
 test adımıdır.** Ölçüm: aynı istekte `cpuTime 28 ms`, `wallTime 265 ms`, `outcome ok` (bu değer
 ücretsiz planın 10 ms CPU bütçesinin üzerindedir; hesap Workers Paid tarafında olmalı).
 Ayrıntı: [06](06-yayin-ve-deploy.md), [11](11-hesaplar-uygulama.md), ADR-0008.
@@ -375,7 +375,7 @@ dışında kalan `fullscreen` izni verilmediği için tarayıcı her gömmede
 5 kez). İzin listelerine `fullscreen` eklendi, eski öznitelik kaldırıldı. Doğrulama yalnızca uyarının
 kaybolması değil: `iframe.featurePolicy.allowsFeature('fullscreen')` tarayıcıda **true** dönüyor,
 yani tam ekran yetkisi gerçekten açık (kullanıcıya görünen davranış değişmiyor). Yapısal test
-`allowfullscreen` kalıntısını ve `fullscreen`'siz izin listesini yayın kapısında engeller.
+`allowfullscreen` kalıntısını ve `fullscreen`'siz izin listesini CI'da engeller.
 
 ### H-23 · Derleme damgası yerel saat dilimine bağlıydı (CI ile yerel farklı HTML üretiyordu)
 
@@ -396,7 +396,7 @@ erken kapatıp sayfaya HTML enjekte edebilir. Bugünkü veride böyle bir dizi y
 değil, **latent** risk), ancak arşiv dış kaynaklardan zenginleştiriliyor. `jsonLdGuvenli` eklendi:
 `<` karakteri `\u003c` olarak yazılır (JSON anlamı değişmez, tarayıcıda aynı değere çözülür ama
 betik etiketi kapanmaz). Test hem kaçışı hem `JSON.parse` sonrası değerin birebir korunduğunu
-denetler; kaynak kodda ham `JSON.stringify` ile gömmenin geri gelmesi de yayın kapısında engellenir.
+denetler; kaynak kodda ham `JSON.stringify` ile gömmenin geri gelmesi de CI'da engellenir.
 
 ### H-25 · Ana sayfada `canonical` yoktu
 

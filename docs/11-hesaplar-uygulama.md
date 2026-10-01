@@ -198,7 +198,7 @@ KVKK hesap silme (tarayıcıdan) sonrası girişin 401 dönmesi.
 
 - `tools/testler/bildirim.test.mjs` (20): kuyruk süzgeçleri, URL/host doğrulaması (IP ve
   localhost reddi), host'un URL'den türetilmesi, yönlendirme tablosu, PBKDF2 gidiş-dönüşü,
-  sabit süreli karşılaştırma, IP tuzlama, CORS kapısı, admin jetonu, oran penceresi,
+  sabit süreli karşılaştırma, IP tuzlama, CORS denetimi, admin jetonu, oran penceresi,
   tekilleştirme (sentetik sahte D1 ile) + H-18/H-19/H-20 regresyonları (giriş modülü yalnızca
   handler dışa aktarır; blob taşıma sınırı blob sınırını gölgelemez; iterasyon sayısı platform
   tavanını aşmaz ve tavan üstü kayıtlar hata fırlatmadan reddedilir).

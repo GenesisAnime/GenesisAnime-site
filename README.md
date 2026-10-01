@@ -174,12 +174,13 @@ kök alan adı için `BASE_PATH` boş bırakılır. Ayrıntı, host limitleri ve
 
 ## Katkı
 
-Katkıya açıktır — hata bildirimi, veri düzeltmesi, fansub eklemesi veya kod.
+Katkıya açıktır — **issue** açabilir, veri düzeltmesi, fansub eklemesi veya kod gönderebilirsin.
 
-1. Depoyu çatallayın, dal açın (`main` korumalıdır; doğrudan push yerine PR tercih edilir).
-2. Değişiklikten sonra **kapıyı** çalıştırın:
+1. Depoyu **fork**'la ve kendi fork'unda bir **branch** aç (`main` korumalı; doğrudan push yerine
+   **pull request** aç).
+2. Pull request'i göndermeden önce bu kontrolleri çalıştır — CI'da da aynıları koşar:
    `npm run typecheck` → `npm test` (81/81) → `npm run build` → `npm run yayin:hazirla`.
-3. API'ye dokunduysanız ayrıca `cd api && npm run dev` + ayrı terminalde `npm run api:test`.
+3. API'ye dokunduysan ayrıca `cd api && npm run dev` + ikinci terminalde `npm run api:test`.
 4. Davranış/karar değişikliği belge gerektirir: ilgili `docs/` dosyası, gerekiyorsa yeni bir ADR
    ([docs/kararlar](docs/kararlar/)) ve `docs/gunluk/kayit.jsonl` satırı.
 
@@ -201,7 +202,7 @@ indirebilir veya hesabını ve sunucudaki kopyasını geri döndürülemez biçi
 - [docs/02-veri-pipeline.md](docs/02-veri-pipeline.md) — veri hattı ve ölçümler
 - [docs/03-tasarim-sistemi.md](docs/03-tasarim-sistemi.md) — tasarım dili ve bileşenler
 - [docs/04-oynatici-ve-kaynaklar.md](docs/04-oynatici-ve-kaynaklar.md) — oynatıcı ve kaynak politikası
-- [docs/05-kalite-ve-testler.md](docs/05-kalite-ve-testler.md) — test ve doğrulama kaydı (H-1…H-20)
+- [docs/05-kalite-ve-testler.md](docs/05-kalite-ve-testler.md) — test kaydı ve bulunan hatalar (H-1…H-25)
 - [docs/06-yayin-ve-deploy.md](docs/06-yayin-ve-deploy.md) — yayın, API dağıtımı, host limitleri
 - [docs/07-hesaplar-ve-api.md](docs/07-hesaplar-ve-api.md) — hesap/API tasarım taslağı
 - [docs/08-topluluk.md](docs/08-topluluk.md) — topluluk fazı taslağı
@@ -210,7 +211,7 @@ indirebilir veya hesabını ve sunucudaki kopyasını geri döndürülemez biçi
 - [docs/11-hesaplar-uygulama.md](docs/11-hesaplar-uygulama.md) — hesaplar, senkron, bildirim hattı
 - [docs/gunluk/](docs/gunluk/) — kronolojik çalışma günlüğü
 - [docs/kararlar/](docs/kararlar/) — mimari karar kayıtları (ADR)
-- [AGENTS.md](AGENTS.md) — çalışma kuralları ve doğrulama kapısı
+- [AGENTS.md](AGENTS.md) — çalışma kuralları ve kalite kontrolleri
 
 ## Yasal uyarı
 

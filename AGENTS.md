@@ -56,12 +56,12 @@ Her iş paketinden sonra:
    boyutu, link tarama kapsamı, API adresi, sıradaki işler) ve "Son güncelleme" tarihi her anlamlı
    turda tazelenir; kullanıcıya dönük komut tablosu yeni komutlarla güncel tutulur.
 
-## 4. Doğrulama kapısı
+## 4. Kontroller (CI ile aynı komutlar)
 
 Bir iş "bitti" sayılmadan önce:
 
 ```bash
-npm test                                # tools/ birim + veri/çıktı bütünlüğü testleri (ağsız, ~15 sn, 74 test)
+npm test                                # tools/ birim + veri/çıktı bütünlüğü testleri (ağsız, ~15 sn, 81 test)
 npm run api:test                        # api/ değiştiyse: çalışan Worker'a (wrangler dev) uçtan uca duman testi
 npm run typecheck                       # tip hatası yok
 npm run build                           # 7.442 sayfa üretilmeli, hata yok

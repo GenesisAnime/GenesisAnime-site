@@ -212,6 +212,11 @@ denemeleri + negatif kontrollü regresyon testleri.
 - **Kapı:** `npm run typecheck` 0 hata · `npm test` **81/81** · derleme 7.442 sayfa ·
   `npm run yayin:hazirla` 21.043 dosya / 865,2 MB (GitHub Pages uyumlu) · uzak `api:test`
   **46/46** (1 atlandı → `--oran` ile 0 atlandı).
+- **Kullanıcı geri bildirimi (README dili):** katkı bölümündeki çeviri jargonu ("depoyu çatallayın,
+  dal açın", "kapıyı çalıştırın") GitHub'da herkesin bildiği terimlerle değiştirildi: **fork**,
+  **branch**, **pull request**, **issue**, "kontroller". Aynı sadeleştirme `AGENTS.md` §4 ve
+  `docs/05` başlıklarına da uygulandı ("Doğrulama kapısı" → "Kontroller (CI ile aynı komutlar)"),
+  böylece README'den içeriye giden yol tek bir sözlük kullanıyor.
 - **Bekleyen:** push + GitHub Pages kaynağı (kullanıcıda); bildirim kuyruğu kalıcı 429/CORS'ta
   yalnızca tıklama/`online` olayında deniyor (kalıcı hatada kullanıcıya dürüst bir durum metni
   gösterilebilir); `tools/cache/link-durum.jsonl` 49,9 MB büyüdü (parçalama/sıkıştırma adayı).
