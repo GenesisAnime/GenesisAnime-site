@@ -11,7 +11,7 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: '*',
         allow: '/',
         // İnce/tekrarlı içerik: oynatıcı ve arama sayfaları indekslenmez.
-        disallow: ['/izle/', '/ara/', '/listem/'],
+        disallow: ['/izle/', '/ara/', '/listem/', '/yonetim/'],
       },
     ],
     sitemap: `${kok}/sitemap.xml`,

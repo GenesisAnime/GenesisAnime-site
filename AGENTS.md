@@ -61,7 +61,7 @@ Her iş paketinden sonra:
 Bir iş "bitti" sayılmadan önce:
 
 ```bash
-npm test                                # tools/ birim + veri/çıktı bütünlüğü testleri (ağsız, ~15 sn, 81 test)
+npm test                                # tools/ birim + veri/çıktı bütünlüğü testleri (ağsız, ~14 sn, 92 test)
 npm run api:test                        # api/ değiştiyse: çalışan Worker'a (wrangler dev) uçtan uca duman testi
 npm run typecheck                       # tip hatası yok
 npm run build                           # 7.442 sayfa üretilmeli, hata yok
@@ -88,6 +88,22 @@ derleme `EBUSY: rmdir 'out'` ile düşer ve **eski çıktı sunulmaya devam eder
 Ayrıca tarayıcıda gerçek tıklama testi: ana sayfa → arama → anime detayı → bölüm → oynatıcı.
 Konsolda hata olmamalı (`document.documentElement.dataset.hata` boş olmalı; sitede her zaman
 kurulu bir erken hata kaydedici vardır).
+
+### Otomatik döngü ve yönetici paneli
+
+Günlük link tarama döngüsü (`tools/gunluk-dongu.mjs`) bu makinede zamanlayıcıya bağlıdır; kararı
+`tools/lib/dongu.mjs` verir ve politika D1'de (`tarama_ayar`) tutulur, `src/app/yonetim/`
+panelinden yönetilir. Ayrıntı: [docs/09](docs/09-link-sagligi-otomasyonu.md) §10.
+
+- Döngü ve panel aynı **`ADMIN_TOKEN`**ı kullanır; jeton yalnızca `--token=`, ortam değişkeni veya
+gitignore'lu kök **`.env`** dosyasından okunur, **asla** depoya yazılmaz. `api/.dev.vars`
+(yerele özel) kullanılmaz.
+- Döngünün `npm run build` adımı **`NEXT_PUBLIC_API`, `NEXT_PUBLIC_BILDIRIM_API`, `BASE_PATH`**
+ve `NEXT_PUBLIC_SITE_URL` değerlerini kök `.env`'den alır; yoksa ürettiği site API'siz/öneksiz
+kalır. Döngü bunları eksik görürse log'a ve panel kaydına UYARI yazar.
+- `npm run build` öncesi tarayıcı sunucusu kapatılır (§4): aksi hâlde `EBUSY: rmdir 'out'`.
+- Panel/API değişikliğinde `api/migrations/0002-tarama.sql` şeması hem yerelde hem uzakta
+uygulanmalıdır (`npm run db:yerel` / `npm run db:uzak`); yeni uçlar `ADMIN_TOKEN` ister.
 
 ## 5. Git
 

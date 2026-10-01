@@ -3,6 +3,8 @@
 > Durum: **kod tamam, gerçek Cloudflare hesabına dağıtıldı** (01.10.2026) ve uzak adrese karşı
 > 46/46 doğrulandı: `https://genesisanime-api.genesisanime.workers.dev`. Site hesap servisi olmadan
 > da eksiksiz çalışır (`NEXT_PUBLIC_API` boşken hiçbir istek atılmaz).
+> Aynı Worker üzerinde **yönetici uçları** da koşar (`/tarama/*`): günlük link tarama döngüsünün
+> politikası D1'de tutulur, site içindeki **`/yonetim/`** panelinden yönetilir (bkz. § Yönetim paneli).
 > Tasarım gerekçeleri: [07-hesaplar-ve-api.md](07-hesaplar-ve-api.md).
 > Parola/jeton kararı: [ADR-0008](kararlar/ADR-0008-workers-parola-ve-jeton.md).
 > Kurulum komutları, hesap engelleri ve dağıtım ölçümleri: [06-yayin-ve-deploy.md](06-yayin-ve-deploy.md).
@@ -38,7 +40,8 @@ Statik site (GitHub Pages) ──► out/ (veri değişmez)
 | `api/src/index.mjs` | Worker **girişi**: yönlendirme + tüm uçlar; yalnızca varsayılan `fetch` dışa aktarır |
 | `api/src/yardimci.mjs` | Sabitler + saf yardımcılar (doğrulama, kripto, CORS, D1) — girişten ayrı, çünkü workerd giriş modülünde yalnızca handler dışa aktarımına izin verir (H-18) |
 | `api/wrangler.toml` | Worker yapılandırması (D1 binding, CORS kaynağı, secret talimatları) |
-| `api/migrations/0001.sql` | D1 şeması (5 tablo) |
+| `api/migrations/0001.sql` | D1 şeması: hesap tarafı (5 tablo) |
+| `api/migrations/0002-tarama.sql` | Tarama döngüsü politikası: `tarama_ayar` (tek satır), `tarama_kosu` (koşu geçmişi), `tarama_kalp` (makine kalp atışları) |
 | `tools/bildirim-cek.mjs` | API'deki bildirimleri `tools/cache/bildirim.jsonl`'e aktarır |
 | `tools/api-uctan-uca.mjs` | `npm run api:test`: çalışan API'ye gerçek isteklerle 45 adımlık uçtan uca duman testi |
 | `tools/link-tara.mjs --bildirim` | Bildirilen URL'leri tarama kuyruğunun **önüne** alır |
@@ -47,6 +50,7 @@ Statik site (GitHub Pages) ──► out/ (veri değişmez)
 | `src/lib/depo/durum-birlestir.mjs` | Yerel/sunucu durum birleştirmesi (saf JS — test edilebilir) |
 | `src/app/hesap/page.tsx` + `src/components/HesapIstemci.tsx` | Hesap ve KVKK arayüzü |
 | `src/components/HesapSenkron.tsx` | Senkron döngüsünü kök düzende çalıştırır (görünmez) |
+| `src/app/yonetim/page.tsx` + `src/components/YonetimIstemci.tsx` | **Yönetim paneli** (noindex; `robots.ts` ile dizine kapatıldı). Dilim/saat/açık-push ayarları, "şimdi çalıştır", koşu geçmişi, adım özeti/log kuyruğu |
 
 ## Uçlar
 
@@ -68,6 +72,37 @@ Gövde sınırı 64 KB'dir (genel uçlar); `/me/durum` taşıma sınırı 1,09 M
 dizesi tırnak kaçışıyla ~2 katına şişebilir. Senkron blob'u **512 KB (UTF-8 bayt)** ile
 sınırlıdır — D1 satır sınırı 2 MB olduğu için ölçü bayt cinsindendir (H-19). Hata yanıtları
 `{ok:false, hata}` biçimindedir.
+
+### Yönetim uçları (tarama döngüsü)
+
+Hepsi `ADMIN_TOKEN` (Bearer) ister; yetkisiz istek 401, bilinmeyen yol 404 döner.
+
+| Yöntem · yol | Gövde | Yanıt | Not |
+|---|---|---|---|
+| `GET /tarama/ayar` | — | `{ayar}` | `tarama_ayar` tek satırı (id=1) |
+| `PUT /tarama/ayar` | `{aktif, dilim, saat, yayinla, push, hemen}` | `{ayar}` | Değerler normalize edilir (dilim 25…20.000; saat 0–23) |
+| `GET /tarama/durum` | — | `{ayar, kosular, kalpler, sunucu_zaman}` | Panelin tek isteği: son 50 koşu + 5 kalp atışı |
+| `POST /tarama/kosu` | `{dilim, sure_sn, sonuc, kapsam, not_metni}` | `{ok}` · 201 | Döngü her koşudan sonra yazar; 500 satırla sınırlı |
+| `POST /tarama/kalp` | `{makine, surum, son_karar}` | `{ok}` | Makine uyanık sinyali ("panelde görünüyor ama iş durmuş" durumunu ayırt eder) |
+
+> **Neden politika D1'de, iş yerelde?** `npm run veri` arşiv SQLite'ını okur ve o dosya depoda
+değildir ([ADR-0004](kararlar/ADR-0004-veri-dizini.md)); 316 bin kaynağın rozet durumu tam da o
+adımda üretilir. Ayrıntı ve zamanlayıcı kurulumu: [09](09-link-sagligi-otomasyonu.md) §10.
+
+### Yönetim paneli (`/yonetim/`)
+
+Statik derlemenin parçasıdır (sunucu tarafı yoktur); jeton **`localStorage`**'da saklanır ve
+hiçbir yere gönderilmez, yalnızca Worker'a `Authorization` başlığında gider. `robots.ts`
+`/yonetim/` yolunu tarayıcı botlarına kapatır ve sayfa `<meta name="robots" content="noindex">`
+taşır — güvenlik jeton doğrulamasıdır, gizlilik değil.
+
+Panolun gösterdikleri: bağlantı durumu (API sürümü), **kalp atışı kutusu** (son makine + "kaç
+dakika önce" + son karar), özet satırı (son koşunun sonucu/makinesi/süresi), ayar formu
+(aktif, dilim, saat, `yayinla`, `push`), **"Şimdi çalıştır"** (D1'de `hemen=1` yazar; yerel döngü
+bir sonraki uyanışında koşar) ve koşu geçmişi (satır açılınca adım süreleri + tarama log kuyruğu).
+
+Panelin kurduğu sözleşme ile döngünün uyguladığı karar aynı eşikleri paylaşır
+(`TARAMA_DILIM_EN_AZ/EN_COK`); panel formu döngünün kabul etmeyeceği bir dilim göndermez.
 
 ## Kimlik doğrulama kararları
 
@@ -194,16 +229,21 @@ KVKK hesap silme (tarayıcıdan) sonrası girişin 401 dönmesi.
 
 ## Testler
 
-`npm test` içinde iki dosya bu hattı kapsar (ağsız, D1'siz):
+`npm test` içinde üç dosya bu hattı kapsar (ağsız, D1'siz):
 
-- `tools/testler/bildirim.test.mjs` (20): kuyruk süzgeçleri, URL/host doğrulaması (IP ve
+- `tools/testler/bildirim.test.mjs` (24): kuyruk süzgeçleri, URL/host doğrulaması (IP ve
   localhost reddi), host'un URL'den türetilmesi, yönlendirme tablosu, PBKDF2 gidiş-dönüşü,
   sabit süreli karşılaştırma, IP tuzlama, CORS denetimi, admin jetonu, oran penceresi,
-  tekilleştirme (sentetik sahte D1 ile) + H-18/H-19/H-20 regresyonları (giriş modülü yalnızca
-  handler dışa aktarır; blob taşıma sınırı blob sınırını gölgelemez; iterasyon sayısı platform
-  tavanını aşmaz ve tavan üstü kayıtlar hata fırlatmadan reddedilir).
+  tekilleştirme (sentetik sahte D1 ile), **tarama uçlarının yol çözümü + ayar/koşu
+  normalizasyonu** (dilim ve saat sınırları, bilinmeyen alanlar atılır) + H-18/H-19/H-20
+  regresyonları (giriş modülü yalnızca handler dışa aktarır; blob taşıma sınırı blob sınırını
+  gölgelemez; iterasyon sayısı platform tavanını aşmaz ve tavan üstü kayıtlar hata
+  fırlatmadan reddedilir).
 - `tools/testler/hesap.test.mjs` (7): birleştirme kuralları (en yeni kazanır, yerel tercih,
   liste birleşimi, 500 sınırı, boş sunucu kopyasının veri silmemesi).
+- `tools/testler/dongu.test.mjs` (8): döngü kararı — gün anahtarının yerel saatte hesaplanması,
+  panel kapalıyken koşmama, saat gelmeden koşmama, günde bir koşma, başarısız koşudan sonra
+  bekleme, `hemen`/`--zorla` bayrakları, ayar okunamazsa güvenli davranış.
 
 ## Bilinen sınırlamalar
 

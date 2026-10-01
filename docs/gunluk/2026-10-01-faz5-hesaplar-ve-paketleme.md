@@ -247,8 +247,54 @@ süzgeç paneli kaydırırken üstte yapışık kalıyor.
  `tools/rapor/gunluk-dongu.jsonl` ve `docs/gunluk/kayit.jsonl`'e süre + kapsam satırı yazıyor.
  **Kısıt dürüstçe belgelendi:** `npm run veri` arşiv SQLite'ını okuduğu için GitHub Actions bu adımı
  koşamaz (CI yalnızca derler + test eder); bu yüzden döngü arşivin bulunduğu makinede zamanlayıcıya
- bağlanır (Windows `schtasks` / cron komutları `docs/09` §10'da).
-- **Analytics ve dağıtım kararı kullanıcıya bırakıldı:** GitHub Pages statik bir analitik betiğini
- engellemez (GA/Plausible/Cloudflare Web Analytics hepsi çalışır); karar verildiğinde KVKK metni ve
- README'deki "izleyici betiği yok" iddiası da güncellenmeli.
+ bağlanır (Windows `schtasks` / cron komutları `docs/09` §10'da).- **Analytics ve dağıtım kararı kullanıcıya bırakıldı:** GitHub Pages statik bir analitik betiğini engellemez (GA/Plausible/Cloudflare Web Analytics hepsi çalışır); karar verildiğinde KVKK metni ve README'deki "izleyici betiği yok" iddiası da güncellenmeli.
+
+## 14. Döngüyü zamanlayıcıya bağlama ve yönetim paneli
+
+İstek: “Günlük link tarama döngüsünü zamanlayıcıya bağla ve bir gece boyunca çalıştığını doğrula.
+Bunu panelden ayarlarını yapabileceğim, loglarına ulaşabileceğim bir yer olsun — adminlerin.”
+
+Tasarım kararı tek cümleyle: **politika ve kayıt D1'de, iş yerel makinede.** Job'un yerelde kalması
+zorunlu (`npm run veri` arşiv SQLite'ını okur, o dosya depoda yok → ADR-0004), ama ayarı
+uzaktan yönetmek ve geçmişi görmek için işin kendisinin sunucuda olması gerekmiyor.
+
+- **D1 (`api/migrations/0002-tarama.sql`, uzakta uygulandı):** `tarama_ayar` (tek satır: `aktif`,
+  `dilim`, `saat`, `yayinla`, `push`, `hemen`, `guncelleme`), `tarama_kosu` (koşu geçmişi, 500
+  satırla sınırlı) ve `tarama_kalp` (makine kalp atışı: makine adı, sürüm, son karar).
+- **Worker'a beş yönetici ucu** (hepsi `ADMIN_TOKEN`): `GET/PUT /tarama/ayar`,
+  `GET /tarama/durum` (ayar + 50 koşu + 5 kalp + sunucu zamanı), `POST /tarama/kosu`,
+  `POST /tarama/kalp`. Normalizasyon (`taramaAyarNormalize`, `taramaKosuNormalize`) ve dilim
+  sınırları (`TARAMA_DILIM_EN_AZ=25`, `EN_COK=20000`) `yardimci.mjs`'e, işleyiciler `index.mjs`'e
+eklendi. Yanlış dalda olan bir isteğin sessizce geçmemesi için yetkisiz istek 401, bilinmeyen yol 404
+  dönüyor — ikisi de canlı doğrulandı.
+- **Panel `/yonetim/`** (noindex, `robots.ts` ile dizine kapatıldı): jeton girişi (`localStorage`,
+  hiçbir yere gönderilmez), kalp atışı kutusu ("son kalp: Natale · 3 dk önce · karar: kosu-ok"),
+  özet tablosu, ayar formu ve **“Şimdi çalıştır”** (D1'de `hemen=1` yazar; yerel döngü bir sonraki
+  uyanışında koşar ve bayrağı koşu sonunda kendisi temizler), koşu geçmişi (satır açılınca adım
+  süreleri + tarama log kuyruğu).
+- **Zamanlayıcı:** Windows görevi `GenesisAnime gunluk dongu`, **saatte bir** (`/SC HOURLY /MO 1`),
+  `tools\dongu.cmd` → `node tools/gunluk-dongu.mjs`. "Günde bir" kararını döngü verir
+  (`tools/lib/dongu.mjs`, saf ve test edilebilir), böylece makine gece kapalıysa koşu kaçmaz —
+  gün içinde açıldığı ilk saatte yapılır.
+- **İki tuzak yaşandı ve belgelendi:** (1) jeton `api/.dev.vars`'tan okununca üretimde `yetkisiz`
+  döndü — `.dev.vars` yerel `wrangler dev` içindir, üretimdeki `ADMIN_TOKEN` ile aynı değildir;
+  çözüm kök `.env` (gitignore'lu). (2) `npm run build` doğru derleme değişkenleri olmadan
+  koşunca döngünün ürettiği site **API'siz** derlendi ve panel "API kapalı" gösterdi; döngü artık
+  `NEXT_PUBLIC_API` / `BASE_PATH` eksikse log'a ve panel kaydına UYARI yazıyor.
+- **Uçtan uca doğrulama (elle tetikleme, 01.10.2026):** `schtasks /Run` → 250 kaynak tarandı →
+  `veri` (10 sn) → `build` (84 sn) → `yayin:hazirla` (2 sn) → koşu **`ok`, 112 sn**; kapsam
+  `ok 173.030 · ölü 301 · engelli 34 · belirsiz 12.861`. Panelde koşu kaydı ve kalp atışı göründü;
+  `hemen` bayrağı koşu sonunda 0'landı. Görev durumu `Ready`, sonraki uyanış saatlik.
+- **Zamanlayıcının kendi zamanlamasıyla sınaması:** elle `/Run` yerine gerçek zamanlama yolunu
+görmek için bir kerelik bir sınama görevi kuruldu (18:11) ve koşudan sonra silindi. Görev
+kendiliğinden açıldı: log `[18:11:01] dongu basladi` → `panel: dilim 1500 · saat 4 · açık` →
+`karar: bugün zaten koştu` → `iş yapılmadı (bugun-kostu)`; panelde kalp atışı 18:11:02'ye ilerledi
+(`son_karar: bugun-kostu`). Yani uyandırma + panel okuma + karar + kalp atışı zinciri insan eli
+değmeden koşuyor; tam bir iş koşusu (veri + derleme) zaten yukarıda uçtan uca doğrulanmıştı.
+- **Testler:** yeni `tools/testler/dongu.test.mjs` (8: gün anahtarı, kapalı, saat, günde bir, hata
+  sonrası bekleme, `hemen`/`--zorla`, ayarsız güvenli davranış, karar metni) + `bildirim.test.mjs`'e
+  yönetici uçlarının yol çözümü ve ayar/koşu normalizasyonu (3) → toplam **92/92**; `tsc` 0 hata.
+- **Kalan:** döngünün birkaç günlük doğal gözlemi (zamanlayıcı kurulu ve elle koşuyor; "gece
+  boyunca" iddiası ancak birkaç ardıl koşudan sonra kanıtlanır), yayın boyutunu küçültme ve
+  analytics/dağıtım kararı (kullanıcıda).
 

@@ -38,15 +38,22 @@
   kayıt → senkron → bildirim → KVKK silme sınandı. Ayrıca ilk dağıtımda yalnızca üretimde görünen
   bir hata bulundu ve düzeltildi: PBKDF2 iterasyon tavanı (H-20). Kurulum komutları, hesap
   engelleri ve ölçümler: [06](06-yayin-ve-deploy.md).
-- ⏳ Kalan iş: derlenmiş `out/`'u GitHub Pages'e **push** (kullanıcı kararı) ve gerçek kullanıcı
-  bildirimlerinin yönetici kuyruğundan izlenmesi.
+- ✅ **Yönetim paneli + otomatik döngü (01.10.2026):** aynı Worker'a beş yönetici ucu eklendi
+  (`/tarama/ayar|durum|kosu|kalp`, D1 tabloları `tarama_ayar`/`tarama_kosu`/`tarama_kalp`) ve site
+  içinde **`/yonetim/`** paneli yazıldı (noindex, `ADMIN_TOKEN`). Günlük link tarama döngüsü
+  (`npm run dongu:gunluk`) bu makinede **saatlik Windows görevine** bağlandı; makine gece kapalıysa
+  koşu kaçmaz. Ayrıntı: [11](11-hesaplar-uygulama.md) · [09](09-link-sagligi-otomasyonu.md) §10.
+- ⏳ Kalan iş: derlenmiş `out/`'u GitHub Pages'e **push** (kullanıcı kararı), gece döngüsünün birkaç
+  günlük gözlemi ve gerçek kullanıcı bildirimlerinin yönetici kuyruğundan izlenmesi.
 - Sıradaki özellikler (bilinçli olarak kapsam dışı bırakıldı): e-posta doğrulama,
   parola sıfırlama, OAuth, herkese açık profil.
 - Tasarım gerekçeleri: [07-hesaplar-ve-api.md](07-hesaplar-ve-api.md)
 
 ### C. Faz 6 · Topluluk
 
-- Bölüm yorumları, puanlama, moderasyon, yönetim paneli
+- Bölüm yorumları, puanlama, moderasyon ve topluluk odaklı yönetim ekranları.
+- Not: işletme paneli (tarama ayarı + koşu geçmişi + loglar) 01.10.2026'da **`/yonetim/`** olarak
+  yapıldı; topluluk moderasyonu hâlâ taslak.
 - Ayrıntı: [08-topluluk.md](08-topluluk.md)
 
 ### D. Faz 7 · Link sağlığı otomasyonu (devam)
@@ -57,6 +64,9 @@ href.li, uqload, videoapi vb. tükendi).
 - Sibnet (133.307): 0,5 istek/sn güvenli, 1 istek/sn duvar (ölçüm 01.10) — “yavaş şerit”,
   farklı çıkış IP'si ya da tarayıcı katmanı gerekiyor.
 - Bot duvarlı host'lar (voe, dood, byse) ve MEGA: HTTP kanıtı üretmiyor; tarayıcı/API katmanı.
+- ✅ **Günlük otomatik döngü (01.10):** tarama dilimi → `veri` → `build` → `yayin:hazirla`,
+  politika D1'de, iş yerel makinede saatlik zamanlayıcıda; sonuç panele yazılır
+  ([09](09-link-sagligi-otomasyonu.md) §10). Tarama artık elle hatırlamaya bağlı değil.
 - ✅ Kullanıcı bildirimleri (01.10): oynatıcı → Worker → `tools/cache/bildirim.jsonl` →
   `npm run link:tara -- --bildirim` ile kuyruğun önü. Kullanıcı bildirimi **karar** değil
   önceliktir; durum yine kanıtla belirlenir. ([11](11-hesaplar-uygulama.md))

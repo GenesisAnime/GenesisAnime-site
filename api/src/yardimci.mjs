@@ -150,8 +150,29 @@ export function yolCoz(yol, yontem) {
   if (y === '/me/veri' && m === 'GET') return { islem: 'me-veri' };
   if (y === '/me' && m === 'DELETE') return { islem: 'me-sil' };
 
+  // Link tarama döngüsü (hepsi yönetici jetonu ister).
+  if (y === '/tarama/ayar' && m === 'GET') return { islem: 'tarama-ayar' };
+  if (y === '/tarama/ayar' && m === 'PUT') return { islem: 'tarama-ayar-yaz' };
+  if (y === '/tarama/durum' && m === 'GET') return { islem: 'tarama-durum' };
+  if (y === '/tarama/kosu' && m === 'POST') return { islem: 'tarama-kosu' };
+  if (y === '/tarama/kalp' && m === 'POST') return { islem: 'tarama-kalp' };
+
   // Bilinen yolda yanlış yöntem mi, gerçekten bilinmeyen yol mu?
-  const bilinen = ['/saglik', '/bildirim', '/auth/kayit', '/auth/giris', '/auth/yenile', '/auth/cikis', '/me/durum', '/me/veri', '/me'];
+  const bilinen = [
+    '/saglik',
+    '/bildirim',
+    '/auth/kayit',
+    '/auth/giris',
+    '/auth/yenile',
+    '/auth/cikis',
+    '/me/durum',
+    '/me/veri',
+    '/me',
+    '/tarama/ayar',
+    '/tarama/durum',
+    '/tarama/kosu',
+    '/tarama/kalp',
+  ];
   if (bilinen.includes(y)) return { islem: 'yontem-yok' };
   if (/^\/bildirim\/\d+$/.test(y)) return { islem: 'yontem-yok' };
   return { islem: 'yok' };
@@ -377,4 +398,61 @@ export function adminMi(istek, env) {
   const jeton = bearer(istek);
   if (!jeton || !env.ADMIN_TOKEN) return false;
   return sabitSureliEsit(jeton, env.ADMIN_TOKEN);
+}
+
+/* ================================================================ */
+/* 5 · Link tarama döngüsü ayarları (yönetici paneli)               */
+/* ================================================================ */
+
+/** Dilim sınırları: çok küçük dilim anlamsız, çok büyüğü tek geceye sığmaz. */
+export const TARAMA_DILIM_EN_AZ = 25;
+export const TARAMA_DILIM_EN_COK = 20000;
+export const TARAMA_KOSU_SINIRI = 500;
+
+function tamsayi(x, enAz, enCok, varsayilan) {
+  const s = Number(x);
+  if (!Number.isFinite(s)) return varsayilan;
+  return Math.min(Math.max(Math.round(s), enAz), enCok);
+}
+
+function bayrak(x, varsayilan) {
+  if (x === undefined || x === null) return varsayilan;
+  return x === true || x === 1 || x === '1' ? 1 : 0;
+}
+
+function metin(x, uzunluk) {
+  return typeof x === 'string' ? x.trim().slice(0, uzunluk) : '';
+}
+
+/**
+ * Panelden gelen ayarı güvenli aralığa indirger (eksik alan varsayılana döner).
+ * Kırpma sessizdir ve bilinçlidir: panel bir gün farklı bir sınır gönderirse
+ * döngü yine de makul bir dilimle koşar, istek 400 ile düşmez.
+ */
+export function taramaAyarNormalize(ham) {
+  const d = ham && typeof ham === 'object' && !Array.isArray(ham) ? ham : {};
+  return {
+    aktif: bayrak(d.aktif, 1),
+    dilim: tamsayi(d.dilim, TARAMA_DILIM_EN_AZ, TARAMA_DILIM_EN_COK, 1500),
+    saat: tamsayi(d.saat, 0, 23, 4),
+    yayinla: bayrak(d.yayinla, 0),
+    push: bayrak(d.push, 0),
+    hemen: bayrak(d.hemen, 0),
+  };
+}
+
+/**
+ * Koşu kaydının metin alanlarını budar. `not_metni` paneldе görünen log kuyruğudur
+ * (dosya yolu ya da hata satırları sızmasın diye uzunluk sınırı vardır).
+ */
+export function taramaKosuNormalize(ham) {
+  const d = ham && typeof ham === 'object' && !Array.isArray(ham) ? ham : {};
+  return {
+    makine: metin(d.makine, 60) || 'bilinmiyor',
+    dilim: tamsayi(d.dilim, 0, TARAMA_DILIM_EN_COK, 0),
+    sure_sn: tamsayi(d.sure_sn, 0, 86400, 0),
+    sonuc: d.sonuc === 'hata' ? 'hata' : 'ok',
+    kapsam: metin(d.kapsam, 200),
+    not_metni: metin(d.not_metni, 4000),
+  };
 }

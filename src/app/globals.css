@@ -1835,7 +1835,8 @@ a.etiket:hover {
   color: var(--tx2);
 }
 
-.alan input {
+.alan input,
+.alan select {
   width: 100%;
   padding: 10px 13px;
   background: var(--card2);
@@ -1846,7 +1847,13 @@ a.etiket:hover {
   transition: border-color var(--gecis), background var(--gecis);
 }
 
-.alan input:focus {
+.alan select {
+  appearance: none;
+  cursor: pointer;
+}
+
+.alan input:focus,
+.alan select:focus {
   outline: none;
   border-color: var(--ac);
   background: var(--card3);

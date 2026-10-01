@@ -19,6 +19,11 @@
  *   PUT    /me/durum             senkron blob'u yaz (iyimser kilit)  (Bearer)
  *   GET    /me/veri              KVKK: verilerimi indir    (Bearer)
  *   DELETE /me                   KVKK: hesabımı sil        (Bearer)
+ *   GET    /tarama/ayar          yönetici: tarama döngüsü ayarı (ADMIN_TOKEN)
+ *   PUT    /tarama/ayar          yönetici: ayarı güncelle      (ADMIN_TOKEN)
+ *   GET    /tarama/durum         yönetici: ayar + koşular + kalpler (ADMIN_TOKEN)
+ *   POST   /tarama/kosu          yönetici: koşu kaydı ekle     (ADMIN_TOKEN)
+ *   POST   /tarama/kalp          yönetici: makine kalp atışı   (ADMIN_TOKEN)
  *
  * ÖNEMLİ (workerd kuralı): Giriş modülü YALNIZCA fonksiyon ya da ExportedHandler
  * biçimli değer dışa aktarabilir. Sabit/pure yardımcı dışa aktarımları workerd'u
@@ -55,6 +60,9 @@ import {
   parolaDogrula,
   parolaGecerli,
   parolaOzetle,
+  taramaAyarNormalize,
+  taramaKosuNormalize,
+  TARAMA_KOSU_SINIRI,
   yolCoz,
 } from './yardimci.mjs';
 
@@ -293,6 +301,98 @@ async function meSil(istek, env, cors) {
   return json({ ok: true, silindi: true }, 200, cors);
 }
 
+/* --- link tarama döngüsü (yönetici paneli) --- */
+
+/** Ayar satırını okur; ilk çağrıda varsayılan satırı oluşturur. */
+async function taramaAyarOku(env) {
+  await env.DB.prepare('INSERT INTO tarama_ayar (id, guncelleme) VALUES (1, ?) ON CONFLICT(id) DO NOTHING')
+    .bind(new Date().toISOString())
+    .run();
+  const satir = await env.DB.prepare(
+    'SELECT aktif, dilim, saat, yayinla, push, hemen, guncelleme FROM tarama_ayar WHERE id = 1'
+  ).first();
+  return satir || { aktif: 1, dilim: 1500, saat: 4, yayinla: 0, push: 0, hemen: 0, guncelleme: null };
+}
+
+async function taramaKalpYaz(env, makine, sonKarar) {
+  await env.DB.prepare(
+    'INSERT INTO tarama_kalp (makine, zaman, surum, son_karar) VALUES (?, ?, ?, ?) ON CONFLICT(makine) DO UPDATE SET zaman = excluded.zaman, surum = excluded.surum, son_karar = excluded.son_karar'
+  )
+    .bind(makine, new Date().toISOString(), SURUM, sonKarar)
+    .run();
+}
+
+async function taramaAyar(istek, env, cors) {
+  if (!adminMi(istek, env)) return json({ ok: false, hata: 'yetkisiz' }, 401, cors);
+  return json({ ok: true, ayar: await taramaAyarOku(env) }, 200, cors);
+}
+
+async function taramaAyarYaz(istek, env, cors) {
+  if (!adminMi(istek, env)) return json({ ok: false, hata: 'yetkisiz' }, 401, cors);
+  const govde = await govdeOku(istek);
+  if (!govde.ok) return json({ ok: false, hata: govde.hata }, 400, cors);
+  const mevcut = await taramaAyarOku(env);
+  // Gönderilmeyen alanlar korunur: panel tek bir bayrak değiştirebilir (ör. "hemen çalıştır").
+  const yeni = taramaAyarNormalize({ ...mevcut, ...govde.veri });
+  await env.DB.prepare(
+    'UPDATE tarama_ayar SET aktif = ?, dilim = ?, saat = ?, yayinla = ?, push = ?, hemen = ?, guncelleme = ? WHERE id = 1'
+  )
+    .bind(yeni.aktif, yeni.dilim, yeni.saat, yeni.yayinla, yeni.push, yeni.hemen, new Date().toISOString())
+    .run();
+  return json({ ok: true, ayar: yeni }, 200, cors);
+}
+
+async function taramaDurum(istek, env, cors) {
+  if (!adminMi(istek, env)) return json({ ok: false, hata: 'yetkisiz' }, 401, cors);
+  const ayar = await taramaAyarOku(env);
+  const kosular = await env.DB.prepare(
+    'SELECT id, zaman, makine, dilim, sure_sn, sonuc, kapsam, not_metni FROM tarama_kosu ORDER BY id DESC LIMIT 50'
+  ).all();
+  const kalpler = await env.DB.prepare('SELECT makine, zaman, surum, son_karar FROM tarama_kalp ORDER BY zaman DESC LIMIT 5').all();
+  return json(
+    {
+      ok: true,
+      ayar,
+      kosular: kosular.results || [],
+      kalpler: kalpler.results || [],
+      sunucu_zaman: new Date().toISOString(),
+      surum: SURUM,
+      kosu_siniri: TARAMA_KOSU_SINIRI,
+    },
+    200,
+    cors
+  );
+}
+
+async function taramaKosu(istek, env, cors) {
+  if (!adminMi(istek, env)) return json({ ok: false, hata: 'yetkisiz' }, 401, cors);
+  const govde = await govdeOku(istek);
+  if (!govde.ok) return json({ ok: false, hata: govde.hata }, 400, cors);
+  const k = taramaKosuNormalize(govde.veri);
+  const zaman = new Date().toISOString();
+  await env.DB.prepare(
+    'INSERT INTO tarama_kosu (zaman, makine, dilim, sure_sn, sonuc, kapsam, not_metni) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  )
+    .bind(zaman, k.makine, k.dilim, k.sure_sn, k.sonuc, k.kapsam, k.not_metni)
+    .run();
+  // Geçmiş sınırsız büyümesin: son TARAMA_KOSU_SINIRI kayıt tutulur.
+  await env.DB.prepare('DELETE FROM tarama_kosu WHERE id <= (SELECT MAX(id) FROM tarama_kosu) - ?')
+    .bind(TARAMA_KOSU_SINIRI)
+    .run();
+  await taramaKalpYaz(env, k.makine, k.sonuc === 'ok' ? 'kosu-ok' : 'kosu-hata');
+  return json({ ok: true, kayitli: zaman }, 201, cors);
+}
+
+async function taramaKalp(istek, env, cors) {
+  if (!adminMi(istek, env)) return json({ ok: false, hata: 'yetkisiz' }, 401, cors);
+  const govde = await govdeOku(istek);
+  if (!govde.ok) return json({ ok: false, hata: govde.hata }, 400, cors);
+  const makine = typeof govde.veri.makine === 'string' ? govde.veri.makine.trim().slice(0, 60) : '';
+  const karar = typeof govde.veri.karar === 'string' ? govde.veri.karar.trim().slice(0, 40) : '';
+  await taramaKalpYaz(env, makine || 'bilinmiyor', karar);
+  return json({ ok: true }, 200, cors);
+}
+
 /* ================================================================ */
 /* 2 · Ana yönlendirici                                             */
 /* ================================================================ */
@@ -335,6 +435,16 @@ async function istekIsle(istek, env) {
         return await meVeri(istek, env, cors);
       case 'me-sil':
         return await meSil(istek, env, cors);
+      case 'tarama-ayar':
+        return await taramaAyar(istek, env, cors);
+      case 'tarama-ayar-yaz':
+        return await taramaAyarYaz(istek, env, cors);
+      case 'tarama-durum':
+        return await taramaDurum(istek, env, cors);
+      case 'tarama-kosu':
+        return await taramaKosu(istek, env, cors);
+      case 'tarama-kalp':
+        return await taramaKalp(istek, env, cors);
       case 'yontem-yok':
         return json({ ok: false, hata: 'yontem-yok' }, 405, cors);
       default:

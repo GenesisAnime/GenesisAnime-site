@@ -243,42 +243,108 @@ başına istek aralığıdır; sibnet 0,5–1 istek/sn'de kırılıyor (§6), ME
    havuzları (drive, yadi.sk, href.li, uqload, videoapi, ok.ru, videa, dailymotion vb.) tükendi;
    kapsamı büyütebilecek tek yol yukarıdaki 1–3. maddelerdir.
 
-## 10. Otomatik döngü (günlük)
+## 10. Otomatik döngü (günlük) ve yönetim paneli
 
-`tools/gunluk-dongu.mjs` tek komutla zinciri koşar: **bildirimleri öne alan tarama dilimi → site
-verisi → derleme → yayın hazırlığı → (istenirse) commit/push**.
+İki parçalı tasarım — **politika sunucuda, iş yerel makinede**:
+
+| Katman | Nerede | Ne yapar |
+|---|---|---|
+| Politika + kayıt | **D1** (`tarama_ayar`, `tarama_kosu`, `tarama_kalp`) | Panelden ayar tutar; koşu geçmişini ve makine kalp atışlarını saklar |
+| Panel | Site: **`/yonetim/`** (noindex, ADMIN_TOKEN) | Dilim/saat/açık-kapalı/push ayarları, "şimdi çalıştır", koşu geçmişi + adım özeti |
+| İş | **Yerel makine** (`tools/gunluk-dongu.mjs`) | Tarama → site verisi → derleme → yayın hazırlığı → (istenirse) commit/push; sonucu panele yazar |
+| Uyandırıcı | Windows Görev Zamanlayıcısı / cron | Saatte bir `tools/dongu.cmd` çağrılır; kararı döngü verir |
+
+Neden iş yerelde? `npm run veri` arşiv SQLite dosyasını okur ve o dosya depoda yoktur (ADR-0004);
+316 bin kaynağın rozet durumu tam da o adımda site verisine işlenir. CI bu adımı koşamaz.
 
 ```bash
-npm run dongu:gunluk                       # tara → veri → build → hazirla (commit YOK)
-npm run dongu:gunluk -- --dilim=3000       # gecelik dilim boyutu (varsayılan 1500)
-npm run dongu:gunluk -- --yayinla          # ayrıca commit at
-npm run dongu:gunluk -- --yayinla --push   # commit + push (yayın iş akışını tetikler)
+npm run dongu:gunluk                       # panel ayarına göre karar ver, gerekirse koş
+npm run dongu:gunluk -- --zorla            # ayarı yok say, hemen koş
+npm run dongu:gunluk -- --kalp             # yalnızca kalp atışı + karar (iş yapmaz)
+npm run dongu:gunluk -- --dilim=3000       # bu koşu için dilimi değiştir
+npm run dongu:gunluk -- --yayinla --push   # commit + push (panel ayarını geçersiz kılar)
 npm run dongu:gunluk -- --kuru             # yalnızca tara (veri/derleme yok)
 npm run dongu:gunluk -- --deneme           # hiçbir adımı koşma, planı yaz
+npm run dongu:gunluk -- --yerel            # panele hiç sorma, varsayılanlarla koş
 ```
 
-Her koşu `tools/rapor/gunluk-dongu.jsonl` **ve** `docs/gunluk/kayit.jsonl` dosyalarına birer satır
-yazar (süre + kapsam dağılımı); böylece "döngü gerçekten çalışıyor mu?" sorusunun yanıtı kayıtta
-durur. Tarama kesintiye dayanıklıdır — döngü yarıda kesilse bile bir sonraki koşu kaldığı yerden
-devam eder.
+Karar mantığı `tools/lib/dongu.mjs` içinde **saftır** ve ağsız test edilir
+(`tools/testler/dongu.test.mjs`): panel kapalıysa koşmaz; bugün başarıyla koştıysa tekrar koşmaz;
+başarısız koşudan sonra 3 saat bekler; makine gece kapalıydıysa gün içinde açıldığında koşuyu
+kaçırmaz (görev saatte bir uyandığı için). Koşu ayrıca `tools/rapor/gunluk-dongu.jsonl` ve
+`docs/gunluk/kayit.jsonl` dosyalarına birer satır yazar; tarama kesintiye dayanıklıdır.
+
+### Yönetici jetonu ve derleme ortamı (iki kere yaşanan tuzak)
+
+1. **Jeton:** döngü ve panel aynı `ADMIN_TOKEN`ı kullanır. Döngü jetonu sırayla `--token=`,
+   `GENESIS_ADMIN_TOKEN`/`ADMIN_TOKEN` ortam değişkeni ve kök **`.env`** dosyasından okur.
+   `api/.dev.vars` **kullanılmaz**: oradaki jeton yerel `wrangler dev` içindir, üretimdekiyle aynı
+   değildir ve sessizce `yetkisiz` hatası üretir (yaşandı).
+2. **Derleme ortamı:** döngü `npm run build` çağırır; `NEXT_PUBLIC_API` gibi değerler derleme anında
+   HTML'e gömülür. Bu değerler yoksa döngünün ürettiği site **hesapsız/API'siz** olur (bir kez
+   yaşandı: panel "API kapalı" gösterdi). Çözüm: CI ile aynı dört değişkeni kök `.env` dosyasına
+   yazmak — Next.js `.env`i kendiliğinden okur. Döngü bu iki değişkeni eksik görürse log'a ve panel
+   kaydına **UYARI** satırı koyar.
+
+### Paneli yerelde açma
+
+Panel statik bir sayfadır; yayına çıktıktan sonra `…/GenesisAnime/yonetim/` adresinden açılır.
+Push öncesi denemek için öneksiz bir derleme + basit sunucu yeterlidir:
+
+```bash
+BASE_PATH= npm run build      # .env'deki öneki ez (boş önek = kök göreli yollar)
+cd out && python -m http.server 8010
+# → http://127.0.0.1:8010/yonetim/  (jeton: üretimdeki ADMIN_TOKEN)
+```
+
+> Sunucu `out/` klasörünü tutarken döngünün derleme adımı `EBUSY: rmdir 'out'` ile düşebilir;
+> denemeyi bitirince sunucuyu kapat (§ Doğrulama). Döngü bir sonraki uyanışında `out/`'u zaten
+> yeniden üretir (önekiyle), yani bu geçici derleme kalıcı bir sapma bırakmaz.
 
 ### Neden GitHub Actions değil?
 
 `npm run veri` (`tools/export-data.mjs`) arşiv **SQLite** dosyasını okur ve bu dosya depoda tutulmaz
 ([ADR-0004](kararlar/ADR-0004-veri-dizini.md)); 316 bin kaynağın rozet durumu tam da bu adımda
-site verisine işlenir. CI bu adımı koşamaz, bu yüzden otomatik döngü **arşivin bulunduğu makinede**
-çalışır. CI'da koşan şey derleme + testtir (`yayinla.yml`): veriyi tazeleyemez, yalnızca doğrular.
-Gerçek "sunucuda yaşayan" bir tarama istenirse yol bellidir: sıra ve durum D1'e taşınır, tarama bir
-Worker cron tetikleyicisinde koşar ve site rozetleri API'den okur (henüz yapılmadı — `docs/10`).
+site verisine işlenir. CI bu adımı koşamaz, bu yüzden iş **arşivin bulunduğu makinede** koşar.
+CI'da koşan şey derleme + testtir (`yayinla.yml`): veriyi tazeleyemez, yalnızca doğrular.
+Gerçek "sunucuda yaşayan" bir tarama istenirse yol bellidir: kaynak sırası ve durum D1'e taşınır,
+tarama bir Worker cron tetikleyicisinde koşar ve site rozetleri API'den okunur (henüz yapılmadı —
+`docs/10`). Bugünkü tasarım bunun yarısını zaten kurmuş durumda: **durum ve politika D1'de**, iş
+ise yerelde.
 
 ### Zamanlayıcı kurulumu
 
-Windows (her gece 04:00, kullanıcı oturumu açıkken):
+Görev **saatte bir** uyanır; "günde bir" kuralını döngü uygular. Böylece makine gece kapalıysa koşu
+kaçmaz, gün içinde açıldığı anda yapılır.
 
 ```bat
-schtasks /Create /TN "GenesisAnime gunluk dongu" /SC DAILY /ST 04:00 ^
-  /TR "cmd /c cd /d C:\yol\site\genesisanime && npm run dongu:gunluk -- --yayinla --push"
+MSYS_NO_PATHCONV=1 schtasks /Create /TN "GenesisAnime gunluk dongu" /SC HOURLY /MO 1 ^
+  /TR "\"C:\yol\site\genesisanime\tools\dongu.cmd\"" /F
 ```
+
+> Git Bash'te `MSYS_NO_PATHCONV=1` şart: aksi hâlde `/Create` argümanı
+> `C:/Program Files/Git/Create` yoluna çevrilir ve görev oluşmaz.
+
+Durum kontrolü ve elle tetikleme:
+
+```bat
+schtasks /Query /TN "GenesisAnime gunluk dongu" /FO LIST /V
+schtasks /Run   /TN "GenesisAnime gunluk dongu"
+```
+
+Günlük çıktı `tools/rapor/gunluk-dongu.log` dosyasındadır (sarmalayıcı oraya yönlendirir);
+sonuç ve adım özeti ayrıca panelde görünür. **Bu makinede kuruldu ve doğrulandı (01.10.2026):**
+hemen çalıştır → 250 kaynak tarandı → veri + derleme + yayın hazırlığı → koşu panelde göründü
+(`ok`, 112 sn, kapsam `ok 173.030 · ölü 301 · engelli 34 · belirsiz 12.861`), kalp atışı yazıldı;
+görev "Next Run Time" ile saatlik duruyor.
+
+Zamanlayıcının **kendi zamanlamasıyla** çalıştığı da ayrıca sınandı (elle `/Run` olmadan): bir
+kerelik bir sınama görevi kuruldu, saat gelince kendiliğinden açıldı ve silindi. Günlükte
+`[18:11:01] dongu basladi` → `panel: dilim 1500 · saat 4 · açık` → `karar: bugün zaten koştu` →
+`iş yapılmadı (bugun-kostu)` satırları, panelde ise kalp atışının `18:11:02`ye ilerlediği görüldü
+(`son_karar: bugun-kostu`). Yani hem uyandırma hem karar hem kalp atışı yolu insan eli değmeden
+çalışıyor. **Dürüst sınır:** "gece boyunca koştu" iddiası ancak birkaç ardıl günün koşu kaydıyla
+kanıtlanır; bugünkü kanıt uyandırma + karar + kayıt zincirinin tamamının kurulu olduğudur.
 
 macOS / Linux (`crontab -e`):
 

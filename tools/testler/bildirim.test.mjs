@@ -44,6 +44,8 @@ import {
   parolaOzetle,
   sabitSureliEsit,
   slugGecerli,
+  taramaAyarNormalize,
+  taramaKosuNormalize,
   urlGecerli,
   yolCoz,
 } from '../../api/src/yardimci.mjs';
@@ -183,9 +185,69 @@ test('yolCoz: uçlar ve yöntem denetimi', () => {
   assert.equal(yolCoz('/me/veri', 'GET').islem, 'me-veri');
   assert.equal(yolCoz('/me', 'DELETE').islem, 'me-sil');
 
+  assert.equal(yolCoz('/tarama/ayar', 'GET').islem, 'tarama-ayar');
+  assert.equal(yolCoz('/tarama/ayar', 'PUT').islem, 'tarama-ayar-yaz');
+  assert.equal(yolCoz('/tarama/durum', 'GET').islem, 'tarama-durum');
+  assert.equal(yolCoz('/tarama/kosu', 'POST').islem, 'tarama-kosu');
+  assert.equal(yolCoz('/tarama/kalp', 'POST').islem, 'tarama-kalp');
+
   assert.equal(yolCoz('/bildirim', 'DELETE').islem, 'yontem-yok');
   assert.equal(yolCoz('/me/durum', 'POST').islem, 'yontem-yok');
+  assert.equal(yolCoz('/tarama/ayar', 'POST').islem, 'yontem-yok');
+  assert.equal(yolCoz('/tarama/kosu', 'GET').islem, 'yontem-yok');
   assert.equal(yolCoz('/yok', 'GET').islem, 'yok');
+});
+
+/* ================================================================ */
+/* 3b · Panel ayarları — güvenli aralığa indirme                     */
+/* ================================================================ */
+
+// Panelden gelen bozuk/aşırı uç değerler döngüyü düşürmemeli: varsayılana dönmeli
+// ya da sınıra kırpılmalı. Aksi hâlde "yanlış sayı girdim, gece 300 bin URL tarandı"
+// gibi pahalı ya da tam tersi işe yaramaz bir koşu doğar.
+test('taramaAyarNormalize: eksik alan varsayılana döner', () => {
+  assert.deepEqual(taramaAyarNormalize(undefined), {
+    aktif: 1,
+    dilim: 1500,
+    saat: 4,
+    yayinla: 0,
+    push: 0,
+    hemen: 0,
+  });
+  assert.deepEqual(taramaAyarNormalize({}), taramaAyarNormalize(null));
+});
+
+test('taramaAyarNormalize: sınır dışı değerler kırpılır, bayraklar 0/1 olur', () => {
+  const ayar = taramaAyarNormalize({ aktif: '0', dilim: 999999, saat: 42, yayinla: true, push: 1, hemen: 'evet' });
+  assert.equal(ayar.aktif, 0, '"0" pasif olmalı');
+  assert.equal(ayar.dilim, 20000, 'dilim üst sınıra kırpılmalı');
+  assert.equal(ayar.saat, 23, 'saat 0-23 aralığına girmeli');
+  assert.equal(ayar.yayinla, 1);
+  assert.equal(ayar.push, 1);
+  assert.equal(ayar.hemen, 0, 'tanınmayan bayrak değeri 0 sayılmalı');
+  assert.equal(taramaAyarNormalize({ dilim: 3 }).dilim, 25, 'dilim alt sınıra çekilmeli');
+  assert.equal(taramaAyarNormalize({ dilim: 1500.7 }).dilim, 1501, 'ondalık yuvarlanmalı');
+});
+
+test('taramaKosuNormalize: metin alanları budanır, sonuç yalnızca ok/hata', () => {
+  const kayit = taramaKosuNormalize({
+    makine: '  masaustu-naton  ',
+    dilim: 200,
+    sure_sn: 61.4,
+    sonuc: 'basarisiz',
+    kapsam: 'dağılım ok 173027 · ölü 301',
+    not_metni: 'x'.repeat(9000),
+  });
+  assert.equal(kayit.makine, 'masaustu-naton');
+  assert.equal(kayit.dilim, 200);
+  assert.equal(kayit.sure_sn, 61);
+  // Yalnızca tam "hata" başarısızlık sayılır: döngü zaten bu iki değerden birini gönderir,
+  // tanınmayan bir değer yüzünden "başarısız" görünüp gereksiz alarm üretmesin.
+  assert.equal(kayit.sonuc, 'ok', 'tanınmayan sonuç ok sayılır');
+  assert.equal(taramaKosuNormalize({ sonuc: 'hata' }).sonuc, 'hata');
+  assert.equal(kayit.not_metni.length, 4000, 'log kuyruğu sınırlanmalı');
+  assert.equal(taramaKosuNormalize({}).makine, 'bilinmiyor');
+  assert.equal(taramaKosuNormalize({ sonuc: 'ok' }).sonuc, 'ok');
 });
 
 /* ================================================================ */

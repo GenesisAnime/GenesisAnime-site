@@ -6,10 +6,10 @@
 
 | Kontrol | Komut | Beklenen |
 |---|---|---|
-| Birim testleri | `npm test` | 81/81 geçer (~15 sn; ağ/DB yok) |
+| Birim testleri | `npm test` | 92/92 geçer (~14 sn; ağ/DB yok) |
 | Tip denetimi | `npm run typecheck` | 0 hata |
 | Derleme | `npm run build` | `✓ Compiled successfully`, 7.442 statik sayfa |
-| Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.043 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
+| Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.046 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
 | Veri hattı | `npm run veri` | 6.107 anime dosyası, çıktı sayıları DB ile uyuşur |
 | Tarayıcı duman testi | elle / önizleme paneli | Konsolda hata yok, akış tamamlanır |
 | API uçtan uca | `api && npx wrangler dev` + `npm run api:test` | 45 adım geçer (isteğe bağlı `--oran` ile 46; yerel D1 + gerçek HTTP; yönetici jetonuyla) |
@@ -258,7 +258,7 @@ rozet “yanlış” değil “doğrulanamadı” sayılır ve koşu raporunda s
 küme denetimleri tam çalışır. `npm test` CI'da derlemeden **sonra** koşar
 (`.github/workflows/yayinla.yml`), böylece yayınlanacak artefakt denetlenir.
 
-**`bildirim.test.mjs`** (21) bildirim hattını sınar: kuyruk süzgeçleri (geçersiz/yaşlı/tekrar),
+**`bildirim.test.mjs`** (24) bildirim + yönetici hattını sınar: kuyruk süzgeçleri (geçersiz/yaşlı/tekrar),
 URL–host doğrulaması (IP, localhost, `.local` ve tek etiketli adlar reddedilir), host'un URL'den
 türetilmesi, `yolCoz` yönlendirme tablosu, PBKDF2 gidiş-dönüşü ve hatalı parola reddi, sabit süreli
 karşılaştırma, IP tuzlama (ham IP saklanmaz), CORS denetimi, admin jetonu, oran penceresi ve
@@ -267,6 +267,12 @@ modülü handler dışında değer dışa aktaramaz (workerd sözleşmesi), blob
 gölgelememeli ve PBKDF2 iterasyon sayısı platform tavanını aşmamalı (tavan üstü kayıt doğrulamada
 hata fırlatmadan reddedilir). H-21 regresyonu: 10 paralel istekte oran sınırı **tam olarak** sınır
 kadarını geçirmeli (atomiğin `meta.changes` kararı sahte D1'de taklit edilir).
+
+**`dongu.test.mjs`** (8) günlük döngü kararını sınar (ağsız, panel yok): gün anahtarının **yerel**
+(açık saat dilimi) hesaplanması ve gece yarısı sınırı, panel kapalıyken koşmama, ayarlanan saat
+gelmeden koşmama, aynı gün ikinci kez koşmama, başarısız koşudan sonra 3 saat bekleme,
+`hemen`/`--zorla` bayraklarının kararı ezmesi, panel ayarı okunamazsa güvenli (koşmayan) davranış
+ve karar metninin kararlı olması. Ret veren her dal için girdi sentetik olarak kurulur.
 
 **`hesap.test.mjs`** (7) yerel/sunucu birleştirmesini sınar: “en yeni kazanır” (ilerleme,
 izlenen, liste), eşit zamanda yerel üstünlüğü, tercihlerde yerel kazanması, çalışmayanlar
@@ -280,7 +286,8 @@ desteklenmiyorsa test atlanır), `jsonLdGuvenli` kaçışı ve JSON anlamının 
 yapısal denetim: sunucu bileşenlerinde `new Date(…).toLocale*` bulunmamalı, iframe izin listeleri
 `fullscreen` içermeli ve `allowFullScreen` kullanılmamalı.
 
-Ölçüm: **81 test / 81 geçti**, yerelde ~15 sn (son ölçüm; soğuk disk önbelleğinde böyle — out verisi
+Ölçüm: **92 test / 92 geçti**, yerelde ~14 sn (son ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
+veri 8 · döngü 8 · çıktı 7 · hesap 7 · biçim 6; soğuk disk önbelleğinde böyle — out verisi
 ~1,4 sn + html/txt taraması ~2,9 sn + veri taraması ~1,9 sn, kalanı 6 bin anime/961 seri dosyası;
 sıcakta ~7 sn); CI simülasyonunda (arşiv sağlık dosyası yokken)
 aynı sonuç — 941 rozet “doğrulanamadı” olarak raporlanır. Testlerin gerçekten hata yakaladığı üç yoldan ölçüldü:
