@@ -14,6 +14,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${kok}/seriler/`, lastModified: uretim, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${kok}/fansublar/`, lastModified: uretim, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${kok}/kunye/`, lastModified: uretim, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${kok}/api-dokumani/`, lastModified: uretim, changeFrequency: 'monthly', priority: 0.4 },
   ];
 
   const animeler: MetadataRoute.Sitemap = tumSluglar().map((slug) => ({

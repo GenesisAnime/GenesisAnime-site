@@ -40,6 +40,10 @@ export default function AltBilgi({ kunye }: { kunye: Kunye }) {
 
           <div>
             <h4>Bilgi</h4>
+            <Link href="/api-dokumani/">API dokümantasyonu</Link>
+            <a href={SITE.wiki} target="_blank" rel="noreferrer noopener">
+              Wiki
+            </a>
             <a href={SITE.depo} target="_blank" rel="noreferrer noopener">
               Kaynak kodu
             </a>

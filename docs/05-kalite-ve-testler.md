@@ -6,7 +6,7 @@
 
 | Kontrol | Komut | Beklenen |
 |---|---|---|
-| Birim testleri | `npm test` | 106/106 geçer (~11 sn; ağ/DB yok) |
+| Birim testleri | `npm test` | 119/119 geçer (~12 sn; ağ/DB yok) |
 | Tip denetimi | `npm run typecheck` | 0 hata |
 | Derleme | `npm run build` | `✓ Compiled successfully`, 7.442 statik sayfa |
 | Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.046 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
@@ -283,6 +283,14 @@ edilmemesi** (gerçek hata gizlenmez) ve `out/` sökümünün kilit dışı hata
 Sahte `fs` + sahte `bekle` kullanılır; testler ne diske ne saate dokunur (gerçek kilitli klasörle
 ölçüm H-27'de).
 
+**`tmdb.test.mjs`** (10) 4K banner hazırlığının saf kısmını sınar (ağ yok): AniList kimliğinin üç CDN
+şemasından çıkarılması (`banner/123-hash`, `banner/n6682-hash`, `cover/large/bx1-hash`; bu dosya
+ilk koşuda `n` önekli şemayı yakaladı ve kimlik ayrıştırıcısı düzeltildi), TMDB
+eşleme alanının dizi/film ayrımıyla okunması ve bozuk alanın “eşleşme yok” sayılması, backdrop CDN
+adresinin kurulması, **en geniş** backdrop'un seçilip 4K eşiğinin altının `yeterli:false`
+işaretlenmesi ve kırpım matematiği (`kirpimOrani`: 16:9 kaynak 7,8:1 bantta dikey eksenin yalnızca
+%23'ünü korur, hero bandında %82'sini — yani “4K'ya geçince görsel değişir” iddiası ölçülür).
+
 **`hesap.test.mjs`** (7) yerel/sunucu birleştirmesini sınar: “en yeni kazanır” (ilerleme,
 izlenen, liste), eşit zamanda yerel üstünlüğü, tercihlerde yerel kazanması, çalışmayanlar
 birleşimi + 500 sınırı, boş sunucu kopyasının yerel veriyi silmemesi.
@@ -295,8 +303,8 @@ desteklenmiyorsa test atlanır), `jsonLdGuvenli` kaçışı ve JSON anlamının 
 yapısal denetim: sunucu bileşenlerinde `new Date(…).toLocale*` bulunmamalı, iframe izin listeleri
 `fullscreen` içermeli ve `allowFullScreen` kullanılmamalı.
 
-Ölçüm: **106 test / 106 geçti**, yerelde ~11 sn (son ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
-derleme 14 · veri 8 · döngü 8 · çıktı 7 · hesap 7 · biçim 6; soğuk disk önbelleğinde böyle — out verisi
+Ölçüm: **119 test / 119 geçti**, yerelde ~12 sn (son ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
+derleme 14 · tmdb 10 · veri 8 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
 ~1,4 sn + html/txt taraması ~2,9 sn + veri taraması ~1,9 sn, kalanı 6 bin anime/961 seri dosyası;
 sıcakta ~7 sn); CI simülasyonunda (arşiv sağlık dosyası yokken)
 aynı sonuç — 941 rozet “doğrulanamadı” olarak raporlanır. Testlerin gerçekten hata yakaladığı üç yoldan ölçüldü:
@@ -447,6 +455,13 @@ söküm 3 denemede `ok:false` döndü ve `kilit:true` işaretlendi; kilit kalkı
 ve klasör gerçekten silindi (≈6 sn bekleme). Dikkat çeken ayrıntı: Windows bu senaryoda `EBUSY`
 değil **`EPERM, Permission denied`** verdi — algılama bu yüzden tek bir koda değil, kilit sınıfına
 bakıyor. Ayrıntı: `tools/lib/derleme.mjs`, testler `tools/testler/derleme.test.mjs` (14).
+
+**`api-dokumani.test.mjs`** (3) yayınlanan API belgesinin koddan kopmadığını sınar (ağ yok):
+`src/app/api-dokumani/page.tsx` içindeki her `YÖNTEM /yol` satırı gerçekten yönlendiriliyor mu
+(`yolCoz` → “yok”/“yontem-yok” çıkarsa test düşer), belge ile `api/src/index.mjs` başlık yorumundaki
+kanonik uç listesi **birebir** aynı mı (üç kaynak: belge ↔ yorum ↔ yönlendirici), ve belgede zorunlu
+başlıklar (`Bearer`, `ADMIN_TOKEN`, `CORS`, `429`, `409`) yazılı mı. Böylece yeni bir uç eklenip
+belge unutulursa CI uyarır — belge ayrı bir doğruluk kaynağı olarak yaşlanamaz.
 
 ### Link tarama testleri
 

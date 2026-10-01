@@ -11,4 +11,5 @@ export const SITE = {
   dil: 'tr',
   iletisim: 'https://github.com/Nutaliaxd',
   depo: 'https://github.com/Nutaliaxd/GenesisAnime',
+  wiki: 'https://github.com/Nutaliaxd/GenesisAnime/wiki',
 } as const;

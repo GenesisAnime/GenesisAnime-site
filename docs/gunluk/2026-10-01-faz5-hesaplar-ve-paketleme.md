@@ -313,8 +313,82 @@ değmeden koşuyor; tam bir iş koşusu (veri + derleme) zaten yukarıda uçtan 
   kilit sürerken söküm 3 denemede `ok:false`/`kilit:true`,
   kilit kalkınca 6. denemede `ok:true` ve klasör gerçekten silindi (≈6 sn). Windows bu senaryoda
   `EBUSY` değil **`EPERM, Permission denied`** verdi — algılama bu yüzden tek koda değil kilit sınıfına
-  bakıyor. Yeni toplam: **106/106**.
+  bakıyor. Yeni toplam: **106/106** (sonraki turlarda 119/119 — §15 ve §16).
 - **Kalan:** döngünün birkaç günlük doğal gözlemi (zamanlayıcı kurulu ve elle koşuyor; "gece
   boyunca" iddiası ancak birkaç ardıl koşudan sonra kanıtlanır), yayın boyutunu küçültme ve
   analytics/dağıtım kararı (kullanıcıda).
+
+## 15. 4K banner hazırlığı — kaynak ölçümü ve TMDB eşlemesi (anahtar bekliyor)
+
+İstek: “öne çıkanlarda ve anime sayfalarında kullanılan banner'ların 4K hâlleriyle değiştirilebilmesi”.
+
+**Kaynak ölçümü (önce kanıt, sonra karar):**
+
+- Banner kaynağı AniList `bannerImage`; 6.107 animenin 4.075'inde var (%66,7). 21 banner'lık örneklemde
+  **en geniş 1900 px** (çoğu 1900×400; 1900 üstü: 0). Hero havuzunun 24 görseli: 22'si tam 1900 px,
+  biri 1808, biri 1113 · ortalama 183 KB · havuzun tamamı 4,4 MB.
+- AniList CDN'de büyük varyant **yok**: `banner/large|extraLarge|original/…` → 404, `-original.jpg` →
+  404, `?w=3840` yok sayılıyor (aynı 1900×399).
+- Anahtarsız alternatif Kitsu denendi ve **elendi**: 15 başlıkta 8 kez AniList'ten dar, 4 kez hiç yok,
+  1 kez geniş (o da portre oranlı 9087×6066).
+- Geometri: hero 74vh (≈2,2–2,4:1) → 4K ekranda ~3840 px ister, elimizdeki 1900 px 2× büyütülüyor;
+  anime sayfası banner'ı 190 px yüksekliğinde bir bant (≤1480 px genişlik), DPR 1'de sınırda yeterli.
+- AniList `externalLinks` içinde TMDB bağlantısı **yok** (183 kayıtta 0; site adları Official Site,
+  Twitter, Crunchyroll, Netflix…). Yani eşleme ayrı bir iş.
+
+**Eşleme (anahtarsız, yapıldı):** `tools/tmdb-esle.mjs` + `tools/lib/tmdb.mjs`; banner URL'i AniList
+kimliğini taşıdığı için `anime-list` (Fribb) veri kümesiyle `anilist_id → themoviedb_id` eşlenir.
+Ölçüm: 4.073/4.075 banner'lı anime eşleşti, **3.724'ünde (%91,4) TMDB kimliği var** (dizi 3.353 ·
+film 371); çıktı `tools/cache/tmdb.json` (246 KB, gitignore'da — yeniden üretilebilir). Hero havuzu:
+**23/24 eşleşti** (tek eksik: `one-piece-fan-letter`). Saf kısım 10 testle sınandı
+(`tools/testler/tmdb.test.mjs`), kapı **116/116**.
+
+**Test bir gerçek hatayı yakaladı:** ilk ölçümde hero 22/24 görünüyordu; sebebi kimlik ayrıştırıcısının
+AniList'in `n` önekli eski şema­sını (`banner/n6682-…`) tanımamasıydı — Steins;Gate bu yüzden “TMDB'de
+yok” sanılıyordu, oysa eşleme `tv 42509` veriyor. `anilistKimligiCikar` düzeltildi, test bunu kalıcı
+olarak koruyor. (TMDB kimliği kapsamı bu düzeltmeyle 3.724'e çıktı.)
+
+**Kırpım uyarısı (sayıya çevrildi):** TMDB görselleri 16:9; anime sayfası bandı 7,8:1 → dikey eksenin
+%23'ü görünür (AniList banner'ı 4,75:1 olduğu için %61'ini korur). Hero bandı 2,16:1 → %82 korunur.
+Yani “4K” gerçekten daha keskin olur ama **kırpım değişir**; anime sayfası bandı ya kalınlaştırılmalı
+(ör. 190 px → 280 px) ya da o sayfalarda AniList banner'ı korunmalı.
+
+**Araçlar hazır:** `tools/tmdb-zenginlestir.mjs` (`npm run tmdb:zenginlestir`) — anahtarı `TMDB_ANAHTAR`
+ortam değişkeninden ya da kök `.env`den okur (v3 anahtar → `?api_key=`, v4 JWT → `Bearer`), kayıtları
+artımlı çeker, 429'da bekler ve `/images` yanıtından **en geniş** backdrop'u seçip
+`tools/cache/tmdb-backdrop.json`e yazar. Öne çıkanlar **önce** çekilir ve her 250 kayıtta dosya
+kaydedilir — uzun koşu yarıda kesilirse biriken iş kaybolmaz, sonraki koşu kaldığı yerden devam eder. `--sadece-hero` (24 istek), `--limit=`, `--yenile` ve `--kuru`
+(anahtarsız denetim: “23 kayıt çekilecekti, istek atılmadı”) sınandı; anahtarsız koşuda anlaşılır bir
+talimat verip çıkıyor.
+
+**Bekleyen (kullanıcıda):** ücretsiz TMDB API anahtarı. Ardından veri alanı
+(`banner4k`), atıf satırı (TMDB “onaylamaz” ibaresi) ve derleme/veri testleri gelecek. TMDB kapsamı
+dışındaki ~%9 için AniList banner'ı yedek olarak kalır.
+
+## 16. API belgesi sitede + GitHub Wiki
+
+İstek: “bu GitHub sitesine API için bir doküman yayınla; hatta API gibi önemli şeyler için wiki aç”.
+
+- **Siteye sayfa:** `src/app/api-dokumani/` — uç tabloları (genel · hesap/senkron · yönetici), jeton
+  türleri (Bearer / `ADMIN_TOKEN`), CORS politikası, oran sınırları, `curl` örnekleri, durum kodları
+  (`hata` değerleriyle) ve gizlilik özeti. Altbilgiye ve `sitemap.xml`'e bağlandı (`priority 0.4`);
+  `SITE.wiki` sabiti eklendi.
+- **Belge koddan kopmasın:** `tools/testler/api-dokumani.test.mjs` (3 test) üç kaynağı karşılaştırır —
+  yayınlanan sayfa ↔ `api/src/index.mjs` başlık yorumundaki kanonik uç listesi ↔ `yolCoz`
+  yönlendiricisi. Belgede olmayan bir uç eklenirse ya da belgede hayalet bir uç yazılırsa test düşer.
+  İlk koşuda iki gerçek hata yakaladı (JSX etiketinin yola yapışması; `n` önekli AniList şeması).
+  Ölçüm: sayfa derlendi — `out/api-dokumani/index.html` (87 KB) + `.txt` (54 KB); kapı **119/119**,
+  `tsc` 0 hata.
+- **GitHub Pages etkinleştirildi:** `gh api -X POST …/pages -f build_type=workflow` → `html_url`
+  `https://nutaliaxd.github.io/GenesisAnime/`, `https_enforced: true`. Bundan önce Pages ucu 404
+  dönüyordu, yani derleme yapılıyor ama yayınlanamıyordu.
+- **Wiki:** `has_wiki=true` yapıldı (gh api) ve wiki içeriği depoda sürümlenmek üzere `docs/wiki/`
+  altında hazırlandı: `Home`, `API`, `Kurulum`, `Veri-Hatti`, `Yayin`, `Katki`, `_Sidebar`
+  (kısa özet + `docs/` bağlantıları; “çelişkide `docs/` kazanır” notuyla).
+- **Dürüst sınır (yaşandı):** GitHub, wiki deposunu yalnızca **web arayüzünden ilk sayfa
+  oluşturulunca** yaratıyor. `git clone …/GenesisAnime.wiki.git` ve REST API (`/repos/…/pages`
+  dışında) bu adımı yapamadı: klon `Repository not found`, `.wiki` deposu API'de 404. Bu yüzden ilk
+  sayfa kullanıcının tek tıklamasını bekliyor; sonrasında `docs/wiki/*.md` dosyalarının tamamı tek
+  `git push` ile wiki deposuna gidecek. (Ders: wiki “API ile açılır” diye varsayılmamalı; GitHub'da
+  ilk sayfa hâlâ elle atılıyor.)
 
