@@ -13,7 +13,7 @@
 | 4 | Statik export + GitHub Actions yayın yapılandırması | ✅ | [06](06-yayin-ve-deploy.md) |
 | 7 | Link sağlığı tarayıcısı (`tools/link-tara.mjs`) + ağsız birim, veri ve çıktı bütünlüğü testleri (74 test); altı oturumda kapsam %1,38 → **%58,72** (ölçülebilir havuz tükendi) | ✅ (sibnet ve bot duvarlı host'lar hariç) | [09](09-link-sagligi-otomasyonu.md) · [30.09](gunluk/2026-09-30-faz7-link-taramasi.md) · [01.10-a](gunluk/2026-10-01-faz7-link-taramasi-2.md) · [01.10-b](gunluk/2026-10-01-faz7-link-taramasi-3.md) · [01.10-c](gunluk/2026-10-01-faz7-link-taramasi-4.md) · [01.10-d](gunluk/2026-10-01-faz7-link-taramasi-5.md) |
 | 8 | Paketleme turu A/D: OG kartı, PWA, hero fragmanı, rastgele bölüm, 404 zenginleştirme, seri (franchise) ve fansub sayfaları | ✅ | [03](03-tasarim-sistemi.md) · [02](02-veri-pipeline.md) |
-| 5 | Hesaplar, senkron ve bildirim hattı (Worker + D1 kodu, istemci, testler) | ✅ kod + yerel test · ✅ **canlı dağıtım (01.10.2026)** — uzak `api:test` 45/45, site API adresiyle derlendi; kalan: yayına push | [11](11-hesaplar-uygulama.md) · [06](06-yayin-ve-deploy.md) · [ADR-0008](kararlar/ADR-0008-workers-parola-ve-jeton.md) |
+| 5 | Hesaplar, senkron ve bildirim hattı (Worker + D1 kodu, istemci, testler) | ✅ kod + yerel test · ✅ **canlı dağıtım (01.10.2026)** — uzak `api:test` 46/46, site API adresiyle derlendi; kalan: yayına push | [11](11-hesaplar-uygulama.md) · [06](06-yayin-ve-deploy.md) · [ADR-0008](kararlar/ADR-0008-workers-parola-ve-jeton.md) |
 
 ## Sıradaki işler
 
@@ -33,7 +33,7 @@
 - ✅ Kod tamam: `api/` Worker (bildirim + kimlik + senkron + KVKK), istemci kuyruğu,
   yerel-önce birleştirme, `/hesap/` arayüzü. Ayrıntı: [11](11-hesaplar-uygulama.md).
 - ✅ **Canlı dağıtım (01.10.2026):** <https://genesisanime-api.genesisanime.workers.dev> · D1
-  `genesisanime` (WEUR) · secret'lar girildi · uzak `npm run api:test` **45/45** · site
+  `genesisanime` (WEUR) · secret'lar girildi · uzak `npm run api:test` **46/46** (`--oran` dahil) · site
   `NEXT_PUBLIC_API` + `NEXT_PUBLIC_BILDIRIM_API` ile derlendi, tarayıcıda uzak API'ye karşı
   kayıt → senkron → bildirim → KVKK silme sınandı. Ayrıca ilk dağıtımda yalnızca üretimde görünen
   bir hata bulundu ve düzeltildi: PBKDF2 iterasyon tavanı (H-20). Kurulum komutları, hesap

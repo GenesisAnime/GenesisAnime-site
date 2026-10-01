@@ -1,7 +1,7 @@
 # 11 · Hesaplar, senkron ve bildirim hattı (uygulama notu)
 
 > Durum: **kod tamam, gerçek Cloudflare hesabına dağıtıldı** (01.10.2026) ve uzak adrese karşı
-> 45/45 doğrulandı: `https://genesisanime-api.genesisanime.workers.dev`. Site hesap servisi olmadan
+> 46/46 doğrulandı: `https://genesisanime-api.genesisanime.workers.dev`. Site hesap servisi olmadan
 > da eksiksiz çalışır (`NEXT_PUBLIC_API` boşken hiçbir istek atılmaz).
 > Tasarım gerekçeleri: [07-hesaplar-ve-api.md](07-hesaplar-ve-api.md).
 > Parola/jeton kararı: [ADR-0008](kararlar/ADR-0008-workers-parola-ve-jeton.md).

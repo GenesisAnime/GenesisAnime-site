@@ -6,9 +6,9 @@
 
 | Kapı | Komut | Beklenen |
 |---|---|---|
-| Birim testleri | `npm test` | 74/74 geçer (~15 sn; ağ/DB yok) |
+| Birim testleri | `npm test` | 81/81 geçer (~15 sn; ağ/DB yok) |
 | Tip denetimi | `npm run typecheck` | 0 hata |
-| Derleme | `npm run build` | `✓ Compiled successfully`, 7.446 statik sayfa |
+| Derleme | `npm run build` | `✓ Compiled successfully`, 7.442 statik sayfa |
 | Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.043 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
 | Veri hattı | `npm run veri` | 6.107 anime dosyası, çıktı sayıları DB ile uyuşur |
 | Tarayıcı duman testi | elle / önizleme paneli | Konsolda hata yok, akış tamamlanır |
@@ -202,8 +202,8 @@ görünüyordu. Düğme artık `sonrakiVar` durumuna göre birincil/ikincil stil
 
 ### Birim ve veri bütünlüğü testleri (`npm test`)
 
-`tools/testler/` altındaki üç dosya Node'un yerleşik `node:test` koşucusuyla çalışır — **ek
-bağımlılık yoktur**; üçü de ağsızdır ve SQLite'a dokunmaz.
+`tools/testler/` altındaki altı dosya Node'un yerleşik `node:test` koşucusuyla çalışır — **ek
+bağımlılık yoktur**; hepsi ağsızdır ve SQLite'a dokunmaz.
 
 **`tarama.test.mjs`** link tarayıcısının saf mantığını sınar: tüm HTTP yanıtları sentetik
 kurulur, kararlar doğrudan fonksiyon çağrısıyla doğrulanır.
@@ -258,20 +258,29 @@ rozet “yanlış” değil “doğrulanamadı” sayılır ve koşu raporunda s
 küme denetimleri tam çalışır. `npm test` CI'da derlemeden **sonra** koşar
 (`.github/workflows/yayinla.yml`), böylece yayınlanacak artefakt denetlenir.
 
-**`bildirim.test.mjs`** (20) bildirim hattını sınar: kuyruk süzgeçleri (geçersiz/yaşlı/tekrar),
+**`bildirim.test.mjs`** (21) bildirim hattını sınar: kuyruk süzgeçleri (geçersiz/yaşlı/tekrar),
 URL–host doğrulaması (IP, localhost, `.local` ve tek etiketli adlar reddedilir), host'un URL'den
 türetilmesi, `yolCoz` yönlendirme tablosu, PBKDF2 gidiş-dönüşü ve hatalı parola reddi, sabit süreli
 karşılaştırma, IP tuzlama (ham IP saklanmaz), CORS kapısı, admin jetonu, oran penceresi ve
 24 saat tekilleştirme (sentetik sahte D1 ile; ağ yok). H-18/H-19/H-20 regresyonları: Worker giriş
 modülü handler dışında değer dışa aktaramaz (workerd sözleşmesi), blob taşıma sınırı blob sınırını
 gölgelememeli ve PBKDF2 iterasyon sayısı platform tavanını aşmamalı (tavan üstü kayıt doğrulamada
-hata fırlatmadan reddedilir).
+hata fırlatmadan reddedilir). H-21 regresyonu: 10 paralel istekte oran sınırı **tam olarak** sınır
+kadarını geçirmeli (atomiğin `meta.changes` kararı sahte D1'de taklit edilir).
 
 **`hesap.test.mjs`** (7) yerel/sunucu birleştirmesini sınar: “en yeni kazanır” (ilerleme,
 izlenen, liste), eşit zamanda yerel üstünlüğü, tercihlerde yerel kazanması, çalışmayanlar
 birleşimi + 500 sınırı, boş sunucu kopyasının yerel veriyi silmemesi.
 
-Ölçüm: **74 test / 74 geçti**, yerelde ~15 sn (son ölçüm; soğuk disk önbelleğinde böyle — out verisi
+**`bicim.test.mjs`** (6) biçimlendirme ve gömme kurallarını sınar: `damgaBicim` sabit biçim ve UTC
+etiketi, **saat dilimi bağımsızlığı** (aynı yardımcı `TZ=UTC`, `America/Los_Angeles`,
+`Pacific/Kiritimati` altında ayrı süreçlerde birebir aynı metni üretmeli — dosya doğrudan
+`src/lib/bicim.ts` içe aktarılır, bu Node ≥ 22.18'in TypeScript şerit açmasını gerektirir ve
+desteklenmiyorsa test atlanır), `jsonLdGuvenli` kaçışı ve JSON anlamının korunması, ayrıca iki
+yapısal denetim: sunucu bileşenlerinde `new Date(…).toLocale*` bulunmamalı, iframe izin listeleri
+`fullscreen` içermeli ve `allowFullScreen` kullanılmamalı.
+
+Ölçüm: **81 test / 81 geçti**, yerelde ~15 sn (son ölçüm; soğuk disk önbelleğinde böyle — out verisi
 ~1,4 sn + html/txt taraması ~2,9 sn + veri taraması ~1,9 sn, kalanı 6 bin anime/961 seri dosyası;
 sıcakta ~7 sn); CI simülasyonunda (arşiv sağlık dosyası yokken)
 aynı sonuç — 941 rozet “doğrulanamadı” olarak raporlanır. Testlerin gerçekten hata yakaladığı üç yoldan ölçüldü:
@@ -343,6 +352,57 @@ yakalar. Ders: **platform sınırları yerel çalışma zamanında görünmeyebi
 test adımıdır.** Ölçüm: aynı istekte `cpuTime 28 ms`, `wallTime 265 ms`, `outcome ok` (bu değer
 ücretsiz planın 10 ms CPU bütçesinin üzerindedir; hesap Workers Paid tarafında olmalı).
 Ayrıntı: [06](06-yayin-ve-deploy.md), [11](11-hesaplar-uygulama.md), ADR-0008.
+
+### H-21 · Oran sınırı atomik değildi (eşzamanlı istekler sayacı atlatıyordu)
+
+`oranAsildi` penceresi önce `SELECT` ile okunuyor, sınır uygunsa ardından `UPDATE` ile artırılıyordu.
+İki adım arasında aynı anahtarla gelen paralel istekler aynı `sayi` değerini okuyup hepsi geçebiliyor:
+**sınır eşzamanlı yükte aşılıyordu** (klasik check-then-act yarış koşulu). Düzeltme tek atomik
+koşullu artırmaya çevrildi: pencere tazelenir (`INSERT … ON CONFLICT DO UPDATE`, pencere eşitse sayaç
+korunur), sonra `UPDATE oran SET sayi = sayi + 1 WHERE anahtar = ? AND pencere = ? AND sayi < ?`
+koşuluyla artırılır; `meta.changes === 0` ise sınır aşılmıştır ve istek reddedilir. Artık karar
+veritabanının kendi yazma kilidinde veriliyor.
+Regresyon testi 10 paralel istek gönderip **tam olarak** sınır kadarının geçtiğini çiviler. Negatif
+kontrol: eski algoritma izole edilip aynı 10 paralel istek verildiğinde engellenen = 0, sayaç = 1
+oldu — yani test eski kodu gerçekten yakalıyor. Üretimde `--oran` ile doğrulandı: 31 ardışık bildirim
+sonrası 429 `cok-fazla-istek` (`api:test` 46/46).
+
+### H-22 · iframe izin listesinde `fullscreen` yoktu (konsol uyarısı)
+
+Üç iframe hem `allow="…"` hem `allowFullScreen` (eski `allowfullscreen`) taşıyordu; `allow`
+dışında kalan `fullscreen` izni verilmediği için tarayıcı her gömmede
+`Allow attribute will take precedence over 'allowfullscreen'` uyarısını basıyordu (anime sayfasında
+5 kez). İzin listelerine `fullscreen` eklendi, eski öznitelik kaldırıldı. Doğrulama yalnızca uyarının
+kaybolması değil: `iframe.featurePolicy.allowsFeature('fullscreen')` tarayıcıda **true** dönüyor,
+yani tam ekran yetkisi gerçekten açık (kullanıcıya görünen davranış değişmiyor). Yapısal test
+`allowfullscreen` kalıntısını ve `fullscreen`'siz izin listesini yayın kapısında engeller.
+
+### H-23 · Derleme damgası yerel saat dilimine bağlıydı (CI ile yerel farklı HTML üretiyordu)
+
+Altbilgi ve künye sayfası `new Date(kunye.uretim).toLocaleDateString/toLocaleString('tr-TR')`
+kullanıyordu. Bu metin **derleme sırasında** üretilir: GitHub Actions UTC, geliştirici makinesi UTC+3
+olduğu için aynı kaynak koddan farklı HTML çıkıyor (aynı damga: `1 Ekim 2026` / `30 Eylül 2026`
+— ABD batı yakası için bir gün öncesi). Tekrarlanabilir derlemeyi bozan bu bağımlılık `damgaBicim`
+ile kaldırıldı: biçim `timeZone: 'UTC'` ile sabitleniyor ve çıktıya `(UTC)` eklenerek okurun yanlış
+yorumlaması engelleniyor. Test, aynı yardımcıyı ayrı Node süreçlerinde `TZ=UTC`,
+`America/Los_Angeles`, `Pacific/Kiritimati` ile çalıştırıp çıktının **birebir aynı** olduğunu
+çiviler; negatif kontrol eski kodun Los Angeles'ta `30 Eylül 2026` ürettiğini gösterdi.
+
+### H-24 · JSON-LD gövdesi kaçışsız gömülüyordu (latent XSS)
+
+Anime sayfası `dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}` kullanıyordu;
+`JSON.stringify` `<` karakterini kaçırmaz, yani veriye giren tek bir `</script>` alanı betik etiketini
+erken kapatıp sayfaya HTML enjekte edebilir. Bugünkü veride böyle bir dizi yok (bu yüzden olgu
+değil, **latent** risk), ancak arşiv dış kaynaklardan zenginleştiriliyor. `jsonLdGuvenli` eklendi:
+`<` karakteri `\u003c` olarak yazılır (JSON anlamı değişmez, tarayıcıda aynı değere çözülür ama
+betik etiketi kapanmaz). Test hem kaçışı hem `JSON.parse` sonrası değerin birebir korunduğunu
+denetler; kaynak kodda ham `JSON.stringify` ile gömmenin geri gelmesi de yayın kapısında engellenir.
+
+### H-25 · Ana sayfada `canonical` yoktu
+
+Diğer tüm sayfalarda `alternates.canonical` vardı (7.436/7.442), ana sayfada yoktu;
+`href="…/GenesisAnime/"` etiketi artık üretiliyor. Aynı adresin iki biçimi (`/index.html`,
+`?utm=…`) arama motorunda tek sayfaya toplanır ve kopya içerik riski kalkar.
 
 ### Link tarama testleri
 

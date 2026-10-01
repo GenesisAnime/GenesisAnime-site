@@ -177,3 +177,41 @@ Hakkında kısmını da yaz; README aktif olarak güncellenecek, proje %100 aç�
 - **Not:** `AGENTS.md` §3'e README'nin yaşayan belge kuralı, §5'e depo/origin bilgisi eklendi.
 - **Ölçüm:** `npm test` 74/74 · `yayinla.yml` YAML olarak ayrıştırıldı ve build adımında dört ortam
   değişkeni doğrulandı · commit 6.236 dosya / 229.221 satır (~55 MB).
+
+## 12. Detaylı kod taraması — push öncesi genel bugfix
+
+İstek: “Push yapmadan veya push yaptıktan sonra genel bir bugfix için güncel durumu kontrol et,
+kodlarını elden geçir.” Kapsam bilinçli olarak **detaylı** seçildi: yalnızca gözle bakmak değil,
+riskli desen araması + CI ile aynı `BASE_PATH` derlemesi üzerinde tarayıcı gezintisi + hata yolu
+denemeleri + negatif kontrollü regresyon testleri.
+
+- **Riskli desenlar (temiz):** `innerHTML`/`eval`/`new Function`/`document.write` 0 · `console.*` 0 ·
+  `any` 0 · TODO/FIXME 0 · 5 `target="_blank"` bağlantısının hepsinde `rel="noreferrer noopener"`.
+- **H-21 (oran sınırı yarışı):** `oranAsildi` SELECT+UPDATE iken eşzamanlı istekler sayacı
+  atlatıyordu; atomik koşullu artırmaya çevrildi (`UPDATE … WHERE anahtar=? AND pencere=? AND sayi<?`,
+  `meta.changes === 0` → sınır aşıldı). 10 paralel istekli regresyon testi eklendi; eski kod izole
+  edilip aynı yük verildiğinde engellenen = 0 çıktı (negatif kontrol: test eski kodu yakalıyor).
+- **H-22 (konsol uyarısı):** üç iframe `allow` + `allowFullScreen` birlikte kullandığı için tarayıcı
+  `Allow attribute will take precedence over 'allowfullscreen'` uyarısını basıyordu; `fullscreen`
+  izin listesine eklendi, eski öznitelik kaldırıldı. Tam ekran yetkisi `featurePolicy` ile
+  doğrulandı (`allowsFeature('fullscreen') === true`) ve yeni derlemede konsol **tamamen sessiz**.
+- **H-23 (saat dilimi):** altbilgi/künye damgası yerel saat dilimine bağlıydı (CI UTC, yerel UTC+3 →
+  farklı HTML). `damgaBicim` ile UTC'ye sabitlendi ve çıktıya `(UTC)` eklendi; üç saat diliminde
+  ayrı süreçlerde aynı metni ürettiği test edildi.
+- **H-24 (JSON-LD):** kaçışsız `JSON.stringify` yerine `jsonLdGuvenli` (`<` → `\u003c`); bugünkü
+  veride istismar edilecek dizi yok, bu yüzden olgu değil latent risk olarak kayda geçti.
+- **H-25 (ana sayfa canonical):** eksik olan `canonical` eklendi (diğer 7.436 sayfada vardı).
+- **Temiz çıkanlar:** arama sonucuna XSS payload'ı metin olarak basıldı (`window.__xss` çalışmadı) ·
+  CORS engeli hesap sayfasında nazik mesaja dönüşüyor · mobil 390×844'te yatay taşma yok · servis
+  çalışanı localhost'ta bilinçli atlanıyor, elle kaydedilince `sw.js` `/GenesisAnime/` önekiyle
+  çalışıyor · `out/404.html` öneriler + rastgele bölüm içeriyor · `robots` ara/izle/listem/404
+  `noindex`.
+- **Oran düzeltmesi üretime alındı:** Worker yeniden dağıtıldı
+  (`0f462b64-7238-4649-b4e6-67c74595e387`, önceki `19dd8c07`), uzak uçtan uca **46/46** —
+  `--oran` ile üretimde gerçekten 429 `cok-fazla-istek` görüldü (atomik karar gerçek D1'de de çalışıyor).
+- **Kapı:** `npm run typecheck` 0 hata · `npm test` **81/81** · derleme 7.442 sayfa ·
+  `npm run yayin:hazirla` 21.043 dosya / 865,2 MB (GitHub Pages uyumlu) · uzak `api:test`
+  **46/46** (1 atlandı → `--oran` ile 0 atlandı).
+- **Bekleyen:** push + GitHub Pages kaynağı (kullanıcıda); bildirim kuyruğu kalıcı 429/CORS'ta
+  yalnızca tıklama/`online` olayında deniyor (kalıcı hatada kullanıcıya dürüst bir durum metni
+  gösterilebilir); `tools/cache/link-durum.jsonl` 49,9 MB büyüdü (parçalama/sıkıştırma adayı).

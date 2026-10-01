@@ -47,8 +47,8 @@ modern ve kullanılabilir bir izleme sitesine dönüştürmek:
 | Fansub grubu | 363 | bölüm-ekip kayıtları (112.541 satır) |
 | Seri (franchise) grubu | 961 grup · 3.244 yapım | ilişki grafiği (union-find) |
 | AniList zenginleştirmesi | 5.809 yapım | AniList GraphQL |
-| Üretilen site | 858,1 MB · 21.043 dosya | `tools/rapor/yayin-raporu.md` (GitHub Pages uygun; CF Pages 20k sınırını aştı) |
-| Ön-render sayfa | 7.446 | `npm run build` |
+| Üretilen site | 865,2 MB · 21.043 dosya | `tools/rapor/yayin-raporu.md` (GitHub Pages uygun; CF Pages 20k sınırını aştı) |
+| Ön-render sayfa | 7.442 | `npm run build` |
 | İlk yükleme JS | 103–114 KB | build çıktısı |
 
 ## Dürüst sınırlar

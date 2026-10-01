@@ -9,7 +9,7 @@
 | Ölçüm | Değer |
 |---|---|
 | Dosya sayısı | **21.043** |
-| Toplam boyut (dosya baytları) | **858,1 MB** |
+| Toplam boyut (dosya baytları) | **865,2 MB** |
 | Disk kullanımı (`du`) | 905 MB (küçük dosya başına blok tahsisi nedeniyle daha yüksek) |
 | Anime sayfası | 6.107 · seri 961 · fansub 363 |
 | `.nojekyll` | var |
@@ -54,7 +54,7 @@ Dosya türü dağılımı: `.html` 7.442 · `.txt` 7.441 (RSC) · `.json` 6.114 
 > Not: API servisi Cloudflare **Workers + D1** üzerindedir; Workers'ın statik varlık limiti bu
 > hesapla ilgili değildir (site Pages'e taşınırsa geçerli olur). API kodu `wrangler dev` + yerel D1
 > ile uçtan uca sınandı (`npm run api:test`, 45 adım; ayrıntı: [11](11-hesaplar-uygulama.md));
-> gerçek hesaba dağıtım 01.10.2026'da yapıldı ve uzak adrese karşı 45/45 doğrulandı (aşağıdaki
+> gerçek hesaba dağıtım 01.10.2026'da yapıldı ve uzak adrese karşı 46/46 doğrulandı (aşağıdaki
 > bölüm). GitHub Pages 1 GB sınırına yaklaşıldığında ilk hedefler: bölüm listelerini istemciye
 > taşımak ve anime sayfalarını sadeleştirmek (potansiyel kazanç ~400 MB).
 
@@ -117,7 +117,10 @@ Yerelde ise tam tersi: `wrangler dev`e `--var CORS_EXTRA:http://127.0.0.1:8000` 
 
 Ölçümler (01.10.2026):
 
-- Uzak koşu: **45/45 geçti** (tek atlanan: isteğe bağlı `--oran`).
+- Uzak koşu: **45/45 geçti** (tek atlanan: isteğe bağlı `--oran`). Oran sınırı atomik artırmaya
+  çevrildikten sonra aynı koşu `--oran` ile tekrarlandı: **46/46**, atlanan 0 — koşu üretimde
+  gerçekten 429 `cok-fazla-istek` gördü, yani karar D1'in koşullu `UPDATE`'i (`meta.changes`) ile
+  veriliyor.
 - Kayıt ucu: `cpuTime 28 ms`, `wallTime 265 ms`, `outcome ok`. Bu değer ücretsiz planın 10 ms CPU
   sınırının üzerindedir; koşu başarılı olduğuna göre hesap Workers Paid tarafındadır (panelden
   teyit edilmeli) — aksi hâlde PBKDF2'li kayıt/giriş CPU sınırında düşerdi.
@@ -204,7 +207,7 @@ Push sonrası iki ayar GitHub tarafında yapılır:
 - [ ] `npm run veri` çalıştırıldı ve `public/data/` güncel
 - [ ] `npm run veri:anilist` (isteğe bağlı, önbellek zaten `tools/cache` içinde)
 - [ ] `npm run typecheck` → 0 hata
-- [ ] `npm run build` → 7.446 sayfa
+- [ ] `npm run build` → 7.442 sayfa
 - [ ] `npm run yayin:hazirla` → GitHub Pages < 1 GB (CF Pages artık aşıyor, bilinçli)
 - [ ] Depoda `public/data/` commit edildi (`.gitignore` bunu engellemiyor) ✔ (783dca6)
 - [ ] `origin` bağlandı ve `git push -u origin main` atıldı (`push` hâlâ bekliyor)

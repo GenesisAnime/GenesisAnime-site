@@ -64,7 +64,7 @@ Bir iş "bitti" sayılmadan önce:
 npm test                                # tools/ birim + veri/çıktı bütünlüğü testleri (ağsız, ~15 sn, 74 test)
 npm run api:test                        # api/ değiştiyse: çalışan Worker'a (wrangler dev) uçtan uca duman testi
 npm run typecheck                       # tip hatası yok
-npm run build                           # 7.446 sayfa üretilmeli, hata yok
+npm run build                           # 7.442 sayfa üretilmeli, hata yok
 npm run yayin:hazirla                   # out/ ölçümü; GitHub Pages <1 GB (CF Pages 20k sınırını aştı — beklenen)
 node --no-warnings tools/export-data.mjs  # yalnızca veri hattı değiştiyse
 npm run link:test                       # sınıflandırıcı kuralları değiştiyse (canlı URL sınaması)
