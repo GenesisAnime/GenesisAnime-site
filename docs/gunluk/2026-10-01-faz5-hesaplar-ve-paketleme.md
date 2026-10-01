@@ -152,3 +152,28 @@ bulunan sorunları düzelt.”
   ilgisi yok.
 - **Kapı:** `npm test` 74/74 · typecheck 0 · build 7.446 sayfa · `yayin:hazirla` 21.043/858,1 MB ·
   uzak `api:test` 45/45. Kalan tek adım: derlenmiş `out/`'u GitHub Pages'e push (kullanıcı kararı).
+
+## 11. Yayın hazırlığı — iş akışı, README, Hakkında ve ilk commit
+
+İstek: “Yayın iş akışına `NEXT_PUBLIC_API` ve `NEXT_PUBLIC_BILDIRIM_API` değişkenlerini ekle ve ilk
+push için depoyu hazırla (commit at, remote talimatını göster); push atmadan bırak. README ve
+Hakkında kısmını da yaz; README aktif olarak güncellenecek, proje %100 açık kaynak.”
+
+- **Kritik eksik:** `yayinla.yml` yalnızca `BASE_PATH` + `NEXT_PUBLIC_SITE_URL` veriyordu; API
+  adresleri derlemeye girmeyince yayına giden site **hesapsız** olurdu (sessiz kayıp). İki değişken
+  build adımına eklendi (istemciye derleme anında gömülür; CORS kaynağı Worker'da eşleşmelidir).
+- **README yeniden yazıldı:** açık kaynak vurgusu (kapalı bileşen yok, reklam/izleyici betiği yok,
+  MIT), **yaşayan “Proje durumu” tablosu** (ölçümler + sıradaki işler + son güncelleme), API bölümü
+  (canlı adres, CORS, KVKK), katkı rehberi (kapı adımları) ve belge dizini. Ayrıca `LICENSE` (MIT)
+  eklendi — README zaten MIT diyordu ama dosya yoktu.
+- **GitHub “Hakkında”:** açıklama yazıldı (mevcut açıklamadaki “kaynlık” yazım hatası düzeltildi),
+  site bağlantısı ve 12 etiket eklendi (`gh repo edit`).
+- **Depo hazırlığı:** `origin` bağlandı, ilk commit atıldı — `783dca6`, 6.236 dosya / 229.221 satır
+  (`out/` ve `.next/` gitignore'da; `tools/cache/link-durum.jsonl` 49,9 MB kanıt kaydı olarak
+  izleniyor). Commit öncesi gizli değer taraması: `ADMIN_TOKEN`/`JWT_SECRET`/`IP_TUZ` değerleri
+  sahnelenen hiçbir dosyada yok (0 eşleşme); `.dev.vars` ve `.wrangler/` ignore'da.
+- **Push yapılmadı** (kullanıcı istemedi). Sıradaki adımlar: `git push -u origin main` + GitHub'da
+  Settings → Pages → Source: **GitHub Actions**; ardından Actions koşusu ve yayın duman testi.
+- **Not:** `AGENTS.md` §3'e README'nin yaşayan belge kuralı, §5'e depo/origin bilgisi eklendi.
+- **Ölçüm:** `npm test` 74/74 · `yayinla.yml` YAML olarak ayrıştırıldı ve build adımında dört ortam
+  değişkeni doğrulandı · commit 6.236 dosya / 229.221 satır (~55 MB).

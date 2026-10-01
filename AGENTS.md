@@ -52,6 +52,9 @@ Her iş paketinden sonra:
 3. `docs/gunluk/kayit.jsonl` dosyasına makine okunur tek satır eklenir
    (`{"zaman","faz","is","dosyalar","komut","sonuc","olcum"}`).
 4. Geri dönüşü zor bir karar alındıysa `docs/kararlar/ADR-XXXX-<konu>.md` yazılır.
+5. `README.md` **yaşayan bir belgedir**: "Proje durumu" tablosundaki ölçümler (test sayısı, yayın
+   boyutu, link tarama kapsamı, API adresi, sıradaki işler) ve "Son güncelleme" tarihi her anlamlı
+   turda tazelenir; kullanıcıya dönük komut tablosu yeni komutlarla güncel tutulur.
 
 ## 4. Doğrulama kapısı
 
@@ -88,8 +91,10 @@ kurulu bir erken hata kaydedici vardır).
 
 ## 5. Git
 
-- Kullanıcı istemedikçe commit/push yapılmaz.
-- `git add -A` kullanılmaz; yalnızca kendi değiştirdiğin dosyalar eklenir.
+- **Depo:** `origin = https://github.com/Nutaliaxd/GenesisAnime.git`, dal `main` (public).
+  İlk commit `783dca6`; `main` push'u GitHub Pages yayınını başlatır (iş akışı `yayinla.yml`).
+- Kullanıcı istemedikçe commit/push yapılmaz. (İlk doldurmada tüm ağaç tek commit'tir; sonrasında
+  `git add -A` kullanılmaz — yalnızca kendi değiştirdiğin dosyalar eklenir.)
 - `public/data/` bilinçli olarak sürüm kontrolündedir (CI, kaynak DB olmadan derler).
   `tools/cache/` ve `out/` asla eklenmez — **tek istisna** `tools/cache/link-durum.jsonl`:
   bu dosya önbellek değil kanıt kaydıdır, kaybı 30 bin rozeti sessizce siler (ADR-0007).

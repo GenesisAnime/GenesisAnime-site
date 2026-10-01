@@ -139,7 +139,9 @@ Yerelde ise tam tersi: `wrangler dev`e `--var CORS_EXTRA:http://127.0.0.1:8000` 
 3. **Veri dosyası kontrolü:** `public/data/katalog.json` yoksa iş akışı hata verir ve
    "önce `npm run veri` çalıştırıp commit edin" mesajıyla durur
 4. `npm run typecheck`
-5. `npm run build` — `BASE_PATH=/<depo-adı>` ve `NEXT_PUBLIC_SITE_URL` ortam değişkenleriyle
+5. `npm run build` — `BASE_PATH=/<depo-adı>`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_API` ve
+   `NEXT_PUBLIC_BILDIRIM_API` ortam değişkenleriyle (API adresleri iş akışında sabittir; boş
+   bırakılırsa site **hesapsız** yayınlanır ve `/hesap/` "API kapalı" durumuna döner — sessiz kayıp)
 6. `npm run yayin:hazirla`
 7. **`npm test`** — birim + veri/çıktı bütünlüğü testleri; derlenmiş `out/` ağacında ölü/engelli
    URL, yanlış/eksik “ok” rozeti ve katalog-dosya tutarsızlığı arar; hata bulursa yayın durur
@@ -176,6 +178,27 @@ npm run build
   (Next.js bu istekleri otomatik öneklemez).
 - Kök alan adı veya Cloudflare Pages için `BASE_PATH` boş bırakılır.
 
+## İlk push (kurulum, 01.10.2026)
+
+Depo: **https://github.com/Nutaliaxd/GenesisAnime** (public). İlk commit yerelde hazır
+(`783dca6`, 6.236 dosya). `out/` ve `.next/` gitignore'da olduğu için push edilen ağaç ~55 MB
+(kaynak + `public/data/` 64 MB'ın izlenen kısmı + 49,9 MB'lık `tools/cache/link-durum.jsonl` kanıt
+kaydı).
+
+```bash
+git remote add origin https://github.com/Nutaliaxd/GenesisAnime.git   # yapıldı
+git push -u origin main                                               # yayını başlatır
+```
+
+Push sonrası iki ayar GitHub tarafında yapılır:
+
+1. **Settings → Pages → Source: GitHub Actions** (yoksa iş akışı dağıtamaz).
+2. İlk iş akışı koşusu `Actions` sekmesinde izlenir; `derle` işi düşerse yayın yapılmaz (kapı).
+
+> Not: `tools/cache/link-durum.jsonl` 49,9 MB'dır — GitHub'ın 50 MB "önerilen üst sınır"
+> uyarısının hemen altındadır (100 MB'da blok). Bu dosya bilinçli olarak izlenir (kanıt kaydı,
+> ADR-0007); büyümesi sürerse sıkıştırma ya da parçalama gerekir.
+
 ## İlk yayın kontrol listesi
 
 - [ ] `npm run veri` çalıştırıldı ve `public/data/` güncel
@@ -183,8 +206,11 @@ npm run build
 - [ ] `npm run typecheck` → 0 hata
 - [ ] `npm run build` → 7.446 sayfa
 - [ ] `npm run yayin:hazirla` → GitHub Pages < 1 GB (CF Pages artık aşıyor, bilinçli)
-- [ ] Depoda `public/data/` commit edildi (`.gitignore` bunu engellemiyor)
+- [ ] Depoda `public/data/` commit edildi (`.gitignore` bunu engellemiyor) ✔ (783dca6)
+- [ ] `origin` bağlandı ve `git push -u origin main` atıldı (`push` hâlâ bekliyor)
 - [ ] GitHub deposunda **Settings → Pages → Source: GitHub Actions** seçildi
+- [ ] İş akışında `NEXT_PUBLIC_API` / `NEXT_PUBLIC_BILDIRIM_API` dolu (yayınlanan site hesap
+      özellikli olsun; API adresi değişirse burada da güncellenir)
 - [ ] `SITE.url` (`src/lib/site.ts`) gerçek adresle güncellendi
 - [ ] Yayın sonrası duman testi: ana sayfa, bir anime sayfası, bir oynatıcı sayfası, sitemap.xml
 
