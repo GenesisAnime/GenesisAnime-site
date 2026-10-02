@@ -184,6 +184,16 @@ Bu, oynatıcının **kendi olması** yolunda atılabilecek adımın sınırıdı
 | Kaynak embed sayfasında doğrudan akış adresi (mp4/m3u8) var mı? | **~%89'unda yok** — Sibnet (%42,1), Mail.ru (%27,9), VK (%7,1), Odnoklassniki (%11,5) adresi JS/API ile üretiyor; Sibnet sunucu tarafına 403 veriyor. |
 | Bulunan adresler bizim origin'imizden oynuyor mu? | **Hayır.** Örneklemdeki hiçbir adres referer'sız çalışmadı; MP4UPLOAD kaydı referer yokken **403**, yalnız kaynağın kendi referer'ıyla **206** döndü. |
 
+Host bazlı derin araştırma (aynı kayıtta) bunun nedenini netleştirir:
+
+| Host | Pay | Akış adresi çıkarılabiliyor mu? | Tarayıcı oynatabiliyor mu? |
+|---|---:|---|---|
+| Sibnet | %42,1 | ✗ her yol 403 ("administrative rules") | ✗ |
+| Mail.ru | %27,9 | ✓ embed → `metadataUrl` → imzalı mp4 (**günlük imzalı**, 169 MB, Range'li) | ✗ düz `<video>` 403 alıyor (aynı adres sunucumuzda 206) |
+| Odnoklassniki | %11,5 | ✓ `hlsManifestUrl` | ✗ `srcIp` + `expires` damgalı, segmentler göreli |
+| VK | %7,1 | ✗ yalnız özel API (hash) | ✗ (köprü ile kontrol var, akış yok) |
+| diğer | ~%11 | kısmen, referer kilitli | ✗ |
+
 Yani kendi `<video>`'muzda oynatmanın şartı araya **proxy** koymak: kendi sunucumuzun video baytlarını aktarması. Bu, projenin kendi politikasını değiştirir (barındırma/proxyleme kapsam dışı, `docs/10`), Cloudflare Workers'ta bant genişliği/ToS riski taşır ve en büyük hostlarda proxy'lenecek adres zaten yok. Ham kayıt:
 [`docs/olcum/akis-2026-10-02.json`](../olcum/akis-2026-10-02.json).
 

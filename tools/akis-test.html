@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<title>GenesisAnime · doğrudan akış oynatma testi</title>
+<!--
+  Amaç: sunucu tarafında çıkarılan imzalı mp4 adresi, cross-origin bir sayfada
+  düz `<video>` ile oynuyor mu? (Mail.ru · kaynakların ~%28'i)
+
+  Adres `tools/akis-olcum.mjs` çıktısından gelir: embed sayfası → metadataUrl →
+  `my.mail.ru/+/video/meta/<id>` → `cdn*.my.mail.ru/.../*.mp4?video_key=…`.
+  İmza günde bir kez yenilenir (`expire_at` gece yarısı), bu yüzden adres elle
+  tazelenir; test sayfası yalnızca oynatılabilirliği kanıtlar.
+
+  Ölçüt: video.duration dolmalı, oynatma başlamalı, `canplay`/`progress` olayları
+  gelmeli ve ağ hatası (MEDIA_ERR_*) olmamalı.
+-->
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; background: #0b0b10; color: #eee; margin: 18px; }
+  video { width: min(900px, 100%); background: #000; border: 1px solid #333; border-radius: 10px; }
+  table { border-collapse: collapse; margin-top: 12px; width: min(900px, 100%); }
+  th, td { border: 1px solid #2a2a33; padding: 6px 8px; text-align: left; }
+  th { background: #16161d; }
+  code { color: #93c5fd; word-break: break-all; }
+  .ok { color: #4ade80; } .no { color: #f87171; } .bekle { color: #fbbf24; }
+</style>
+
+<h1>Doğrudan akış testi · Mail.ru</h1>
+<p id="adres">yükleniyor…</p>
+<video id="oynatici" controls preload="metadata" playsinline></video>
+<table>
+  <tbody>
+    <tr><th>durum</th><td id="durum" class="bekle">başlıyor</td></tr>
+    <tr><th>süre</th><td id="sure">–</td></tr>
+    <tr><th>hazır durum (readyState)</th><td id="hazir">–</td></tr>
+    <tr><th>ağ hatası</th><td id="hata">–</td></tr>
+    <tr><th>olaylar</th><td id="olaylar">–</td></tr>
+    <tr><th>CORS modu</th><td id="cors">–</td></tr>
+  </tbody>
+</table>
+
+<script>
+  /* Adres, ölçüm aracının çıktısından alınır (imza günlük). */
+  const ADRES = new URLSearchParams(location.search).get('u') || '';
+
+  const v = document.getElementById('oynatici');
+  const durum = document.getElementById('durum');
+  const olaylar = [];
+  const yaz = () => {
+    document.getElementById('olaylar').textContent = olaylar.join(' · ') || '–';
+    document.getElementById('hazir').textContent = v.readyState;
+    document.getElementById('sure').textContent = Number.isFinite(v.duration) ? `${Math.floor(v.duration / 60)} dk ${Math.round(v.duration % 60)} sn (${Math.round(v.duration)} sn)` : '–';
+    document.getElementById('hata').textContent = v.error ? `${v.error.code} · ${v.error.message}` : 'yok';
+  };
+
+  for (const olay of ['loadstart', 'loadedmetadata', 'canplay', 'progress', 'playing', 'waiting', 'stalled', 'error']) {
+    v.addEventListener(olay, () => {
+      olaylar.push(olay);
+      yaz();
+    });
+  }
+
+  window.__AKIS_TEST__ = () => ({
+    adres: ADRES.slice(0, 120),
+    readyState: v.readyState,
+    networkState: v.networkState,
+    duration: Number.isFinite(v.duration) ? Math.round(v.duration) : null,
+    currentTime: Math.round(v.currentTime * 10) / 10,
+    videodaOynuyor: !v.paused && !v.ended,
+    hataKodu: v.error?.code ?? null,
+    hataMesaji: v.error?.message ?? null,
+    olaylar,
+    boyut: { w: v.videoWidth, h: v.videoHeight },
+  });
+
+  if (ADRES) {
+    document.getElementById('adres').innerHTML = `<code>${ADRES.slice(0, 150)}…</code>`;
+    v.src = ADRES;
+  } else {
+    durum.textContent = 'adres yok — ?u=<imzalı mp4 adresi> ile açılmalı';
+    durum.className = 'no';
+  }
+
+  v.addEventListener('loadedmetadata', () => {
+    durum.textContent = '✓ yüklendi, oynatılabilir';
+    durum.className = 'ok';
+  });
+  v.addEventListener('error', () => {
+    durum.textContent = '✗ hata';
+    durum.className = 'no';
+  });
+</script>
+</html>

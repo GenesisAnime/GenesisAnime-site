@@ -1,41 +1,60 @@
 {
   "olcum": "kaynakları kendi <video> elemanımızda oynatabilir miyiz?",
   "tarih": "2026-10-02",
-  "neden": "Kullanıcı, embed'i iframe içinde göstermek yerine OpenAnime benzeri tek parça bir oynatıcı istedi. Bu, kaynağın doğrudan akış adresini (mp4/m3u8) gerektirir; mümkün mü sorusu tahminle değil ölçümle cevaplanmalı.",
-  "nasil": "tools/akis-olcum.mjs (aşama 1: embed sayfası sunucu tarafında çekilir, akış adayı regex'lerle çıkarılır) ve aynı aracın --referer aşaması (bulunan adres üç referer varyantında Range isteğiyle sınanır). Chromium UA, kaynağın kendi origin'i Referer olarak verilir.",
+  "neden": "Kullanıcı, embed'i iframe içinde göstermek yerine OpenAnime benzeri tek parça bir oynatıcı istedi. Bu, kaynağın doğrudan akış adresini (mp4/m3u8) ve o adresin BİZİM ORIGIN'İMİZDEN oynanabilmesini gerektirir.",
+  "nasil": [
+    "tools/akis-olcum.mjs — aşama 1: embed sayfası sunucu tarafında çekilir, akış adayı regex'lerle çıkarılır (16 player, 32 örnek). Aşama 2 (--referer): bulunan adres üç referer varyantında Range isteğiyle sınanır.",
+    "Host bazlı derin araştırma: Sibnet ve Mail.ru için başlık/endpoint varyantları, OK ve VK için embed HTML içeriği.",
+    "tools/akis-test.html — tarayıcı kanıtı: çıkarılan imzalı adres düz bir <video> elemanına verilir; ağ günlüğü ve MEDIA_ERR kodları okunur."
+  ],
   "asama1_html_de_akis_var_mi": {
-    "evet_dogrudan": ["MP4UPLOAD (2)", "ODNOKLASSNIKI (2)", "OK.RU (1)", "HDVID (2)", "CYBERFILE (2)", "YADISK (2)"],
-    "hayir_yok": ["SIBNET (2)", "MAIL (2)", "VK (2)", "UQLOAD (2)", "VOE (2)", "DAILYMOTION (2)", "GDRIVE (2)", "VIDEA (2)", "MEGA (2)", "DOODSTREAM (2)"],
-    "kapsam_notu": "Kaynak payına göre: Sibnet %42,1 · Mail.ru %27,9 · Odnoklassniki %11,5 · VK %7,1 → kaynakların ~%89'unda akış adresi HTML'de YOK (player JS/API ile üretiyor).",
-    "ornek_bulgu_sibnet": "https://video.sibnet.ru/shell.php?videoid=1425590 sunucu tarafı istekte 403 döndü (bot koruması) — HTML okunamadığı için çıkarma mümkün değil.",
-    "ornek_bulgu_mail": "videoapi.my.mail.ru embed'i 200 döndü ama gövdede akış yok; player meta bilgiyi API'den çekiyor."
+    "evet": ["MP4UPLOAD (2)", "ODNOKLASSNIKI (2)", "OK.RU (1)", "HDVID (2)", "CYBERFILE (2)", "YADISK (2)"],
+    "hayir": ["SIBNET (2)", "MAIL (2)", "VK (2)", "UQLOAD (2)", "VOE (2)", "DAILYMOTION (2)", "GDRIVE (2)", "VIDEA (2)", "MEGA (2)", "DOODSTREAM (2)"],
+    "kapsam": "Kaynak payına göre: Sibnet %42,1 · Mail.ru %27,9 · Odnoklassniki %11,5 · VK %7,1 → kaynakların ~%89'unda akış adresi HTML'de yok."
   },
-  "asama2_bizim_originimizden_oynar_mi": {
-    "soru": "Bulunan doğrudan adres tarayıcıdan (referer gönderilmeden veya site referer'ı ile) oynar mı?",
-    "varyantlar": ["referer-yok (sitenin no-referrer davranışı)", "site-referer (https://nutaliaxd.github.io/)", "host-referer (kaynağın kendi origin'i)"],
-    "sonuc": "Örneklemdeki adreslerin HİÇBİRİ 'referer-yok' ile oynanabilir çıkmadı.",
-    "tek_net_kanit": {
-      "player": "MP4UPLOAD",
-      "adres": "https://a3.mp4upload.com:183/d/.../video.mp4",
-      "referer_yok": "403 (text/html)",
-      "site_referer": "istek düştü (fetch failed)",
-      "host_referer": "206 partial content · application/octet-stream · content-range: bytes 0-2047/98518555",
-      "yorum": "Akış var ve 98 MB boyutunda, ama referer kilitli: yalnız kaynağın kendi origin'i ile dönüyor."
+  "host_bazli_arastirma": [
+    {
+      "host": "Sibnet",
+      "pay": "%42,1",
+      "denenen": ["shell.php (referer yok / sibnet / site)", "izleme sayfası /video1425590/ (referer yok)"],
+      "sonuc": "HEPSİ 403: \"Request forbidden by administrative rules.\"",
+      "yorum": "Sunucu tarafı istek tümden engelli (bot koruması). Tarayıcıdaki iframe çalışıyor ama HTML'i okuyamadığımız için çıkarma yok; tarayıcı da cross-origin iframe'in içeriğini okuyamaz."
     },
-    "diger_gozlemler": [
-      "HDVID: hiçbir varyantta yanıt yok (adres istemciye özel üretiliyor olabilir).",
-      "YADISK: site-referer ile 403, diğerlerinde 500.",
-      "CYBERFILE: çıkarılan adres URL-kodlu dosya adı içerdiği için 404 (çıkarma kalıbı yetersiz, ayrı iş)."
-    ]
-  },
+    {
+      "host": "Mail.ru",
+      "pay": "%27,9",
+      "akis": "ÇIKARILABİLİYOR: embed sayfası bir `metadataUrl` veriyor (//my.mail.ru/+/video/meta/3077395774695276545) → bu uç 1.345 B JSON döndürüyor → içinde imzalı mp4 var: cdn62.my.mail.ru/v/46642779.mp4?…&video_key=…&expire_at=…",
+      "imza": "expire_at 2026-10-03T00:00:00Z (günlük). video_key tahrif edilirse 403; süresi geçmiş imza 403 → imza gerçekten denetleniyor.",
+      "boyut": "169.600.484 B (Range destekli, 206)",
+      "sunucu_tarafi_testi": "Referer'sız, site referer'ıyla, UA'sız, medya başlıklarıyla, Origin'le → HEPSİ 206. Yani sunucumuz akışı çekebiliyor.",
+      "tarayici_testi": "Düz <video> ile → MEDIA_ERR_SRC_NOT_SUPPORTED (kod 4); ağ günlüğü: GET cdn62.my.mail.ru/…mp4 → 403 (Media). Aynı URL Node'da 206, tarayıcıda 403.",
+      "ek_bulgu": "Açık uçlu `Range: bytes=0-` (tarayıcı medya isteğinin gönderdiği biçim) Node'da zaman aşımına uğruyor; kapalı aralık (`bytes=0-2047`) 206 dönüyor.",
+      "yorum": "Adres elde edilebiliyor ama tarayıcı oynatamıyor → kendi <video>'muzda oynatmak için sunucu tarafı AKTARIM (proxy) şart."
+    },
+    {
+      "host": "Odnoklassniki",
+      "pay": "%11,5",
+      "akis": "ÇIKARILABİLİYOR: embed HTML'i `hlsManifestUrl` içeriyor (vd196.okcdn.ru/video.m3u8?…&srcIp=176.234.88.53&expires=…&sig=…). Manifest 200 dönüyor.",
+      "kilit": "Adres `srcIp` (isteyenin IP'si) ve `expires` ile imzalı; manifest içindeki varyant yolları GÖRELİ ve aynı IP damgasını taşıyor.",
+      "yorum": "Tarayıcı isteği kendi IP'siyle imzalanmadığı için çalışmaz; ancak proxy tüm manifest+segment zincirini yaparsa çalışır."
+    },
+    {
+      "host": "VK",
+      "pay": "%7,1",
+      "akis": "video_ext.php 200 dönüyor (22 KB) ama gövdede mp4 yok; akış adresi VK'nın özel API'sinden (hash + al_video) üretiliyor.",
+      "yorum": "Adres üretimi mevcut API'yi taklit etmeyi gerektirir. 02.10'da kurulan köprü (postMessage) VK'da kontrol ve gerçek konum veriyor; akış ise elde yok."
+    },
+    {
+      "host": "Diğer (MP4UPLOAD, CYBERFILE, HDVID, YADISK…)",
+      "pay": "%11 kadar",
+      "sonuc": "Adres HTML'de var ama referer/istemci kilitli: MP4UPLOAD referer yokken 403, yalnız kendi referer'ıyla 206 (98 MB).",
+      "yorum": "Tarayıcıdan oynatma yok; proxy şart."
+    }
+  ],
   "sonuc": {
-    "verdict": "Embed'i söküp kendi <video> elemanımızda oynatmak, bugünkü ölçümle PROXY olmadan mümkün değil: (a) kaynakların ~%89'unda akış adresi HTML'de yok, (b) adres bulunanlarda akış referer kilitli.",
-    "proxy_ne_demek": "Kendi sunucumuzun video baytlarını aktarması demektir: Cloudflare Workers bant genişliği/ToS riski, maliyet, ve projenin kendi politikasının değişmesi (docs/10: 'video barındırma, proxyleme veya indirme yok'). Ayrıca en büyük hostlarda proxy'lenecek adres hiç yok.",
-    "proxy_sonrasi_tahmini_kapsam": "Ölçülen örneklemde proxy ile oynatılabilir hale gelen kaynak: MP4UPLOAD + (çıkarma düzeltilirse) CYBERFILE/HDVID/YADISK sınıfı — kaynak payı toplamı %1-2. Sibnet/Mail/VK/OK (%89) için adres üretimi hâlâ eksik.",
-    "proxy_siz_yapilabilenler": [
-      "Kendi kontrol çubuğumuz + iframe yüzeyi (bölüm gezinme, kaynak çipleri, tam ekran, PiP, klavye).",
-      "Köprü yayınlayan hostta (VK) gerçek konum/süre ve oynat/duraklat/sar komutları — 02.10'da yapıldı.",
-      "İleride: doğrudan oynanabilir bir adres çıkarsa kendi <video> yolumuzu devreye alacak çözümleyici zinciri (bugün tetiklenmiyor)."
-    ]
+    "verdict": "PROXY OLMADAN HİÇBİR KAYNAK kendi <video> elemanımızda oynatılamıyor. Adres çıkarımı Mail.ru (%27,9) ve Odnoklassniki (%11,5) için mümkün ve SUNUCUMUZ akışı çekebiliyor (206/200), ama tarayıcı aynı adrese 403 alıyor. Sibnet (%42,1) sunucu tarafına tamamen kapalı; VK (%7,1) adresi yalnız özel API ile üretiyor.",
+    "proxy_kapsami": "Proxy ile açılabilecek grup: Mail.ru %27,9 + Odnoklassniki %11,5 + referer kilitli küçük host'lar ≈ kaynakların %40'ı. Sibnet %42 bu yolla da açılmıyor.",
+    "proxy_ne_kosturur": "Cloudflare Workers serbest katmanı video aktarımı için uygun değil (bant genişliği, ToS ve episode başı ~170 MB); kendi VPS mantıklı seçenek. Ayrıca proje politikası değişir: site 'gömülü sayfaya bağlantı veren' konumundan 'akışı aktaran' konuma geçer (docs/10).",
+    "proxy_siz_ceiling": "Kendi kontrol çubuğumuz + kaynağın iframe'i (bugünkü durum) ve köprü yayınlayan host'ta gerçek kontrol (VK, %7). Ayarlar menüsü (filtre/renk/hız/altyazı) yalnız video sahipliğiyle mümkün."
   }
 }
