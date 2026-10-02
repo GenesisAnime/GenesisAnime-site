@@ -5,7 +5,7 @@
 **Türkçe anime arşivi — %100 açık kaynak, tamamen statik, sunucusuz.**
 
 [![Lisans: MIT](https://img.shields.io/badge/lisans-MIT-green)](LICENSE)
-[![Testler: 183/183](https://img.shields.io/badge/testler-183%2F183-success)](docs/05-kalite-ve-testler.md)
+[![Testler: 186/186](https://img.shields.io/badge/testler-186%2F186-success)](docs/05-kalite-ve-testler.md)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
 [![Cloudflare Workers + D1](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-f38020)](docs/11-hesaplar-uygulama.md)
 
@@ -46,7 +46,7 @@ depodadır. Kapalı bileşen, gizli veri işleme veya reklam/izleyici betiği yo
 | Site derlemesi | 7.448 sayfa → `out/` 21.049 dosya / 880,6 MB (GitHub Pages uyumlu; CF Pages 20k sınırını aşıyor) |
 | Link sağlığı | kapsam **%58,72** — 173.030 `ok` · 301 `ölü` · 34 `engelli` · 12.861 `belirsiz` (ölçülebilir havuz tükendi) |
 | Otomasyon | günlük link döngüsü zamanlayıcıda (saatlik uyanır, günde bir koşar) · `/yonetim/` panelinden ayar + koşu geçmişi |
-| Testler | `npm test` **183/183** (ağsız) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
+| Testler | `npm test` **186/186** (ağsız) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
 | API | Cloudflare Worker + D1 yayında (bölge WEUR) · CORS yalnızca site kaynağına açık |
 | Son güncelleme | 2 Ekim 2026 |
 | Sıradaki işler | analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · akış köprüsünü oynatıcıya bağlama (Mail.ru %27,9, [docs/12](docs/12-akis-koprusu.md)) ([docs/10](docs/10-yol-haritasi.md)) |
@@ -194,7 +194,7 @@ Katkıya açıktır — **issue** açabilir, veri düzeltmesi, fansub eklemesi v
 1. Depoyu **fork**'la ve kendi fork'unda bir **branch** aç (`main` korumalı; doğrudan push yerine
    **pull request** aç).
 2. Pull request'i göndermeden önce bu kontrolleri çalıştır — CI'da da aynıları koşar:
-   `npm run typecheck` → `npm test` (183/183) → `npm run build` → `npm run yayin:hazirla`.
+   `npm run typecheck` → `npm test` (186/186) → `npm run build` → `npm run yayin:hazirla`.
 3. API'ye dokunduysan ayrıca `cd api && npm run dev` + ikinci terminalde `npm run api:test`.
 4. Davranış/karar değişikliği belge gerektirir: ilgili `docs/` dosyası, gerekiyorsa yeni bir ADR
    ([docs/kararlar](docs/kararlar/)) ve `docs/gunluk/kayit.jsonl` satırı.
@@ -225,6 +225,7 @@ indirebilir veya hesabını ve sunucudaki kopyasını geri döndürülemez biçi
 - [docs/10-yol-haritasi.md](docs/10-yol-haritasi.md) — fazlar ve sıradaki işler
 - [docs/11-hesaplar-uygulama.md](docs/11-hesaplar-uygulama.md) — hesaplar, senkron, bildirim hattı
 - [docs/12-akis-koprusu.md](docs/12-akis-koprusu.md) — kendi `<video>` oynatıcısının temeli: akış çözümleyici + aktarım ucu
+- [docs/13-openani-oynatici-analizi.md](docs/13-openani-oynatici-analizi.md) — rakip oynatıcı analizi: kanıtlar, lisanslar, alınabilir/alınamaz ayrımı
 - [docs/gunluk/](docs/gunluk/) — kronolojik çalışma günlüğü
 - [docs/kararlar/](docs/kararlar/) — mimari karar kayıtları (ADR)
 - [AGENTS.md](AGENTS.md) — çalışma kuralları ve kalite kontrolleri

@@ -95,7 +95,9 @@ href.li, uqload, videoapi vb. tükendi).
 
 ## Bilinçli olarak yapılmayacaklar
 
-- Video barındırma, proxyleme veya indirme — yasal ve teknik olarak kapsam dışı
+- Video barındırma, proxyleme veya indirme — yasal ve teknik olarak kapsam dışı. Rakip analizi bu
+  kararın teknik yüzünü doğruluyor: OpenAnime'nin istemci yükseltmesi, sprite önizlemesi, offline
+  modu ve klibi **bayt sahipliğinden** doğuyor ([13](13-openani-oynatici-analizi.md))
 - Kullanıcı hesabı olmadan çalışan deneyimi bozmak (site hesapsız tam çalışır)
 - Tekrar satın alınan bir kütüphaneyle (`next/image` optimizasyonu, harici CMS) karmaşıklaştırma —
   statik export'un sadeliği bu projenin en büyük avantajı

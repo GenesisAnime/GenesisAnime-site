@@ -6,7 +6,7 @@
 
 | Kontrol | Komut | Beklenen |
 |---|---|---|
-| Birim testleri | `npm test` | 183/183 geçer (~16 sn; ağ/DB yok) |
+| Birim testleri | `npm test` | 186/186 geçer (~16 sn; ağ/DB yok) |
 | Tip denetimi | `npm run typecheck` | 0 hata |
 | Derleme | `npm run build` | `✓ Compiled successfully`, 7.448 statik sayfa |
 | Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.049 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
@@ -333,8 +333,14 @@ alanları eksik bir kayıt, bilinmeyen anahtarla yazılmış bir player (taksono
 yasağını** yapısal olarak denetler: kaynak listesi kullanım dışı player'a göre filtrelenirse (çip
 listesinden atılırsa) test kırmızıya döner — kaynak arşivin parçasıdır, yalnızca etiketlenir.
 
-Ölçüm: **183 test / 183 geçti**, yerelde ~16 sn (derleme hemen sonrası ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
-kopru 33 · tmdb 17 · derleme 14 · akis-api 13 · veri 11 · oynatici 8 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
+**`belge.test.mjs`** (3) belge ağının kendisini denetler: `README.md`, `AGENTS.md` ve `docs/**`
+içindeki **göreli bağlantılar gerçekten var olan dosyaya çıkmalı**, her `docs/NN-*.md` README'nin
+"Belgeler" listesinde görünmeli ve rakip analizi (`docs/13`) oynatıcı belgesiyle yol haritasından
+bağlı kalmalı. İlk koşuda gerçek bir hata yakaladı (H-33). `docs/wiki/*.md` bilinçli olarak
+kapsam dışıdır: onların bağlantıları GitHub Wiki sayfa adlarıdır, dosya sisteminde karşılıkları yok.
+
+Ölçüm: **186 test / 186 geçti**, yerelde ~16 sn (derleme hemen sonrası ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
+kopru 33 · tmdb 17 · derleme 14 · akis-api 13 · veri 11 · oynatici 8 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3 · belge 3; soğuk disk önbelleğinde böyle — out verisi
 ~1,4 sn + html/txt taraması ~2,9 sn + veri taraması ~1,9 sn, kalanı 6 bin anime/961 seri dosyası;
 sıcakta ~7 sn); CI simülasyonunda (arşiv sağlık dosyası yokken)
 aynı sonuç — 941 rozet “doğrulanamadı” olarak raporlanır. Testlerin gerçekten hata yakaladığı üç yoldan ölçüldü:
@@ -572,6 +578,20 @@ ve düğmeleri gösteriyor; `genesisanime:v1:kopru-yetenek` kaydı `vk{gozlem:1,
 Ders: **varlık kanıtı, görünürlük kanıtı değildir.** Saati dışarıdan alan saf fonksiyonlarda
 varsayılan değer, okuyan tarafı sessizce öldürebilir; bu tür parametreler varsayılansız bırakılmalı
 ki unutulmaları derleyiciye yakalansın.
+
+### H-33 · Belge bağlantıları 404 veriyordu: `docs/` içinden `../../` ile yukarı çıkılmış
+
+`docs/04-oynatici-ve-kaynaklar.md` içindeki bazı bölümler `../../tools/…`, `../../src/…` ve
+`../olcum/…` yollarıyla yazılmıştı: `docs/` klasöründen `../../` **depo dışına** çıkıyor,
+`../olcum/` ise var olmayan bir klasörü işaret ediyordu. Yerel Markdown görüntüleyicide fark
+edilmiyor (bağlantıya tıklanmadan hata görünmüyor); GitHub'da bu **9 bağlantı 404** veriyordu.
+
+Fark edilme yolu, belge ağını test etme fikriydi: `tools/testler/belge.test.mjs` yazıldığında ilk
+koşuda tam bu 9 bağlantıyı listeledi. Düzeltme sonrası test `README.md`, `AGENTS.md` ve `docs/**`
+(wiki hariç) içindeki **144 göreli bağlantıyı** denetliyor; hepsi var olan dosyaya çıkıyor.
+
+Ders: belgelerin kendi iç bağlantıları da koddur. “Belgeye yazdım” demek, yazının yerini bulan
+bir bağlantının var olduğunu kanıtlamaz — sayaç tazelenirken **yol da** denenmeli.
 
 ### H-30 · Veri kümesinde karşılığı olmayan yapımlar için aramanın riski ölçülmeden kullanılamazdı
 

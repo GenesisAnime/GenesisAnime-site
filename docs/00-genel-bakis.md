@@ -76,3 +76,4 @@ modern ve kullanılabilir bir izleme sitesine dönüştürmek:
 - Veri hattı: [02-veri-pipeline.md](02-veri-pipeline.md)
 - Hesaplar/API: [11-hesaplar-uygulama.md](11-hesaplar-uygulama.md)
 - Yol haritası: [10-yol-haritasi.md](10-yol-haritasi.md)
+- Rakip oynatıcı analizi: [13-openani-oynatici-analizi.md](13-openani-oynatici-analizi.md)

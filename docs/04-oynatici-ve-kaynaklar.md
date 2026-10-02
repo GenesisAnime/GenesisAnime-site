@@ -131,11 +131,11 @@ postMessage API'si** yayınlıyor. Tahmin etmek yerine iki test sayfası gerçek
 
 | Test sayfası | Soru | Sonuç |
 |---|---|---|
-| [`tools/kopru-test.html`](../../tools/kopru-test.html) | Host olay yayınlıyor mu? | VK ✓ · Odnoklassniki ✓ · Mail.ru ✓ · Dailymotion ✗ · Sibnet ✗ |
-| [`tools/kopru-komut-test.html`](../../tools/kopru-komut-test.html) | Gönderdiğimiz komut etki ediyor mu? | Yalnız **VK** ✓ (1. denemede `seeked` + `started` + 34× `timeupdate`) |
+| [`tools/kopru-test.html`](../tools/kopru-test.html) | Host olay yayınlıyor mu? | VK ✓ · Odnoklassniki ✓ · Mail.ru ✓ · Dailymotion ✗ · Sibnet ✗ |
+| [`tools/kopru-komut-test.html`](../tools/kopru-komut-test.html) | Gönderdiğimiz komut etki ediyor mu? | Yalnız **VK** ✓ (1. denemede `seeked` + `started` + 34× `timeupdate`) |
 
 Ham kayıt (host başına alınan olay yükleri, kontrol satırları ve deneme sonuçları):
-[`docs/olcum/kopru-2026-10-02.json`](../olcum/kopru-2026-10-02.json). Ölçüm sayfaları repoda kalır;
+[`docs/olcum/kopru-2026-10-02.json`](olcum/kopru-2026-10-02.json). Ölçüm sayfaları repoda kalır;
 host davranışı değişirse yetenek tablosu tahminle değil aynı testle yeniden ölçülür.
 
 Ölçümün üç dersi (koda da yazıldı):
@@ -201,16 +201,16 @@ taze kaydı bayat gösterdiği görüldü (bkz. H-32).
 Kullanıcı ne görür: şeritte `.oynatici-kopru-olcum` “ölçüldü” rozeti (ipucu: gözlem sayısı, son
 görülme tarihi) ve yetenek ilk kez açıldığında bir kerelik `.oynatici-kopru-kesif` duyurusu. Ne
 öğrenildiğini görmek ve sıfırlamak için `/kunye` → “Oynatıcı köprüsü” paneli
-([`KopruPanel.tsx`](../../src/components/KopruPanel.tsx)). Ölçüm **cihazda** tutulur
+([`KopruPanel.tsx`](../src/components/KopruPanel.tsx)). Ölçüm **cihazda** tutulur
 (`localStorage` · `genesisanime:v1:kopru-yetenek`), sunucuya gönderilmez — hesap eşitlemesine de
-karışmaz. Mekanizmanın sözleşmesi [`tools/testler/kopru.test.mjs`](../../tools/testler/kopru.test.mjs)
+karışmaz. Mekanizmanın sözleşmesi [`tools/testler/kopru.test.mjs`](../tools/testler/kopru.test.mjs)
 içindeki 33 testle sabitlenmiştir.
 
 ## Kullanım dışı player'lar (elle karar, tarihli — 03.10.2026)
 
 Bazı player'ların kaynakları bizim taraftan **tümden** erişilemez hâle geliyor: sunucu isteklerimize
 403 dönüyor. Bu, "kaynak öldü" işaretlemesinden ayrı bir durumdur ve ayrı bir yerde tutulur
-([`src/lib/oynatici.ts`](../../src/lib/oynatici.ts)):
+([`src/lib/oynatici.ts`](../src/lib/oynatici.ts)):
 
 | Durum | Anlamı | Nerede tutulur |
 |---|---|---|
@@ -228,12 +228,12 @@ gösterilir.
 3. **Sebep ölçümden gelir** — "çalışmıyor gibi görünüyor" değil, ölçülen durum kodu yazılır.
 4. **İki yüzeyde birden görünür:** oynatıcı (uyarı şeridi + grup rozeti + solgun çip) ve `/kunye`
 (Player güvenilirliği tablosunda "Durum" sütunu + açıklama kutusu).
-[`tools/testler/oynatici.test.mjs`](../../tools/testler/oynatici.test.mjs) iki yüzeyin etiketi
+[`tools/testler/oynatici.test.mjs`](../tools/testler/oynatici.test.mjs) iki yüzeyin etiketi
 kaybetmemesini ve kaynakların **filtrelenmemesini** denetler.
 
 **Bugünkü durum:** **Sibnet** (kaynakların ~%42,1'i) kullanım dışı — `video.sibnet.ru` isteklerimize
 403 ("administrative rules") döndürüyor ve akış adresi alınamıyor (ölçüm:
-[`docs/olcum/akis-2026-10-02.json`](../olcum/akis-2026-10-02.json)). Karar 3 Ekim 2026, gözden
+[`docs/olcum/akis-2026-10-02.json`](olcum/akis-2026-10-02.json)). Karar 3 Ekim 2026, gözden
 geçirme 3 Kasım 2026. Host tekrar cevap verirse tek satır silinerek geri açılır; kaynaklar o güne
 kadar **silinmeden, etiketli** biçimde bekler.
 
@@ -257,13 +257,18 @@ Host bazlı derin araştırma (aynı kayıtta) bunun nedenini netleştirir:
 | diğer | ~%11 | kısmen, referer kilitli | ✗ |
 
 Yani kendi `<video>`'muzda oynatmanın şartı araya **proxy** koymak: kendi sunucumuzun video baytlarını aktarması. Bu, projenin kendi politikasını değiştirir (barındırma/proxyleme kapsam dışı, `docs/10`), Cloudflare Workers'ta bant genişliği/ToS riski taşır ve en büyük hostlarda proxy'lenecek adres zaten yok. Ham kayıt:
-[`docs/olcum/akis-2026-10-02.json`](../olcum/akis-2026-10-02.json).
+[`docs/olcum/akis-2026-10-02.json`](olcum/akis-2026-10-02.json).
 
 Bu yüzden bugünkü oynatıcı **kabuk**tur: video yüzeyi kaynağın kendisi (iframe), kontrol/konum katmanı bizim.
 
 Aktarım katmanının **temeli** kuruldu ve Cloudflare edge'inde uçtan uca doğrulandı (Mail.ru, kaynakların
 %27,9'u, kendi `<video>` elemanımızda oynuyor): [12-akis-koprusu.md](12-akis-koprusu.md). Oynatıcı
 entegrasyonu sıradaki adımdır; köprü çözülemeyen kaynaklarda iframe yolu korunur.
+
+Karşılaştırma için: kendi dosyalarını barındıran bir platformun (OpenAnime) oynatıcısı bu yüzden çok
+daha zengin olabiliyor — istemci tarafı 4K yükseltmesi, WebGPU filtreler, sprite önizlemeleri,
+offline mod. Hangi özelliğin **sahiplikten** doğduğunu ve bizim için neyin alınabilir olduğunu
+ayıran kanıtlı analiz: [13-openani-oynatici-analizi.md](13-openani-oynatici-analizi.md).
 Doğrudan oynanabilir bir adres çıkarsa (yeni host, değişen politika) kendi `<video>` yolunu devreye
 alacak çözümleyici zinciri sonraki adımdır; bugün ölçüm bunu tetiklemiyor.
 
