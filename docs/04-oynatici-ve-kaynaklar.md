@@ -175,6 +175,22 @@ Bu, oynatıcının **kendi olması** yolunda atılabilecek adımın sınırıdı
 (`docs/10`, ADR-0005). Kaynağı değiştirmeden iyileştirilebilen kısım — bölüm gezinme, kaynak
 çipleri, tam ekran, gerçek konum — bizim katmanımızda ve artık uygulanıyor.
 
+## Neden hâlâ iframe kabuğu? (kendi `<video>` ölçümü, 2026-10-02)
+
+"Embed'i söküp videoyu kendi oynatıcımızda oynatalım" isteği ölçüldü (`npm run akis:olcum`):
+
+| Soru | Sonuç |
+|---|---|
+| Kaynak embed sayfasında doğrudan akış adresi (mp4/m3u8) var mı? | **~%89'unda yok** — Sibnet (%42,1), Mail.ru (%27,9), VK (%7,1), Odnoklassniki (%11,5) adresi JS/API ile üretiyor; Sibnet sunucu tarafına 403 veriyor. |
+| Bulunan adresler bizim origin'imizden oynuyor mu? | **Hayır.** Örneklemdeki hiçbir adres referer'sız çalışmadı; MP4UPLOAD kaydı referer yokken **403**, yalnız kaynağın kendi referer'ıyla **206** döndü. |
+
+Yani kendi `<video>`'muzda oynatmanın şartı araya **proxy** koymak: kendi sunucumuzun video baytlarını aktarması. Bu, projenin kendi politikasını değiştirir (barındırma/proxyleme kapsam dışı, `docs/10`), Cloudflare Workers'ta bant genişliği/ToS riski taşır ve en büyük hostlarda proxy'lenecek adres zaten yok. Ham kayıt:
+[`docs/olcum/akis-2026-10-02.json`](../olcum/akis-2026-10-02.json).
+
+Bu yüzden bugünkü oynatıcı **kabuk**tur: video yüzeyi kaynağın kendisi (iframe), kontrol/konum katmanı bizim.
+Doğrudan oynanabilir bir adres çıkarsa (yeni host, değişen politika) kendi `<video>` yolunu devreye
+alacak çözümleyici zinciri sonraki adımdır; bugün ölçüm bunu tetiklemiyor.
+
 ## İlerleme kaydı ve sınırı
 
 ```
@@ -195,6 +211,8 @@ işaretlemesiyle telafi edilebilir.
 
 1. Iframe içinde reklam/sekme açılması player'ın politikasıdır; engellenemez, yalnızca kaynak
    değiştirilerek azaltılabilir.
+1b. Oynatıcı görünümü tek parça olamaz: video yüzeyi kaynağın iframe'i olduğu için kendi kontrol
+   çubuğumuz onun altında/üstünde durur, videonun üzerine tam oturmaz (ölçüm ve gerekçe yukarıda).
 2. Bölüm bitişinin otomatik algılanması imkânsızdır; otomatik sonraki bölüm sunulmaz, bunun yerine
    belirgin "Sonraki" düğmesi ve `→` kısayolu vardır.
 3. Ölü kaynak işaretlemeleri yalnızca tarayıcıda tutulur; sunucuya gönderilmez (Faz 5 ile değişecek).

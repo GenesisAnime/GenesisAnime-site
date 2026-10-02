@@ -144,6 +144,7 @@ AniList GraphQL (önbellekli)┘            │                                 
 | `npm run tmdb:ara` | Veri kümesinde karşılığı olmayan yapımlar için arama tabanlı eşleme; `--golge=N` yanlış eşleşme riskini ölçer |
 | `npm run tmdb:zenginlestir` | Eşlenen kimliklerin backdrop yollarını çeker (TMDB anahtarı gerekir, kesintiye dayanıklı) |
 | `npm run tmdb:kapsam` | Görsel kapsamı hunisi: kimlik → backdrop → 4K/HD katmanı → bandı dolu sayfa (`tools/rapor/tmdb-kapsam.json`) |
+| `npm run akis:olcum` | Kaynak embed'lerinden doğrudan akış (mp4/m3u8) çıkarılabiliyor mu; `--referer` ile bizim origin'imizden oynanıp oynanmadığı (kendi oynatıcı kararının ölçümü) |
 | `npm run link:tara` | Link sağlığı taraması (partili, eşzamanlı, kesintiye dayanıklı; `--bildirim` ile kullanıcı bildirileri öne alınır) |
 | `npm run link:durum` | Tarama kapsamı ve dağılımı + `tools/rapor/link-tarama.md` |
 | `npm run link:bildirim` | Worker'daki kullanıcı bildirimlerini yerel kuyruğa çeker (`--kuru` yazmadan gösterir) |

@@ -1,0 +1,41 @@
+{
+  "olcum": "kaynakları kendi <video> elemanımızda oynatabilir miyiz?",
+  "tarih": "2026-10-02",
+  "neden": "Kullanıcı, embed'i iframe içinde göstermek yerine OpenAnime benzeri tek parça bir oynatıcı istedi. Bu, kaynağın doğrudan akış adresini (mp4/m3u8) gerektirir; mümkün mü sorusu tahminle değil ölçümle cevaplanmalı.",
+  "nasil": "tools/akis-olcum.mjs (aşama 1: embed sayfası sunucu tarafında çekilir, akış adayı regex'lerle çıkarılır) ve aynı aracın --referer aşaması (bulunan adres üç referer varyantında Range isteğiyle sınanır). Chromium UA, kaynağın kendi origin'i Referer olarak verilir.",
+  "asama1_html_de_akis_var_mi": {
+    "evet_dogrudan": ["MP4UPLOAD (2)", "ODNOKLASSNIKI (2)", "OK.RU (1)", "HDVID (2)", "CYBERFILE (2)", "YADISK (2)"],
+    "hayir_yok": ["SIBNET (2)", "MAIL (2)", "VK (2)", "UQLOAD (2)", "VOE (2)", "DAILYMOTION (2)", "GDRIVE (2)", "VIDEA (2)", "MEGA (2)", "DOODSTREAM (2)"],
+    "kapsam_notu": "Kaynak payına göre: Sibnet %42,1 · Mail.ru %27,9 · Odnoklassniki %11,5 · VK %7,1 → kaynakların ~%89'unda akış adresi HTML'de YOK (player JS/API ile üretiyor).",
+    "ornek_bulgu_sibnet": "https://video.sibnet.ru/shell.php?videoid=1425590 sunucu tarafı istekte 403 döndü (bot koruması) — HTML okunamadığı için çıkarma mümkün değil.",
+    "ornek_bulgu_mail": "videoapi.my.mail.ru embed'i 200 döndü ama gövdede akış yok; player meta bilgiyi API'den çekiyor."
+  },
+  "asama2_bizim_originimizden_oynar_mi": {
+    "soru": "Bulunan doğrudan adres tarayıcıdan (referer gönderilmeden veya site referer'ı ile) oynar mı?",
+    "varyantlar": ["referer-yok (sitenin no-referrer davranışı)", "site-referer (https://nutaliaxd.github.io/)", "host-referer (kaynağın kendi origin'i)"],
+    "sonuc": "Örneklemdeki adreslerin HİÇBİRİ 'referer-yok' ile oynanabilir çıkmadı.",
+    "tek_net_kanit": {
+      "player": "MP4UPLOAD",
+      "adres": "https://a3.mp4upload.com:183/d/.../video.mp4",
+      "referer_yok": "403 (text/html)",
+      "site_referer": "istek düştü (fetch failed)",
+      "host_referer": "206 partial content · application/octet-stream · content-range: bytes 0-2047/98518555",
+      "yorum": "Akış var ve 98 MB boyutunda, ama referer kilitli: yalnız kaynağın kendi origin'i ile dönüyor."
+    },
+    "diger_gozlemler": [
+      "HDVID: hiçbir varyantta yanıt yok (adres istemciye özel üretiliyor olabilir).",
+      "YADISK: site-referer ile 403, diğerlerinde 500.",
+      "CYBERFILE: çıkarılan adres URL-kodlu dosya adı içerdiği için 404 (çıkarma kalıbı yetersiz, ayrı iş)."
+    ]
+  },
+  "sonuc": {
+    "verdict": "Embed'i söküp kendi <video> elemanımızda oynatmak, bugünkü ölçümle PROXY olmadan mümkün değil: (a) kaynakların ~%89'unda akış adresi HTML'de yok, (b) adres bulunanlarda akış referer kilitli.",
+    "proxy_ne_demek": "Kendi sunucumuzun video baytlarını aktarması demektir: Cloudflare Workers bant genişliği/ToS riski, maliyet, ve projenin kendi politikasının değişmesi (docs/10: 'video barındırma, proxyleme veya indirme yok'). Ayrıca en büyük hostlarda proxy'lenecek adres hiç yok.",
+    "proxy_sonrasi_tahmini_kapsam": "Ölçülen örneklemde proxy ile oynatılabilir hale gelen kaynak: MP4UPLOAD + (çıkarma düzeltilirse) CYBERFILE/HDVID/YADISK sınıfı — kaynak payı toplamı %1-2. Sibnet/Mail/VK/OK (%89) için adres üretimi hâlâ eksik.",
+    "proxy_siz_yapilabilenler": [
+      "Kendi kontrol çubuğumuz + iframe yüzeyi (bölüm gezinme, kaynak çipleri, tam ekran, PiP, klavye).",
+      "Köprü yayınlayan hostta (VK) gerçek konum/süre ve oynat/duraklat/sar komutları — 02.10'da yapıldı.",
+      "İleride: doğrudan oynanabilir bir adres çıkarsa kendi <video> yolumuzu devreye alacak çözümleyici zinciri (bugün tetiklenmiyor)."
+    ]
+  }
+}
