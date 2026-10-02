@@ -996,6 +996,45 @@ a.etiket:hover {
   display: block;
 }
 
+/*
+ * Kendi oynatıcımız: video bizim `<video>` elemanımızda (Mail.ru akış köprüsü).
+ * Kutu 16/9 oranını ve siyah zemini korur; video kutuyu doldurur.
+ */
+.oynatici-video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #000;
+}
+
+/* Çözümleme sürerken iframe'in üstünde duran örtü: kullanıcı boş ekran görmesin. */
+.oynatici-yukleniyor {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--tx2);
+  font-size: 13.5px;
+}
+
+.oynatici-donen {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(168, 85, 247, 0.35);
+  border-top-color: var(--ac2);
+  animation: oynatici-don 0.9s linear infinite;
+}
+
+@keyframes oynatici-don {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .oynatici-bos {
   position: absolute;
   inset: 0;

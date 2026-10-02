@@ -173,6 +173,11 @@ test('aktar: Range ve If-Range kaynağa iletilir, medya başlıkları korunur', 
   assert.equal(sonuc.basliklar['Content-Type'], 'video/mp4');
   assert.equal(sonuc.basliklar['Content-Range'], 'bytes 0-9/169600484');
   assert.equal(sonuc.basliklar['Accept-Ranges'], 'bytes');
+  assert.equal(
+    sonuc.basliklar['Access-Control-Expose-Headers'],
+    'Content-Range, Content-Length, Accept-Ranges',
+    'oynatıcı aralık bilgisini JS’ten okuyabilsin'
+  );
   const gonderilen = fetchImpl.cagrilar[0].secenekler.headers;
   assert.equal(gonderilen.Range, 'bytes=0-9');
   assert.equal(gonderilen['If-Range'], '"abc"');
@@ -205,6 +210,77 @@ test('aktar: kaynak ağ hatası 502 olarak raporlanır', async () => {
   const sonuc = await akis.aktar(sahteIstek(), IMZALI, { fetchImpl: sahteFetch([{ agHatasi: true }]) });
   assert.equal(sonuc.durum, 502);
   assert.equal(sonuc.hata, 'kaynak-erisilemedi');
+});
+
+test('taze çözümleme: istemci `?t=` gönderirse önbellek atlanır', () => {
+  assert.equal(akis.onbellekAtlaMi(new URLSearchParams('kaynak=https%3A%2F%2Fx&t=1790985600000')), true);
+  assert.equal(akis.onbellekAtlaMi(new URLSearchParams('kaynak=x')), false);
+  assert.equal(akis.onbellekAtlaMi(new URLSearchParams('kaynak=x&t=')), true, 'boş değer de atlama sayılır (varlık yeter)');
+  assert.equal(akis.onbellekAtlaMi(null), false);
+  assert.equal(akis.onbellekAtlaMi({}), false, 'eksik arayüz çökertmez');
+});
+
+test('CORS: Range başlığı izinli (oynatıcı 2 baytlık yoklama yapabilsin)', () => {
+  const basliklar = yardimci.corsBasliklari('https://nutaliaxd.github.io', { SITE_ORIGIN: 'https://nutaliaxd.github.io' });
+  assert.match(basliklar['Access-Control-Allow-Headers'], /Range/);
+});
+
+/* ================================================================= */
+/* Uç — /akis/coz önbellek davranışı (Cache API ve fetch taklit edilir) */
+/* ================================================================= */
+
+test('uç: /akis/coz önbelleği kullanır, `?t=` ile atlar ve sonucu tazeler', async () => {
+  const varsayilan = await import('../../api/src/index.mjs');
+  const kapi = varsayilan.default;
+
+  const eskiFetch = globalThis.fetch;
+  const eskiCaches = globalThis.caches;
+  let upstream = 0;
+  const depo = new Map();
+  try {
+    globalThis.fetch = async (adres) => {
+      upstream += 1;
+      return String(adres).includes('/+/video/meta/')
+        ? new Response(META_JSON, { status: 200, headers: { 'content-type': 'application/json' } })
+        : new Response(EMBED_HTML, { status: 200, headers: { 'content-type': 'text/html' } });
+    };
+    globalThis.caches = {
+      default: {
+        async match(anahtar) {
+          const yanit = depo.get(anahtar.url);
+          return yanit ? yanit.clone() : undefined;
+        },
+        async put(anahtar, yanit) {
+          depo.set(anahtar.url, yanit.clone());
+        },
+      },
+    };
+
+    const env = { SITE_ORIGIN: 'https://nutaliaxd.github.io' };
+    const adres = (taze) =>
+      `https://api.test/akis/coz?kaynak=${encodeURIComponent(EMBED)}${taze ? '&t=' + Date.now() : ''}`;
+
+    const ilk = await kapi.fetch(new Request(adres(false)), env, {});
+    assert.equal(ilk.status, 200);
+    const ilkGovde = await ilk.json();
+    assert.equal(ilkGovde.ok, true);
+    assert.match(ilkGovde.aktarim, /\/akis\/aktar\?u=/, 'aktarım adresi üretilmeli');
+    assert.equal(ilk.headers.get('X-Akis-Onbellek'), null, 'ilk çözümleme önbellekten gelmez');
+    const ilkUpstream = upstream;
+    assert.equal(ilkUpstream, 2, 'iki adım: embed + meta');
+
+    const ikinci = await kapi.fetch(new Request(adres(false)), env, {});
+    assert.equal(ikinci.headers.get('X-Akis-Onbellek'), 'vuruldu');
+    assert.equal(upstream, ilkUpstream, 'önbellek vurunca kaynağa istek gitmemeli');
+
+    const taze = await kapi.fetch(new Request(adres(true)), env, {});
+    assert.equal(taze.headers.get('X-Akis-Onbellek'), 'atlandi');
+    assert.equal(upstream, ilkUpstream + 2, '`?t=` önbelleği atlayıp kaynağı yeniden çözmeli');
+  } finally {
+    globalThis.fetch = eskiFetch;
+    if (eskiCaches === undefined) delete globalThis.caches;
+    else globalThis.caches = eskiCaches;
+  }
 });
 
 test('yolCoz: köprü uçları yönlendiricide tanımlı', () => {

@@ -5,7 +5,7 @@
 **Türkçe anime arşivi — %100 açık kaynak, tamamen statik, sunucusuz.**
 
 [![Lisans: MIT](https://img.shields.io/badge/lisans-MIT-green)](LICENSE)
-[![Testler: 186/186](https://img.shields.io/badge/testler-186%2F186-success)](docs/05-kalite-ve-testler.md)
+[![Testler: 201/201](https://img.shields.io/badge/testler-201%2F201-success)](docs/05-kalite-ve-testler.md)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
 [![Cloudflare Workers + D1](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-f38020)](docs/11-hesaplar-uygulama.md)
 
@@ -43,13 +43,13 @@ depodadır. Kapalı bileşen, gizli veri işleme veya reklam/izleyici betiği yo
 |---|---|
 | Veri | 6.107 anime · 71.694 bölüm · 316.820 kaynak · 961 seri · 363 fansub grubu |
 | Banner görselleri | TMDB kimliği **5.266** yapımda (%86,2; Fribb 4.907 + arama 359) · 4K katmanı **2.495** · HD katmanı **2.269** · anime detay bandı **5.306/6.107** sayfada dolu (hero 20/24 · kart 391/540 · bant 3,4:1 → kaynağın ~%52'si; TMDB atfı `/kunye/` ve alt bilgide) |
-| Site derlemesi | 7.448 sayfa → `out/` 21.049 dosya / 880,6 MB (GitHub Pages uyumlu; CF Pages 20k sınırını aşıyor) |
+| Site derlemesi | 7.448 sayfa → `out/` 21.047 dosya / 880,5 MB (GitHub Pages uyumlu; CF Pages 20k sınırını aşıyor) |
 | Link sağlığı | kapsam **%58,72** — 173.030 `ok` · 301 `ölü` · 34 `engelli` · 12.861 `belirsiz` (ölçülebilir havuz tükendi) |
 | Otomasyon | günlük link döngüsü zamanlayıcıda (saatlik uyanır, günde bir koşar) · `/yonetim/` panelinden ayar + koşu geçmişi |
-| Testler | `npm test` **186/186** (ağsız) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
+| Testler | `npm test` **201/201** (ağsız) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
 | API | Cloudflare Worker + D1 yayında (bölge WEUR) · CORS yalnızca site kaynağına açık |
-| Son güncelleme | 2 Ekim 2026 |
-| Sıradaki işler | analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · akış köprüsünü oynatıcıya bağlama (Mail.ru %27,9, [docs/12](docs/12-akis-koprusu.md)) ([docs/10](docs/10-yol-haritasi.md)) |
+| Son güncelleme | 3 Ekim 2026 |
+| Sıradaki işler | analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · akış köprüsü uçlarını üretim Worker'ına yayınlama (Mail.ru kendi oynatıcımızda hazır, [docs/12](docs/12-akis-koprusu.md)) · Odnoklassniki çözümleyicisi ([docs/10](docs/10-yol-haritasi.md)) |
 
 ## Hızlı başlangıç
 

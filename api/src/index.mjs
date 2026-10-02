@@ -65,7 +65,7 @@ import {
   TARAMA_KOSU_SINIRI,
   yolCoz,
 } from './yardimci.mjs';
-import { aktar, akisCoz, kaynakTuru } from './akis.mjs';
+import { aktar, akisCoz, kaynakTuru, onbellekAtlaMi } from './akis.mjs';
 
 /* ================================================================ */
 /* 1 · İşleyiciler                                                  */
@@ -404,6 +404,9 @@ async function taramaKalp(istek, env, cors) {
  * Embed adresini doğrudan akışa çevirir. İmzalar günlük olduğu için sonuç
  * imza bitişine kadar Cache API'de tutulur — kaynağı her oynatmada yeniden
  * yormayız. Yanıt, oynatıcının kullanacağı `aktarim` adresini de içerir.
+ *
+ * `?t=<rastgele>` önbelleği atlar (taze çözümleme): istemci video hatasında
+ * ucu bu şekilde tazeler; eski imza gece yarısını geçmişse başka çare yoktur.
  */
 async function akisCozUc(istek, env, cors) {
   const u = new URL(istek.url);
@@ -414,7 +417,10 @@ async function akisCozUc(istek, env, cors) {
   const onbellek = caches.default;
   /* Önbellek anahtarı origin'den bağımsız: CORS başlıkları yanıt üretilirken eklenir. */
   const anahtar = new Request(`https://akis-onbellek.local/coz?v=1&k=${encodeURIComponent(kaynak)}`);
-  const vurulan = await onbellek.match(anahtar);
+  /* `?t=` → istemci taze çözümleme istiyor (imzası düşmüş adres 403/502 verdi).
+     Önbelleği atlarız ama sonucu yine yazarız: **tazeleme** budur. */
+  const taze = onbellekAtlaMi(u.searchParams);
+  const vurulan = taze ? null : await onbellek.match(anahtar);
   if (vurulan) {
     const veri = await vurulan.json();
     return json(veri, 200, { ...cors, 'X-Akis-Onbellek': 'vuruldu' });
@@ -444,7 +450,7 @@ async function akisCozUc(istek, env, cors) {
     })
   );
 
-  return json(veri, 200, cors);
+  return json(veri, 200, taze ? { ...cors, 'X-Akis-Onbellek': 'atlandi' } : cors);
 }
 
 /**

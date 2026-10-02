@@ -284,7 +284,9 @@ export function kaynakIzinli(origin, env) {
 export function corsBasliklari(origin, env) {
   const basliklar = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    /* `Range` listede: oynatıcı, video hatasının nedenini 2 baytlık yoklamayla
+       öğreniyor (`Range: bytes=0-1`) ve bu istek tarayıcıya göre ön uçuş ister. */
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };

@@ -579,6 +579,23 @@ Ders: **varlık kanıtı, görünürlük kanıtı değildir.** Saati dışarıda
 varsayılan değer, okuyan tarafı sessizce öldürebilir; bu tür parametreler varsayılansız bırakılmalı
 ki unutulmaları derleyiciye yakalansın.
 
+### H-34 · Konum koruma yazıldı ama sessizce çalışmadı: canlı konum ref'i, okunmadan önce sıfırlanıyordu
+
+Kaynak değişiminde oynatma konumunu taşıyan yol (`#t=`), tarayıcı testinde beklendiği gibi
+davranmadı: 305. saniyede kaynak değiştirilince yeni video **baştan** (cihazdaki kayıtlı 19. saniyeden)
+başlıyordu. Sebep, efektin ilk satırlarında `videoKonumRef.current = 0` yazıp canlı konumu **aynı
+efektin içinde sonra** okumasıydı — değer her seferinde 0 çıkıyordu ve kod hatasız görünüyordu:
+birim testleri saf fonksiyonları (konum eki, tazeleme kararı) doğruluyor, ref'in yaşam sırasını
+görmüyordu.
+
+Fark edilme yolu, kullanıcı akışını tarayıcıda bir kez ölçmek oldu: saniyeyi 300'e sar → başka
+kaynağa geç → yeni adreste `#t=` var mı? Düzeltme, okuma/sıfırlama sırasını çevirdi ve gerekçesi
+yorumla sabitlendi (sonraki ölçüm: `#t=305`, oynatma 310'dan devam).
+
+Ders: **ref tabanlı durumda yazma ile okuma arasındaki sıra bir sözleşmedir.** "Yazdım" demek
+"okundu" demek değildir; bu sınıf yalnız gerçek kullanıcı akışıyla (kaynak değiştir → konum korunuyor
+mu?) yakalanır.
+
 ### H-33 · Belge bağlantıları 404 veriyordu: `docs/` içinden `../../` ile yukarı çıkılmış
 
 `docs/04-oynatici-ve-kaynaklar.md` içindeki bazı bölümler `../../tools/…`, `../../src/…` ve

@@ -102,6 +102,18 @@ export const MEDYA_HOSTLARI = [
   /(^|\.)okcdn\.ru$/i,
 ];
 
+/**
+ * İstemci **taze çözümleme** istedi mi? (`?t=<rastgele>`)
+ *
+ * Neden: imzalar günlük; gece yarısını geçen önbellek girdisi 403/502 verir.
+ * İstemci bunu görünce `t` gönderir ve önbellek **atlanır**. Değerin içeriği
+ * önemsizdir (önbellek kırıcı), varlığı yeterlidir. Karar burada saf bir
+ * fonksiyonda durur ki uç ve testler aynı sözleşmeyi okusun.
+ */
+export function onbellekAtlaMi(aramaParametreleri) {
+  return Boolean(aramaParametreleri && typeof aramaParametreleri.has === 'function' && aramaParametreleri.has('t'));
+}
+
 /** Adreste imza parametresi var mı (yalnız imzalı adresler aktarılır). */
 export function imzaliMi(adres) {
   return /[?&](?:video_key|sig|sign|tkn|token|signature|expires|expire_at|hdnts)=/i.test(String(adres));
@@ -227,6 +239,9 @@ export async function aktar(istek, hedef, { fetchImpl = fetch, cors = {} } = {})
     'Accept-Ranges': yanit.headers.get('accept-ranges') ?? 'bytes',
     'Cache-Control': 'private, max-age=3600',
     'X-Aktarim': izin.host,
+    /* Oynatıcı aralık bilgisini JS'ten okuyabilsin: CORS altında bu başlıklar
+       varsayılan olarak gizlidir (yalnız saf liste açıktır). */
+    'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
   };
   /* Başlık adları HTTP kanonik biçimiyle yazılır: döndürülen nesne çağıran
      tarafından okunabilir kalsın (Response zaten küçük harfe çevirir). */

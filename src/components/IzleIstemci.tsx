@@ -6,16 +6,19 @@
  *  1. anime verisi (public/data/anime/<slug>.json) ve player güvenilirliği indirilir
  *  2. bölümün kaynakları listelenir; kullanıcının "çalışmıyor" dedikleri gizlenir
  *  3. doğrulanmış + tercih edilen player öne alınarak bir kaynak seçilir
- *  4. kaynak iframe ile gömülür (video barındırılmaz, üçüncü taraf sayfa gösterilir)
- *  5. sayfada geçirilen süre ölçülür ve "izlemeye devam et" kaydı güncellenir
- *  6. kaynak postMessage API'si yayınlıyorsa (VK, ölçüldü) gerçek konum/süre
+ *  4. Mail.ru kaynakları **kendi `<video>` oynatıcımıza** alınır: akış köprüsü
+ *     (`/akis/coz` → `/akis/aktar`) videoyu bizim elemanımıza getirir (docs/12)
+ *  5. kendi oynatıcıya alınamayan kaynak iframe ile gömülür
+ *  6. sayfada geçirilen süre ölçülür ve "izlemeye devam et" kaydı güncellenir
+ *  7. kaynak postMessage API'si yayınlıyorsa (VK, ölçüldü) gerçek konum/süre
  *     köprüden okunur ve oynat/duraklat/sar komutları gönderilir
  *
  * Kısıt (dürüstçe): iframe içeriği farklı kaynakta olduğu için videonun gerçek
- * oynatma konumu/süresi **yalnızca** API yayınlayan host'ta okunabilir. Ölçüm
- * (tools/kopru-test.html): kaynakların ~%7'si (VK) konuşuyor, ~%42'si (Sibnet)
- * tamamen opak. Opak kaynakta ilerleme "sayfada geçirilen süre" olarak tutulur
- * ve bölüm 90 saniye sonra izlendi sayılır.
+ * oynatma konumu/süresi **yalnızca** iki yolda okunabilir: kaynak postMessage API
+ * yayınlıyorsa (ölçüm: ~%7, VK) veya video bizim `<video>` elemanımızdaysa
+ * (bugün Mail.ru, kaynakların ~%28'i). Sibnet (~%42) tamamen opak ve kullanım
+ * dışı. Opak iframe'de ilerleme "sayfada geçirilen süre" olarak tutulur ve
+ * bölüm 90 saniye sonra izlendi sayılır.
  */
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -41,10 +44,24 @@ import {
   olcumGuncelle,
   olcumKomutOnayla,
   olcumSinaBasarisiz,
+  sarmalayiciCoz,
   sinaOnaylandi,
   type KopruEylem,
   type KopruOlcumu,
 } from '@/lib/kopru';
+import {
+  akisAdayi,
+  akisCoz,
+  akisNotuMetni,
+  akisOynatilirMi,
+  akisVarMi,
+  akisYenilenmeliMi,
+  aktarimAdresi,
+  aktarimDurumu,
+  medyaHatasiTazeGerektirir,
+  type AkisCozumu,
+  type AkisNotu,
+} from '@/lib/akis';
 import { useBaglandi, useCalismayanlar, useTercihler } from '@/lib/depo/kanca';
 import {
   calismayanIsaretle,
@@ -240,6 +257,134 @@ export default function IzleIstemci() {
   const kopruAdi = useMemo(() => (aktifKaynak ? kopruBul(aktifKaynak[2]) : null), [aktifKaynak]);
   /** iframe'e giden adres: sarmalayıcı çözülür, destekli host'ta API açılır. */
   const iframeAdresi = useMemo(() => (aktifKaynak ? kaynakAdresi(aktifKaynak[2]) : ''), [aktifKaynak]);
+
+  /* --------------------- kendi oynatıcı (akış köprüsü) --------------------- */
+  /*
+   * Mail.ru kaynaklarında video artık bizim `<video>` elemanımızda oynar:
+   * embed adresi `/akis/coz` ile imzalı akışa çevrilir, baytlar `/akis/aktar`
+   * üzerinden akar (tarayıcı imzalı CDN'e doğrudan 403 alıyor — ölçüm: docs/12).
+   *
+   * Karar sözleşmesi `@/lib/akis` içinde ve testlerle sabit:
+   *   · kaynak değişiminde konum `#t=<saniye>` ile taşınır
+   *   · 403/502'de kaynak seçimi başına **bir kez** `?t=` ile taze çözümleme
+   *   · çözülemeyen kaynak bugünkü iframe yolunda kalır
+   */
+  const kendiVideoAdayi = Boolean(
+    aktifKaynak &&
+      embedUygun(aktifKaynak[2]) &&
+      akisAdayi(aktifKaynak[0], sarmalayiciCoz(aktifKaynak[2])) &&
+      akisVarMi()
+  );
+
+  const [akis, setAkis] = useState<{ cozum: AkisCozumu; baslangic: number } | null>(null);
+  const [akisDurum, setAkisDurum] = useState<'yok' | 'cozuluyor' | 'yenileniyor' | 'hazir' | 'basarisiz'>('yok');
+  const [akisNotu, setAkisNotu] = useState<AkisNotu | null>(null);
+  const [videoSaat, setVideoSaat] = useState({ konum: 0, sure: 0 });
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoKonumRef = useRef(0);
+  /** Seçim başına sayaç: geç dönen çözümleme eski seçime yazılamasın. */
+  const akisSurumRef = useRef(0);
+  /** Taze çözümleme hakkı (seçim başına en çok bir deneme). */
+  const akisTazeRef = useRef(false);
+  /** Videonun ait olduğu bölüm: aynı bölümde kaynak değişimi konumu taşır. */
+  const akisBolumRef = useRef('');
+
+  const oynatmaAdresi = akis ? aktarimAdresi(akis.cozum, akis.baslangic) : '';
+
+  /** Kaynak seçilince akışı çözümle; başarısızlık iframe yolunu bozmaz. */
+  useEffect(() => {
+    const kaynak = aktifKaynak;
+    const surum = ++akisSurumRef.current;
+    akisTazeRef.current = false;
+    setAkis(null);
+    setAkisNotu(null);
+    setVideoSaat({ konum: 0, sure: 0 });
+
+    if (!kaynak || !anime || !bolum || !kendiVideoAdayi) {
+      videoKonumRef.current = 0;
+      setAkisDurum('yok');
+      return;
+    }
+
+    const anahtar = `${anime.slug}|${bolum.n}`;
+    /* Konum koruma: aynı bölümde kaynak değişiyorsa **canlı** konum, yeni bölümse
+       cihazda kayıtlı konum başlangıç olur.
+       DİKKAT: canlı konum ref'ten **sıfırlamadan önce** okunur. İlk sürümde
+       sıfırlama önceydi ve konum koruma sessizce çalışmıyordu (kaynak değişimi
+       baştan başlıyordu); tarayıcı testi yakaladı — bkz. docs/05 H-34. */
+    const canli = akisBolumRef.current === anahtar ? videoKonumRef.current : 0;
+    videoKonumRef.current = 0;
+    const baslangic = Math.max(0, Math.floor(canli > 1 ? canli : konumOku(anime.slug, bolum.n)));
+
+    setAkisDurum('cozuluyor');
+    akisCoz(sarmalayiciCoz(kaynak[2])).then((sonuc) => {
+      if (akisSurumRef.current !== surum) return;
+      if (!sonuc.ok) {
+        setAkisDurum('basarisiz');
+        setAkisNotu('cozulemedi');
+        return;
+      }
+      if (!akisOynatilirMi(sonuc.akis.tur)) {
+        setAkisDurum('basarisiz');
+        setAkisNotu('tur-desteklenmiyor');
+        return;
+      }
+      akisBolumRef.current = anahtar;
+      setAkis({ cozum: sonuc.akis, baslangic });
+      setAkisDurum('hazir');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aktifKaynak, bolum, kendiVideoAdayi]);
+
+  /**
+   * Kendi `<video>` hata verdi: önce aktarım ucunu 2 baytla yokla (video elemanı
+   * HTTP kodunu göremez), 403/502 ise **bir kez** taze çözümle; tutmazsa kaynak
+   * iframe'e düşer. Taze deneme hakkı seçim başına birdir — döngü kurulmaz.
+   */
+  const videoHatasi = useCallback(async () => {
+    const video = videoRef.current;
+    const kaynak = aktifKaynak;
+    if (!video || !akis || !kaynak) return;
+    const surum = akisSurumRef.current;
+    const anlik = Number.isFinite(video.currentTime) ? Math.floor(video.currentTime) : 0;
+    const baslangic = Math.max(0, anlik || Math.floor(videoKonumRef.current) || akis.baslangic);
+
+    const dur = (not: AkisNotu) => {
+      setAkis(null);
+      setAkisDurum('basarisiz');
+      setAkisNotu(not);
+    };
+    if (akisTazeRef.current) return dur('akis-durdu');
+    if (!medyaHatasiTazeGerektirir(video.error?.code)) return dur('medya-desteklemiyor');
+
+    akisTazeRef.current = true;
+    setAkisDurum('yenileniyor');
+    const durum = await aktarimDurumu(akis.cozum.aktarim);
+    if (akisSurumRef.current !== surum) return;
+    if (!akisYenilenmeliMi(durum)) return dur(durum === 0 ? 'akis-erisilemedi' : 'medya-desteklemiyor');
+
+    const sonuc = await akisCoz(sarmalayiciCoz(kaynak[2]), { taze: true });
+    if (akisSurumRef.current !== surum) return;
+    if (!sonuc.ok || !akisOynatilirMi(sonuc.akis.tur)) return dur('akis-durdu');
+    videoKonumRef.current = baslangic;
+    setAkis({ cozum: sonuc.akis, baslangic });
+    setAkisDurum('hazir');
+    setAkisNotu('akis-tazelendi');
+  }, [akis, aktifKaynak]);
+
+  /* Kendi oynatıcıda gerçek konum cihazda saklanır: bölüm yeniden açılınca
+     "kaldığın yerden" çalışsın (iframe yolunda bu bilgi yoktu). */
+  useEffect(() => {
+    if (!akis || !anime || !bolum) return;
+    const kaydet = () => {
+      if (videoKonumRef.current > 5) konumKaydet(anime.slug, bolum.n, Math.floor(videoKonumRef.current));
+    };
+    const zamanlayici = window.setInterval(kaydet, 15000);
+    return () => {
+      window.clearInterval(zamanlayici);
+      kaydet();
+    };
+  }, [akis, anime, bolum]);
 
   /* Çalışma anı ölçümü: bu cihazda biriken yetenek kaydı (bkz. kopru.ts). */
   const [olcumler, setOlcumler] = useState<Record<string, KopruOlcumu>>({});
@@ -593,7 +738,47 @@ export default function IzleIstemci() {
       <div className="oynatici-izgara">
         <div>
           <div className="oynatici-kutu" ref={kutuRef}>
-            {aktifKaynak && gomulebilir ? (
+            {akis ? (
+              <video
+                key={oynatmaAdresi}
+                ref={videoRef}
+                className="oynatici-video"
+                src={oynatmaAdresi}
+                controls
+                autoPlay
+                playsInline
+                preload="metadata"
+                title={`${anime.ad} ${bolumNumarasi(bolum?.no ?? null, bolumSira)}. bölüm — Mail.ru akışı`}
+                onLoadedMetadata={(olay) => {
+                  /* Konum ekini (`#t=`) bazı tarayıcılar akış mp4'ünde yok sayıyor;
+                     "kaynak değişiminde konum korunur" sözleşmesi burada açıkça kurulur. */
+                  const v = olay.currentTarget;
+                  if (akis.baslangic > 1 && Math.abs(v.currentTime - akis.baslangic) > 3) {
+                    try {
+                      v.currentTime = akis.baslangic;
+                    } catch {
+                      /* sarma desteklenmiyorsa video baştan oynar */
+                    }
+                  }
+                }}
+                onTimeUpdate={(olay) => {
+                  const v = olay.currentTarget;
+                  videoKonumRef.current = v.currentTime;
+                  setVideoSaat({
+                    konum: Math.floor(v.currentTime),
+                    sure: Number.isFinite(v.duration) ? Math.floor(v.duration) : 0,
+                  });
+                }}
+                onDurationChange={(olay) => {
+                  const v = olay.currentTarget;
+                  setVideoSaat((eski) => ({
+                    konum: eski.konum,
+                    sure: Number.isFinite(v.duration) ? Math.floor(v.duration) : 0,
+                  }));
+                }}
+                onError={videoHatasi}
+              />
+            ) : aktifKaynak && gomulebilir ? (
               <iframe
                 key={aktifKaynak[2]}
                 ref={cerceveRef}
@@ -621,10 +806,46 @@ export default function IzleIstemci() {
                 </div>
               </div>
             )}
+
+            {akisDurum === 'cozuluyor' || akisDurum === 'yenileniyor' ? (
+              <div className="oynatici-yukleniyor" role="status">
+                <span className="oynatici-donen" aria-hidden="true" />
+                {akisDurum === 'yenileniyor' ? 'Akış tazeleniyor…' : 'Mail.ru akışı hazırlanıyor…'}
+              </div>
+            ) : null}
           </div>
 
+          {/* Kendi oynatıcı şeridi: video bizim elemanımızda, baytlar aktarım ucundan. */}
+          {akis ? (
+            <div className="oynatici-kopru">
+              <span className="oynatici-kopru-nokta canli" aria-hidden="true" />
+              <span className="oynatici-kopru-ad">Kendi oynatıcımız</span>
+              <span
+                className="oynatici-kopru-olcum"
+                title="Video bu sayfanın <video> elemanında; baytlar akış köprüsünden geçiyor."
+              >
+                köprü
+              </span>
+              {videoSaat.sure ? (
+                <span className="oynatici-kopru-saat">
+                  {medyaSaati(videoSaat.konum)} / {medyaSaati(videoSaat.sure)}
+                </span>
+              ) : null}
+              <span className="oynatici-kopru-not">
+                Mail.ru akışı Workers üzerinden aktarılıyor; oynatma konumu bu sayfada okunuyor.
+              </span>
+            </div>
+          ) : null}
+
+          {akisNotu ? (
+            <div className="uyari-kutu bilgi" style={{ marginTop: 10 }}>
+              <span aria-hidden="true">ℹ️</span>
+              <span>{akisNotuMetni(akisNotu)}</span>
+            </div>
+          ) : null}
+
           {/* Köprü şeridi: gerçek konum/süre ve (kanıtlanmışsa) kendi kontrollerimiz. */}
-          {aktifKaynak && gomulebilir && kopru ? (
+          {aktifKaynak && gomulebilir && kopru && !kendiVideoAdayi ? (
             <div className="oynatici-kopru">
               <span className={`oynatici-kopru-nokta${kopruHazir ? ' canli' : ''}`} aria-hidden="true" />
               <span className="oynatici-kopru-ad">{kopru.etiket}</span>

@@ -251,7 +251,7 @@ Host bazlı derin araştırma (aynı kayıtta) bunun nedenini netleştirir:
 | Host | Pay | Akış adresi çıkarılabiliyor mu? | Tarayıcı oynatabiliyor mu? |
 |---|---:|---|---|
 | Sibnet | %42,1 | ✗ her yol 403 ("administrative rules") | ✗ |
-| Mail.ru | %27,9 | ✓ embed → `metadataUrl` → imzalı mp4 (**günlük imzalı**, 169 MB, Range'li) | ✗ düz `<video>` 403 alıyor (aynı adres sunucumuzda 206) |
+| Mail.ru | %27,9 | ✓ embed → `metadataUrl` → imzalı mp4 (**günlük imzalı**, 169 MB, Range'li) | 02.10: ✗ düz `<video>` 403 · **03.10: ✓ köprüden** — kendi oynatıcımızda oynuyor [12](12-akis-koprusu.md) |
 | Odnoklassniki | %11,5 | ✓ `hlsManifestUrl` | ✗ `srcIp` + `expires` damgalı, segmentler göreli |
 | VK | %7,1 | ✗ yalnız özel API (hash) | ✗ (köprü ile kontrol var, akış yok) |
 | diğer | ~%11 | kısmen, referer kilitli | ✗ |
@@ -259,11 +259,15 @@ Host bazlı derin araştırma (aynı kayıtta) bunun nedenini netleştirir:
 Yani kendi `<video>`'muzda oynatmanın şartı araya **proxy** koymak: kendi sunucumuzun video baytlarını aktarması. Bu, projenin kendi politikasını değiştirir (barındırma/proxyleme kapsam dışı, `docs/10`), Cloudflare Workers'ta bant genişliği/ToS riski taşır ve en büyük hostlarda proxy'lenecek adres zaten yok. Ham kayıt:
 [`docs/olcum/akis-2026-10-02.json`](olcum/akis-2026-10-02.json).
 
-Bu yüzden bugünkü oynatıcı **kabuk**tur: video yüzeyi kaynağın kendisi (iframe), kontrol/konum katmanı bizim.
+Bu yüzden oynatıcı **kabuk**tur: video yüzeyi kaynağın kendisi (iframe), kontrol/konum katmanı bizim.
+**İstisna 03.10:** Mail.ru'da oynatıcı önce `/akis/coz` deniyor ve akış gelirse video **bizim**
+`<video>` elemanımızda oynuyor (`#t=` ile konum koruma, 403/502'de bir kez taze çözümleme);
+diğer kaynaklarda kabuk aynen sürüyor.
 
-Aktarım katmanının **temeli** kuruldu ve Cloudflare edge'inde uçtan uca doğrulandı (Mail.ru, kaynakların
-%27,9'u, kendi `<video>` elemanımızda oynuyor): [12-akis-koprusu.md](12-akis-koprusu.md). Oynatıcı
-entegrasyonu sıradaki adımdır; köprü çözülemeyen kaynaklarda iframe yolu korunur.
+Aktarım katmanı Cloudflare edge'inde uçtan uca doğrulandı (02.10) ve **istemciye bağlandı** (03.10:
+Mail.ru, kaynakların %27,9'u, kendi `<video>` elemanımızda oynuyor):
+[12-akis-koprusu.md](12-akis-koprusu.md). Çözülemeyen kaynakta iframe yolu korunur; özelliğin canlı
+siteye etki etmesi için üretim Worker'ının yeni uçlarla yayınlanması bekliyor.
 
 Karşılaştırma için: kendi dosyalarını barındıran bir platformun (OpenAnime) oynatıcısı bu yüzden çok
 daha zengin olabiliyor — istemci tarafı 4K yükseltmesi, WebGPU filtreler, sprite önizlemeleri,
@@ -283,7 +287,8 @@ sayfa açılış → sayaç başlar
 
 **Neden varsayılan olarak süre, neden konum değil:** video farklı bir kaynakta (cross-origin)
 çalıştığı için `currentTime` / `duration` genel olarak okunamaz; köprü yayınlayan host'ta (VK)
-ise okunur ve şerit gerçek `konum / süre` gösterir. Diğer kaynaklarda yüzdelik ilerleme çubuğu
+ise okunur ve şerit gerçek `konum / süre` gösterir. Aynı şey 03.10'dan beri kendi oynatıcımızda
+oynayan Mail.ru için de geçerli: o bölümlerde konum cihazda saklanır ve "kaldığın yerden" çalışır. Diğer kaynaklarda yüzdelik ilerleme çubuğu
 yerine "son bölüm + ne zaman" gösterilir. Hesap tabanlı senkronizasyon (Faz 5) geldiğinde de
 bu ayrım korunur (sunucu `saniye` alanı sayfada geçirilen süredir); kullanıcı "izledim"
 işaretlemesiyle telafi edilebilir.
@@ -294,6 +299,7 @@ işaretlemesiyle telafi edilebilir.
    değiştirilerek azaltılabilir.
 1b. Oynatıcı görünümü tek parça olamaz: video yüzeyi kaynağın iframe'i olduğu için kendi kontrol
    çubuğumuz onun altında/üstünde durur, videonun üzerine tam oturmaz (ölçüm ve gerekçe yukarıda).
+   İstisna: kendi oynatıcımızda oynayan Mail.ru bölümlerinde yüzey tamamen bizim (03.10).
 2. Bölüm bitişinin otomatik algılanması imkânsızdır; otomatik sonraki bölüm sunulmaz, bunun yerine
    belirgin "Sonraki" düğmesi ve `→` kısayolu vardır.
 3. Ölü kaynak işaretlemeleri yalnızca tarayıcıda tutulur; sunucuya gönderilmez (Faz 5 ile değişecek).
