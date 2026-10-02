@@ -14,8 +14,9 @@
  *   · ölü/engelli URL sızıntısı yok — sızıntı, üretilmiş verinin sağlık
  *     kaydından geri kaldığını gösterir; çözümü `npm run veri`'dir
  *   · kunye.json toplamları gerçek dosyalarla birebir (kaynak/tekil/rozetti/bölüm)
- *   · `banner4k` alanı yalnızca gerçek 4K (TMDB `original`) adresi taşır; ana sayfa
- *     kartlarındaki `ban4k`/`bw` ikilisi anlamlıdır ve önbellekle birebir (varsa)
+ *   · `banner4k` alanı yalnızca gerçek 4K (TMDB `original`) adresi taşır ve genişliğini
+ *     bildirir (`banner4kGenislik`, detay bandının `srcSet`i); ana sayfa kartlarındaki
+ *     `ban4k`/`bw` ikilisi anlamlıdır ve önbellekle birebir (varsa)
  *
  * Çalıştırma: `npm test`
  */
@@ -148,10 +149,20 @@ function tamTarama() {
     // (w1280 vb.) yazılırsa alan adı yalan söyler ve hero yine bulanık kalır.
     if (veri.banner4k === null || veri.banner4k === undefined) {
       if (veri.banner4k === undefined) ekle(hatalar.banner4k, `${slug}: banner4k alanı yok`);
+      // Yarım dolu alan yasak: adres yoksa genişlik de olmamalı, yoksa `srcSet`
+      // var olmayan bir kaynağı aday gösterir.
+      if (veri.banner4kGenislik !== null && veri.banner4kGenislik !== undefined) {
+        ekle(hatalar.banner4k, `${slug}: banner4k yok ama genişlik ${veri.banner4kGenislik}`);
+      }
     } else if (typeof veri.banner4k !== 'string' || !veri.banner4k.startsWith(TMDB_ORIJINAL)) {
       ekle(hatalar.banner4k, `${slug}: banner4k TMDB original adresi değil (${String(veri.banner4k).slice(0, 80)})`);
     } else {
       dortK++;
+      // Genişlik, tarayıcıya bildirilen `srcSet` adayıdır: yanlış bildirilirse
+      // gereksiz büyük dosya seçilir; eşik altındaki bir kaynak 4K sayılamaz.
+      if (!(veri.banner4kGenislik >= 3000)) {
+        ekle(hatalar.banner4k, `${slug}: banner4k genişliği ${veri.banner4kGenislik} (≥3000 bekleniyor)`);
+      }
     }
 
     let dosyaKaynak = 0;
@@ -311,7 +322,7 @@ test('ölü/engelli URL sızıntısı yok (sızıntı = bayat veri)', () => {
 /* 6 · 4K banner alanı (TMDB)                                       */
 /* ================================================================ */
 
-test('banner4k: yalnızca TMDB original adresi taşınır ve kunye sayısı birebir', () => {
+test('banner4k: yalnızca TMDB original adresi taşınır, genişliği bildirilir ve kunye sayısı birebir', () => {
   const s = tamTarama();
   sifirOlmali(s.hatalar.banner4k, '4K banner alanı');
   assert.equal(kunye().banner4k, s.dortK, 'kunye.banner4k ≠ 4K banner taşıyan anime sayısı');

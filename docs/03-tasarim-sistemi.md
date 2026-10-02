@@ -35,6 +35,7 @@ Gövde zemini iki radyal gradyan taşır (sol üstte mor, sağ üstte magenta pa
 | `.satir`, `.satir-kaydirma`, `.satir-ok` | Yatay kaydırma satırı; oklar yalnızca hover'da görünür |
 | `.kart`, `.kart-gorsel`, `.kart-rozet`, `.kart-ilerleme` | Anime kartı; hover'da yükselir ve görsel %6 büyür |
 | `.izgara`, `.liste-gorunum`, `.liste-satir` | Katalog görünümleri |
+| `.anime-bant` | Anime detay sayfasındaki dekoratif geniş bant (`height: clamp(190px, 21vw, 320px)`, `object-position: center 30%`); 4K TMDB backdrop'u varsa onu, yoksa AniList banner'ını gösterir |
 | `.rozet`, `.istatistik` | Künye kutuları |
 | `.bolum`, `.bolum-no`, `.bolum-liste` | Bölüm satırı ve kaydırmalı liste |
 | `.oynatici-izgara`, `.oynatici-kutu` | Oynatıcı düzeni (16:9 kilitli, 1fr + 350 px) |
@@ -73,6 +74,20 @@ Gövde zemini iki radyal gradyan taşır (sol üstte mor, sağ üstte magenta pa
 | ≤ 860 px | Üst menü hamburger, alt menü çubuğu açılır (`display: block`), kartlar 142 px, satır okları gizlenir, yan boşluklar 16 px |
 
 Mobil alt menü `env(safe-area-inset-bottom)` desteğiyle iOS çentikli ekranlarda güvenli alan bırakır.
+
+### Geniş bant kırpım politikası (02.10)
+
+Anime detay bandının yüksekliği sabit 190 px'ti. Kaynak TMDB'nin 16:9 backdrop'u olunca ölçüm
+şuydu: bant sağ kolonda 1.086 px geniş → 190 px yükseklik 5,7:1 demek, yani görselin dikey
+ekseninin yalnızca **%31'i** görünüyor (AniList'in 1900×400 banner'ı 4,75:1 olduğu için eski
+görselde kayıp daha azdı). Bant artık `clamp(190px, 21vw, 320px)`: masaüstünde 320 px → **%52**
+görünür, dar ekranda alt sınır devreye girip mobil düzeni değiştirmez.
+
+Kararın gerekçesi: sol kolondaki afiş (~450 px) bandan uzun olduğu için bant büyümesi ızgara satır
+yüksekliğini artırmıyor — **masaüstünde ek kaydırma maliyeti yok**, yalnızca daha çok görsel
+görünüyor. Kırpım penceresi `object-position: center 30%` ile ortadan biraz yukarıdadır (anahtar
+görsellerin odağı üst-orta bölgede). Ölçü `tools/testler/tmdb.test.mjs` tarafından `globals.css`
+okunarak doğrulanır: CSS değişip kırpım %50'nin altına inerse test kırmızıya döner.
 
 ## Erişilebilirlik
 

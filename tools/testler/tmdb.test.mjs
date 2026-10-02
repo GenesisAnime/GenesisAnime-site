@@ -9,11 +9,17 @@
  *   · Backdrop seçimi en geniş görseli alır, 4K eşiğinin altını `yeterli:false` işaretler
  *   · Kırpım matematiği: 16:9 kaynağın dar bantlarda ne kadarının kaldığı ölçülür
  *     (bu, "4K'ya geçince görsel değişir" kararının sayısal gerekçesidir)
+ *   · Anime detay bandının ölçüsü `globals.css`'ten okunur: CSS değişip kırpım
+ *     politikası bozulursa test kırmızıya döner (ölçü sessizce kaymaz)
  *
  * Çalıştırma: `npm test`
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { ROOT } from '../lib/ortak.mjs';
 
 import {
   anahtarYontemi,
@@ -24,6 +30,15 @@ import {
   kirpimOrani,
   tmdbIdSec,
 } from '../lib/tmdb.mjs';
+
+const CSS = fs.readFileSync(path.join(ROOT, 'src', 'app', 'globals.css'), 'utf8');
+
+/** globals.css'ten tek bir ölçü okur; kalıp bulunamazsa ölçü testi kırmızıya döner. */
+function cssSayi(kalipp, ad) {
+  const m = CSS.match(kalipp);
+  assert.ok(m, `globals.css: ${ad} okunamadı — ölçü testi güncellenmeli`);
+  return Number(m[1]);
+}
 
 test('anilistKimligiCikar: üç CDN şemasını da çözer', () => {
   assert.equal(anilistKimligiCikar('https://s4.anilist.co/file/anilistcdn/media/anime/banner/177879-P3fhkRb5ei3R.jpg'), 177879);
@@ -112,8 +127,35 @@ test('anahtarYontemi: v3 anahtarı ile v4 token ayrılır', () => {
   assert.equal(anahtarYontemi(null), null);
 });
 
-test('bantOrani: sitedeki iki gerçek bandı ölçer', () => {
-  assert.ok(Math.abs(bantOrani(1480, 190) - 7.789) < 0.01, 'anime sayfası banner bandı');
+test('bantOrani: hero bandı ve eski anime bandı bilinen ölçüleri verir', () => {
   assert.ok(Math.abs(bantOrani(1440, 666) - 2.162) < 0.01, 'hero bandı (1440×900 ekran)');
+  // 1480×190 = 7,79:1 — 02.10'a kadarki anime bandı; gerileme karşılaştırmasının tabanı.
+  assert.ok(Math.abs(bantOrani(1480, 190) - 7.789) < 0.01, 'eski anime bandı');
   assert.equal(bantOrani(0, 190), 0);
+});
+
+test('anime detay bandı: 16:9 kaynağın yarısından çoğu görünür (ölçü CSS ile uyumlu)', () => {
+  // Ölçüler doğrudan globals.css'ten okunur: bant yüksekliği ya da ızgara
+  // değişirse bu test kırpım politikasını yeniden değerlendirir.
+  const kapGenislik = cssSayi(/\.kap\s*\{[^}]*max-width:\s*(\d+)px/, '.kap max-width');
+  const kapBosluk = cssSayi(/\.kap\s*\{[^}]*padding:\s*0 (\d+)px/, '.kap yan boşluğu');
+  const afisKolon = cssSayi(/\.bilgi-izgara\s*\{[^}]*grid-template-columns:\s*(\d+)px/, 'afiş kolonu');
+  const izgaraBosluk = cssSayi(/\.bilgi-izgara\s*\{[^}]*gap:\s*(\d+)px/, 'ızgara boşluğu');
+  const bantMin = cssSayi(/\.anime-bant\s*\{[^}]*height:\s*clamp\((\d+)px/, 'bant alt sınırı');
+  const bantMax = cssSayi(
+    /\.anime-bant\s*\{[^}]*height:\s*clamp\(\d+px,\s*[\d.]+vw,\s*(\d+)px\)/,
+    'bant üst sınırı'
+  );
+
+  // Bant, sağ kolonun gerçek genişliği kadardır (afiş + ızgara boşluğu düşülür).
+  const bantGenislik = kapGenislik - 2 * kapBosluk - afisKolon - izgaraBosluk;
+  const kalan = kirpimOrani(16 / 9, bantOrani(bantGenislik, bantMax));
+  assert.ok(kalan >= 0.5, `16:9 kaynağın yalnızca %${Math.round(kalan * 100)}'i görünüyor (≥%50 beklenir)`);
+
+  const eski = kirpimOrani(16 / 9, bantOrani(bantGenislik, 190));
+  assert.ok(
+    kalan > eski,
+    `yeni bant eski 190 px ölçüsünden iyi olmalı (%${Math.round(kalan * 100)} vs %${Math.round(eski * 100)})`
+  );
+  assert.ok(bantMin > 0 && bantMin <= bantMax, 'clamp alt sınırı geçerli olmalı');
 });

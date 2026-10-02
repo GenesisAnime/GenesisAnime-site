@@ -6,7 +6,7 @@
 
 | Kontrol | Komut | Beklenen |
 |---|---|---|
-| Birim testleri | `npm test` | 122/122 geçer (~16 sn; ağ/DB yok) |
+| Birim testleri | `npm test` | 123/123 geçer (~16 sn; ağ/DB yok) |
 | Tip denetimi | `npm run typecheck` | 0 hata |
 | Derleme | `npm run build` | `✓ Compiled successfully`, 7.442 statik sayfa |
 | Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.046 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
@@ -232,7 +232,7 @@ kaydıyla (`tools/cache/link-durum.jsonl` + arşiv geçmişi) karşılaştırır
 | Kaynak girdisi | Her `src` girdisi `[player, fansub, url(, "ok")]` biçiminde; URL `new URL()` ile ayrıştırılabilir http(s) olmalı |
 | Ölü/engelli sızıntısı | Hiçbir dosyada `olu`/`engelli` URL yok — çıkarsa üretilmiş veri sağlık kaydından geri kalmıştır; çözümü `npm run veri` |
 | Künye toplamları | `kunye.json` (kaynak/tekil/rozetli/bölüm/seriGrubu/`banner4k`) gerçek dosyalarla birebir |
-| 4K banner alanı | `banner4k` yalnızca TMDB `original` (≥3000 px) adresi taşır — küçük bir varyant yazılırsa alan adı yalan söyler; ana sayfa kartlarında `ban4k`/`bw` ikilisi yarım dolu olamaz (hero yanlış `srcSet` adayı bildirir) |
+| 4K banner alanı | `banner4k` yalnızca TMDB `original` (≥3000 px) adresi taşır ve genişliğini bildirir (`banner4kGenislik`) — küçük bir varyant ya da eksik genişlik yazılırsa alan adı yalan söyler; adres yokken genişlik de olmamalı, ana sayfa kartlarında `ban4k`/`bw` ikilisi yarım dolu olamaz (tarayıcı yanlış `srcSet` adayı seçer) |
 | Seri grupları | `seriler.json`: geçerli slug, en az 2 üye, her üye katalogda, hiçbir yapım iki grupta; `anime.seri` alanı gruplarla **simetrik** |
 | Fansub grupları | `fansublar.json`: tekil slug/ad, `taksonomi.fansublar` ile aynı slug kümesi, kaynaklarda geçen her grup adı dizinde var |
 
@@ -284,13 +284,16 @@ edilmemesi** (gerçek hata gizlenmez) ve `out/` sökümünün kilit dışı hata
 Sahte `fs` + sahte `bekle` kullanılır; testler ne diske ne saate dokunur (gerçek kilitli klasörle
 ölçüm H-27'de).
 
-**`tmdb.test.mjs`** (10) 4K banner hazırlığının saf kısmını sınar (ağ yok): AniList kimliğinin üç CDN
+**`tmdb.test.mjs`** (11) 4K banner hazırlığının saf kısmını sınar (ağ yok): AniList kimliğinin üç CDN
 şemasından çıkarılması (`banner/123-hash`, `banner/n6682-hash`, `cover/large/bx1-hash`; bu dosya
 ilk koşuda `n` önekli şemayı yakaladı ve kimlik ayrıştırıcısı düzeltildi), TMDB
 eşleme alanının dizi/film ayrımıyla okunması ve bozuk alanın “eşleşme yok” sayılması, backdrop CDN
 adresinin kurulması, **en geniş** backdrop'un seçilip 4K eşiğinin altının `yeterli:false`
 işaretlenmesi ve kırpım matematiği (`kirpimOrani`: 16:9 kaynak 7,8:1 bantta dikey eksenin yalnızca
 %23'ünü korur, hero bandında %82'sini — yani “4K'ya geçince görsel değişir” iddiası ölçülür).
+Ayrıca anime detay bandının ölçüsü `globals.css`'ten okunur (`.anime-bant` yüksekliği, `.kap`
+genişliği, `.bilgi-izgara` kolonları) ve 16:9 kaynağın **≥%50'sinin** görünmesi şart koşulur: CSS
+değişip kırpım bozulursa test kırmızıya döner, ölçü sessizce kaymaz.
 
 **`hesap.test.mjs`** (7) yerel/sunucu birleştirmesini sınar: “en yeni kazanır” (ilerleme,
 izlenen, liste), eşit zamanda yerel üstünlüğü, tercihlerde yerel kazanması, çalışmayanlar
@@ -304,8 +307,8 @@ desteklenmiyorsa test atlanır), `jsonLdGuvenli` kaçışı ve JSON anlamının 
 yapısal denetim: sunucu bileşenlerinde `new Date(…).toLocale*` bulunmamalı, iframe izin listeleri
 `fullscreen` içermeli ve `allowFullScreen` kullanılmamalı.
 
-Ölçüm: **122 test / 122 geçti**, yerelde ~16 sn (derleme hemen sonrası ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
-derleme 14 · veri 11 · tmdb 10 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
+Ölçüm: **123 test / 123 geçti**, yerelde ~16 sn (derleme hemen sonrası ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
+derleme 14 · veri 11 · tmdb 11 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
 ~1,4 sn + html/txt taraması ~2,9 sn + veri taraması ~1,9 sn, kalanı 6 bin anime/961 seri dosyası;
 sıcakta ~7 sn); CI simülasyonunda (arşiv sağlık dosyası yokken)
 aynı sonuç — 941 rozet “doğrulanamadı” olarak raporlanır. Testlerin gerçekten hata yakaladığı üç yoldan ölçüldü:
@@ -467,7 +470,7 @@ başarılı olduğu hâlde `yayinla` işi (`needs: derle`) hiç çalışmadı �
 iki kez yayınlatmadı. Düzeltme: beklenti artık anın kendisinden türetiliyor; test `yerelGun()`in
 yerel bileşenleri kullandığını doğruluyor ve UTC günü ayrıştığında sabit bir gün değil
 **eşitsizliği** sınıyor. Kanıt: aynı dosya `TZ=UTC node --test …` altında 8/8, tam kapı
-`TZ=UTC npm test` ile 122/122 geçiyor. Ders: yerele/saat dilimine bağlı beklenti yalnızca yazıldığı
+`TZ=UTC npm test` ile 123/123 geçiyor. Ders: yerele/saat dilimine bağlı beklenti yalnızca yazıldığı
 makinede doğrudur; CI'ı yerelde taklit etmenin en ucuz yolu `TZ=UTC npm test`.
 
 **`api-dokumani.test.mjs`** (3) yayınlanan API belgesinin koddan kopmadığını sınar (ağ yok):

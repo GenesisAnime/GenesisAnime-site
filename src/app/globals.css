@@ -786,6 +786,27 @@ button {
   align-items: start;
 }
 
+/* Anime detay sayfasındaki geniş bant. Yükseklik ekranla birlikte büyür: sabit
+   190 px'te 16:9 bir kaynak daracık bir dilim gösteriyordu (1.086 × 190 = 5,7:1
+   → dikey eksenin ~%31'i). Üst sınır 320 px'te aynı bantta ~%52 görünür. Sol
+   kolondaki afiş zaten daha uzun olduğu için bant büyümesi ızgara satır
+   yüksekliğini artırmaz — masaüstünde ek kaydırma maliyeti yoktur.
+   Kırpım penceresi ortadan biraz yukarıdadır: ana görsel (anahtar görsel)
+   genelde üst-orta bölgede kalır, tam ortada başlar kesilebiliyordu.
+   Ölçüyü `tmdb.test.mjs` globals.css'ten okuyup doğrular. */
+.anime-bant {
+  display: block;
+  width: 100%;
+  height: clamp(190px, 21vw, 320px);
+  object-fit: cover;
+  object-position: center 30%;
+  border-radius: var(--rad);
+  border: 1px solid var(--line);
+  margin-bottom: 22px;
+  opacity: 0.72;
+  background: var(--card2);
+}
+
 .afis {
   border-radius: var(--rad);
   overflow: hidden;

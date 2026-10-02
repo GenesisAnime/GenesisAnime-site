@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { AnaSayfaKarti } from '@/lib/tipler';
 import { formatAd, kisalt, puanBicim, sayiBicim } from '@/lib/bicim';
+import { backdropSrcSet, tmdbKucuk } from '@/lib/gorsel';
 import { ArtiIkon, OynatIkon, TikIkon } from './Ikon';
 import { listede, listeDegistir, abone } from '@/lib/depo/yerel';
 import { useBaglandi } from '@/lib/depo/kanca';
@@ -17,13 +18,6 @@ interface Props {
   ogeler: AnaSayfaKarti[];
 }
 
-/**
- * TMDB adresinin küçük varyantı: 4K kaynağı her ekrana indirmemek için `srcSet`
- * adayı olarak `w1280` verilir ve tarayıcı ekranına uygun olanı seçer.
- */
-function kucukBackdrop(url: string) {
-  return url.replace('/t/p/original/', '/t/p/w1280/');
-}
 
 export default function Hero({ ogeler }: Props) {
   const [sira, setSira] = useState(0);
@@ -67,8 +61,8 @@ export default function Hero({ ogeler }: Props) {
         // eslint-disable-next-line @next/next/no-img-element
         <img
           className="hero-gorsel"
-          src={kucukBackdrop(aktif.ban4k)}
-          srcSet={`${kucukBackdrop(aktif.ban4k)} 1280w, ${aktif.ban4k} ${aktif.bw ?? 3840}w`}
+          src={tmdbKucuk(aktif.ban4k)}
+          srcSet={backdropSrcSet(aktif.ban4k, aktif.bw)}
           sizes="100vw"
           alt=""
           aria-hidden="true"

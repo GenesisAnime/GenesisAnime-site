@@ -460,6 +460,8 @@ for (const a of animeSatirlari) {
   // veya daha küçük bir görsel için kaynak değiştirmenin anlamı yok.
   const dortK = tmdbDortK.get(a.slug) || null;
   const banner4k = dortK ? dortK.url : null;
+  // Genişlik `srcSet` adayını doğru bildirmek için taşınır (detay bandı ve hero).
+  const banner4kGenislik = dortK ? dortK.genislik : null;
   if (banner4k) sayac.banner4k++;
   const yil = meta?.year || null;
   // DİKKAT: arşivdeki `score` kolonu 0–10 ölçeğinde saklanıyor (ör. 5.59 = 56).
@@ -525,6 +527,7 @@ for (const a of animeSatirlari) {
     poster,
     banner,
     banner4k,
+    banner4kGenislik,
     ozet,
     turler,
     iliski,

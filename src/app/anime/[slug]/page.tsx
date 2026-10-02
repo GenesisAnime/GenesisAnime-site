@@ -6,6 +6,7 @@ import BolumListesi from '@/components/BolumListesi';
 import Kart from '@/components/Kart';
 import { animeOku, fansublarDosyaOku, kunyeOku, serilerOku, tumSluglar } from '@/lib/veri';
 import { durumAd, formatAd, jsonLdGuvenli, kisalt, puanBicim, sayiBicim, sureBicim } from '@/lib/bicim';
+import { backdropSrcSet, tmdbKucuk } from '@/lib/gorsel';
 import { SITE } from '@/lib/site';
 
 export const dynamicParams = false;
@@ -24,6 +25,13 @@ const ILISKI_ADLARI: Record<string, string> = {
   SUMMARY: 'Özet',
   OTHER: 'İlgili',
 };
+
+/**
+ * Bant `srcSet` ipucu. Kolon genişliği: masaüstünde 1.480 − 2×28 (`.kap`) − 300 (afiş)
+ * − 38 (ızgara boşluğu) = 1.086 px; ≤1100 px'te afiş 220 px + 26, ≤860 px'te 130 px + 18.
+ */
+const BANT_BOYUT =
+  '(max-width: 860px) calc(100vw - 180px), (max-width: 1100px) calc(100vw - 302px), min(1086px, calc(100vw - 394px))';
 
 const SEZON_ADLARI: Record<string, string> = {
   WINTER: 'Kış',
@@ -76,6 +84,8 @@ export default async function AnimeSayfasi({ params }: { params: Promise<{ slug:
 
   const iliskiliVar = anime.iliski.some((i) => i.s);
   const puan = puanBicim(anime.puan);
+  // Dekoratif bant: 4K backdrop varsa o, yoksa AniList banner'ı (1900 px tavanı).
+  const bant = anime.banner4k ?? anime.banner;
 
   // Seri (franchise) ve fansub grup adresleri
   const seri = anime.seri ? serilerOku().seriler.find((s) => s.s === anime.seri) ?? null : null;
@@ -136,21 +146,15 @@ export default async function AnimeSayfasi({ params }: { params: Promise<{ slug:
         </div>
 
         <div>
-          {anime.banner ? (
+          {bant ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={anime.banner}
+              className="anime-bant"
+              src={anime.banner4k ? tmdbKucuk(anime.banner4k) : bant}
+              srcSet={anime.banner4k ? backdropSrcSet(anime.banner4k, anime.banner4kGenislik) : undefined}
+              sizes={anime.banner4k ? BANT_BOYUT : undefined}
               alt=""
               aria-hidden="true"
-              style={{
-                width: '100%',
-                height: 190,
-                objectFit: 'cover',
-                borderRadius: 'var(--rad)',
-                border: '1px solid var(--line)',
-                marginBottom: 22,
-                opacity: 0.72,
-              }}
             />
           ) : null}
 

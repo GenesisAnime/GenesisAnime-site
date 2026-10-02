@@ -96,7 +96,7 @@ Ayrıca bölüm içinde `(player, url)` ikilisi tekilleştirilir. Kaynak sırala
 |---|---|---|
 | `public/data/katalog.json` | 1.768 KB | `kolonlar` + 6.107 satır (dizi biçimi) |
 | `public/data/anime/<slug>.json` | 6.107 dosya · 44,8 MB | bölümler, kaynaklar, ekip, ilişkili yapımlar |
-| `public/data/ana-sayfa.json` | 319 KB | 24 hero + 18 satır × 30 kart |
+| `public/data/ana-sayfa.json` | 368 KB | 24 hero + 18 satır × 30 kart (`ban4k`/`bw` 4K alanları dahil) |
 | `public/data/taksonomi.json` | 19,8 KB | tür/format/yıl/player/fansub kırılımları (`fansublar[].s`) |
 | `public/data/fansublar.json` | grup dizini | grup (`ad`, `s`, bölüm sayısı) → yapım slug'ları |
 | `public/data/seriler.json` | seri dizini | 961 franchise grubu: kök slug + üyeler (`s`, `ad`, `yil`, `p`) |
@@ -112,7 +112,7 @@ Toplam koşu süresi: **8,6–11,1 sn**.
   "slug": "naruto", "ad": "Naruto", "adEn": null,
   "yil": 2002, "puan": 80, "format": "TV", "durum": "FINISHED", "sezon": "FALL", "sure": 23,
   "poster": "https://cdn.myanimelist.net/...", "banner": "https://s4.anilist.co/...",
-  "banner4k": "https://image.tmdb.org/t/p/original/...",
+  "banner4k": "https://image.tmdb.org/t/p/original/...", "banner4kGenislik": 3840,
   "ozet": "Naruto Uzumaki, a hyperactive...", "turler": ["Aksiyon", "Macera", "..."],
   "iliski": [{ "t": "SEQUEL", "s": "naruto-shippuuden", "ad": "...", "p": "...", "f": "TV" }],
   "seri": "naruto",
@@ -131,6 +131,7 @@ Toplam koşu süresi: **8,6–11,1 sn**.
 `seri` alanı 2+ üyeli ilişki ağı yoksa `null` kalır.
 
 `banner4k`, **yalnızca gerçekten geniş (≥3000 px) bir TMDB backdrop'u bulunan** yapımlarda dolar
+(`banner4kGenislik` kaynağın gerçek genişliğidir ve detay bandının `srcSet` adayını bildirir)
 (ölçüm: **2.060 yapım**). Gerekçe: AniList banner CDN'i 1900 px'de tavanlanıyor (ölçüldü) ve hero
 74vh yüksekliğinde 3840 px'e kadar ekranlarda bulanık kalıyordu. Eşleme (`npm run tmdb:esle`) ve
 backdrop çekimi (`npm run tmdb:zenginlestir`) TMDB anahtarı gerektirir; önbellek yoksa alan `null`

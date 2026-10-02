@@ -61,6 +61,8 @@ export interface Anime {
   banner: string | null;
   /** TMDB backdrop'u (≥3000 px) — hero/bant için gerçek 4K kaynak; yoksa null */
   banner4k: string | null;
+  /** `banner4k` kaynağının gerçek genişliği — `srcSet` adayını doğru bildirmek için */
+  banner4kGenislik: number | null;
   ozet: string | null;
   turler: string[];
   iliski: Iliski[];
