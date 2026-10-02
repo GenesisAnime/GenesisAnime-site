@@ -77,7 +77,8 @@ href.li, uqload, videoapi vb. tükendi).
 
 | Fikir | Değer |
 |---|---|
-| ~~"Kaldığın yerden devam" için gerçek konum takibi~~ | ✅ kısmen 02.10: kaynakların %7'sinde (VK) postMessage köprüsü ile **gerçek konum/süre** okunuyor ve oynat/duraklat/sar komutları çalışıyor; kalan %93 opak (Sibnet tek başına %42) — kendi proxy'si olmadan mümkün değil. Ölçüm: [04](04-oynatici-ve-kaynaklar.md) · [olcum/kopru-2026-10-02.json](olcum/kopru-2026-10-02.json) · ADR-0009 |
+| ~~"Kaldığın yerden devam" için gerçek konum takibi~~ | ✅ kısmen 02.10: kaynakların %7'sinde (VK) postMessage köprüsü ile **gerçek konum/süre** okunuyor ve oynat/duraklat/sar komutları çalışıyor; kalan %93 opak (Sibnet tek başına %42) — kendi proxy'si olmadan mümkün değil. 02.10 akşamı yetenek tablosu **önsele** indirildi: site kendi trafiğinde ölçüyor, cihazda hatırlıyor ve bir host konuşmaya başlarsa kendiliğinden fark ediyor (kanıtsız yetenek açılmaz, 2 ardışık başarısız sınama demote eder). Ölçüm: [04](04-oynatici-ve-kaynaklar.md) · [olcum/kopru-2026-10-02.json](olcum/kopru-2026-10-02.json) · ADR-0009 |
+| Kendi `<video>` oynatıcımız: akış köprüsünün istemciye bağlanması | ✅ temel 02.10: `/akis/coz` + `/akis/aktar` Cloudflare edge'inde uçtan uca doğrulandı (Mail.ru, kaynakların %27,9'u kendi `<video>`'muzda oynadı). Sıradaki: oynatıcı önce `/akis/coz` denesin, çözülemeyen kaynakta bugünkü iframe kalsın (403/502'de `?t=` ile taze çözümleme). [12](12-akis-koprusu.md) |
 | Yüzdelik ilerleme çubuğu ve otomatik bölüm sonu | Köprü olan hostta bile "bölüm bitti" olayı güvenilir değil; ayrı ölçüm ve ayrı karar gerektirir |
 | Opak host'lar için tarayıcı katmanı (sekme içi zaman ölçümü) | Kaynak davranışı değişmeden kontrol yok; yalnız "ne kadar süre açık kaldı" tahmini iyileştirilebilir |
 | ~~Franchise/seri sayfaları~~ | ✅ 01.10: 961 seri grubu, `/seriler/` + `/seri/<slug>/` |

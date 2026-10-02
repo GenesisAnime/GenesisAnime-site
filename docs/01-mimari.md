@@ -29,7 +29,7 @@
 
               src/ (Next.js 15 App Router, output: 'export')
                        │
-                       └─→ npm run build ─→ out/   865,2 MB · 21.043 dosya
+                       └─→ npm run build ─→ out/   880,6 MB · 21.049 dosya
                                             └─→ GitHub Pages (asıl hedef); CF Pages 20k sınırını aştı
 
               api/ (Cloudflare Workers + D1)  ◄──isteğe bağlı, site onsuz da tam çalışır

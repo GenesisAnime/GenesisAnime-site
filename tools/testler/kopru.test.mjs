@@ -78,26 +78,27 @@ test('kaynakAdresi: köprüsüz adreslere dokunmaz', { skip: atla }, () => {
 });
 
 test('kopruBul: köprülü host\'lar tanınır, diğerleri null', { skip: atla }, () => {
-  assert.equal(kopru.kopruBul(GERCEK_VK)?.ad, 'vk');
-  assert.equal(kopru.kopruBul('https://vk.video/video_ext.php?oid=1')?.ad, 'vk');
-  assert.equal(kopru.kopruBul('https://ok.ru/videoembed/1')?.ad, 'ok');
-  assert.equal(kopru.kopruBul('https://odnoklassniki.ru/videoembed/1')?.ad, 'ok');
-  assert.equal(kopru.kopruBul(GERCEK_MAIL)?.ad, 'mail');
-  assert.equal(kopru.kopruBul('https://my.mail.ru/video/embed/1')?.ad, 'mail');
+  assert.equal(kopru.kopruBul(GERCEK_VK), 'vk');
+  assert.equal(kopru.kopruBul('https://vk.video/video_ext.php?oid=1'), 'vk');
+  assert.equal(kopru.kopruBul('https://ok.ru/videoembed/1'), 'ok');
+  assert.equal(kopru.kopruBul('https://odnoklassniki.ru/videoembed/1'), 'ok');
+  assert.equal(kopru.kopruBul(GERCEK_MAIL), 'mail');
+  assert.equal(kopru.kopruBul('https://my.mail.ru/video/embed/1'), 'mail');
   assert.equal(kopru.kopruBul('https://uqload.com/embed-abc.html'), null);
   assert.equal(kopru.kopruBul('https://drive.google.com/file/d/1/preview'), null);
   assert.equal(kopru.kopruBul('bilinmeyen'), null);
   assert.equal(kopru.kopruBul(''), null);
 });
 
-test('yetenek bayrakları: yalnız VK komut kanalı kanıtlanmış', { skip: atla }, () => {
+test('önsel tablo: 2026-10-02 ölçümünü yansıtır (yalnız VK komut kanalı kanıtlanmış)', { skip: atla }, () => {
   /* Ölçüm (tools/kopru-komut-test.html, 6 denemeli koşu): VK nesne biçiminde
      komutu 1. denemede kabul etti; OK ve Mail.ru 6 denemede sessiz kaldı.
-     Bir bayrağı true yapmak yeni ölçüm gerektirir — bu test o kararı zorlar. */
+     Bu tablo artık **önsel**dir: çalışma anı ölçümü onun önüne geçebilir
+     (aşağıdaki testler). Önseli değiştirmek yeni ölçüm gerektirir. */
   assert.deepEqual(
     ['vk', 'ok', 'mail'].map((ad) => {
-      const k = kopru.kopruBul(ad === 'vk' ? 'https://vk.com/video_ext.php' : ad === 'ok' ? 'https://ok.ru/videoembed/1' : 'https://my.mail.ru/video/embed/1');
-      return { ad: k.ad, komut: k.komut, telemetri: k.telemetri, hazir: k.hazirSinyali };
+      const o = kopru.onselKopru(ad);
+      return { ad: o.ad, komut: o.komut, telemetri: o.telemetri, hazir: o.hazirSinyali };
     }),
     [
       { ad: 'vk', komut: true, telemetri: true, hazir: true },
@@ -105,6 +106,137 @@ test('yetenek bayrakları: yalnız VK komut kanalı kanıtlanmış', { skip: atl
       { ad: 'mail', komut: false, telemetri: false, hazir: true },
     ]
   );
+});
+
+test('kopruBul: yalnız eşleme yapar, yetenek kararı vermez', { skip: atla }, () => {
+  assert.equal(kopru.kopruBul(GERCEK_VK), 'vk');
+  assert.equal(kopru.kopruBul('https://ok.ru/videoembed/1'), 'ok');
+  assert.equal(kopru.kopruBul(GERCEK_MAIL), 'mail');
+  assert.equal(kopru.kopruBul(GERCEK_SIBNET), null);
+});
+
+/* ------------------------- çalışma anı ölçümü ------------------------- */
+
+const SIMDI = 1_800_000_000_000;
+
+function olay(tur, ek = {}) {
+  return { tur, ...ek };
+}
+
+test('olcumGuncelle: yalnız kanıt toplar, olay yokluğundan yetenek uydurmaz', { skip: atla }, () => {
+  const bos = kopru.olcumGuncelle(null, 'ok', olay('yok'), SIMDI);
+  assert.equal(bos.hazirSinyali, false);
+  assert.equal(bos.gozlem, 0, 'anlamsız yük oturum sayılmaz');
+  assert.equal(bos.sonGorulme, 0);
+});
+
+test('olcumGuncelle: hazır olayı sinyali açar, süre telemetriyi kanıtlar', { skip: atla }, () => {
+  const o = kopru.olcumGuncelle(null, 'mail', olay('hazir', { sure: 1450, saniye: 0 }), SIMDI);
+  assert.equal(o.hazirSinyali, true);
+  assert.equal(o.telemetri, true, 'süre bildirimi telemetridir');
+  assert.equal(o.komut, false, 'tek başına init komut kanıtı değil');
+  assert.equal(o.gozlem, 1);
+  assert.equal(o.sonGorulme, SIMDI);
+});
+
+test('olcumGuncelle: 1 saat içindeki olaylar tek oturum sayılır', { skip: atla }, () => {
+  let o = kopru.olcumGuncelle(null, 'vk', olay('hazir'), SIMDI);
+  o = kopru.olcumGuncelle(o, 'vk', olay('konum', { saniye: 12, sure: 1450 }), SIMDI + 5_000);
+  assert.equal(o.gozlem, 1, 'aynı oturum');
+  o = kopru.olcumGuncelle(o, 'vk', olay('hazir'), SIMDI + 2 * 60 * 60 * 1000);
+  assert.equal(o.gozlem, 2, 'uzun sessizlikten sonra yeni oturum');
+});
+
+test('olcumKomutOnayla / olcumSinaBasarisiz: kanıt ve karşı-kanıt sayaçları', { skip: atla }, () => {
+  const onay = kopru.olcumKomutOnayla(null, 'ok', SIMDI);
+  assert.equal(onay.komut, true);
+  assert.equal(onay.basarisizSina, 0);
+  assert.equal(onay.sonSina, SIMDI);
+
+  let b = kopru.olcumSinaBasarisiz(null, 'mail', SIMDI);
+  assert.equal(b.komut, false);
+  assert.equal(b.basarisizSina, 1);
+  b = kopru.olcumSinaBasarisiz(b, 'mail', SIMDI + 1000);
+  assert.equal(b.komut, false, 'iki başarısız sınamada da yetenek kapalı');
+});
+
+test('olcumGecerliMi: taze ve aynı şemadaki kayıt geçerlidir', { skip: atla }, () => {
+  const taze = { ...kopru.yeniOlcum('ok', SIMDI), sonGorulme: SIMDI };
+  assert.equal(kopru.olcumGecerliMi(taze, SIMDI + 1000), true);
+  assert.equal(kopru.olcumGecerliMi(taze, SIMDI + kopru.OLCUM_TTL_MS + 1), false, 'TTL aşıldı');
+  assert.equal(kopru.olcumGecerliMi({ ...taze, surum: 99 }, SIMDI), false, 'şema sürümü farklı');
+  assert.equal(kopru.olcumGecerliMi(null, SIMDI), false);
+  assert.equal(kopru.olcumGecerliMi(kopru.yeniOlcum('ok', SIMDI), SIMDI), false, 'hiç gözlem yok');
+});
+
+test('etkinKopru: ölçüm önseli geçebilir — host konuşmaya başlarsa yetenek açılır', { skip: atla }, () => {
+  /* Senaryo: Mail.ru bugün suskun (önsel komut:false). Bir gün tarayıcıda olay
+     ve komut kanıtı birikiyor → site kendiliğinden düğmeleri açmalı. */
+  const onsel = kopru.etkinKopru('mail', null, SIMDI);
+  assert.equal(onsel.komut, false);
+  assert.equal(onsel.kaynak, 'onsel');
+  assert.equal(onsel.olcum, null);
+
+  let olcum = kopru.olcumGuncelle(null, 'mail', olay('hazir', { sure: 1450 }), SIMDI);
+  olcum = kopru.olcumKomutOnayla(olcum, 'mail', SIMDI + 1000);
+  const ogrenilmis = kopru.etkinKopru('mail', olcum, SIMDI + 2000);
+  assert.equal(ogrenilmis.komut, true, 'komut kanalı bu cihazda kanıtlandı');
+  assert.equal(ogrenilmis.telemetri, true);
+  assert.equal(ogrenilmis.kaynak, 'olcum', 'yeteneğin kaynağı gözlem');
+  assert.ok(ogrenilmis.olcum, 'ölçüm ayrıntısı görünür kalır');
+});
+
+test('etkinKopru: bayat ölçüm yok sayılır, önsele dönülür', { skip: atla }, () => {
+  const eski = kopru.olcumKomutOnayla(kopru.olcumGuncelle(null, 'ok', olay('hazir'), SIMDI), 'ok', SIMDI);
+  const sonuc = kopru.etkinKopru('ok', eski, SIMDI + kopru.OLCUM_TTL_MS + 1);
+  assert.equal(sonuc.komut, false, 'eski ölçüm yetenek uydurmaz');
+  assert.equal(sonuc.kaynak, 'onsel');
+  assert.equal(sonuc.olcum, null);
+});
+
+test('etkinKopru: iki başarısız sınama önselin "çalışıyor"unu geçersiz kılar', { skip: atla }, () => {
+  let olcum = kopru.olcumSinaBasarisiz(null, 'vk', SIMDI);
+  assert.equal(kopru.etkinKopru('vk', olcum, SIMDI).komut, true, 'tek başarısız sınama yetmez');
+  olcum = kopru.olcumSinaBasarisiz(olcum, 'vk', SIMDI + 1000);
+  const sonuc = kopru.etkinKopru('vk', olcum, SIMDI + 2000);
+  assert.equal(sonuc.komut, false, 'host susmuşsa ölü düğme gösterilmez');
+  assert.equal(sonuc.telemetri, true, 'diğer yetenekler korunur');
+});
+
+test('sinaOnaylandi: yalnız komuta özgü olay kanıt sayılır', { skip: atla }, () => {
+  assert.equal(kopru.sinaOnaylandi(kopru.olayCoz('{"event":"seeked","time":100,"duration":1450}')), true);
+  /* Yanlış pozitif koruması: sürekli akan timeupdate komut kanıtı değildir. */
+  assert.equal(kopru.sinaOnaylandi(kopru.olayCoz('{"event":"timeupdate","time":100,"duration":1450}')), false);
+  assert.equal(kopru.sinaOnaylandi(kopru.olayCoz('{"event":"inited","duration":1450}')), false);
+  assert.equal(kopru.sinaOnaylandi({ tur: 'yok' }), false);
+});
+
+test('olayCoz ham olay adını taşır (sınama kararı buna dayanır)', { skip: atla }, () => {
+  assert.equal(kopru.olayCoz('{"event":"seeked","time":9}').ad, 'seeked');
+  assert.equal(kopru.olayCoz('{"state":"playing","time":3}').ad, 'playing');
+  assert.equal(kopru.olayCoz('{"event":"inited","duration":10}').ad, 'inited');
+  assert.equal(kopru.olayCoz('{ "a": 1 }').ad, undefined);
+});
+
+test('komutSinamasi: görünmez sınama yalnız konum biliniyorken ve seyrek yapılır', { skip: atla }, () => {
+  const onselMail = kopru.onselKopru('mail');
+  assert.equal(kopru.komutSinamasi(onselMail, null, SIMDI).sebep, 'konum-yok', 'telemetri yoksa sınama yok');
+
+  const konumlu = { ...onselMail, telemetri: true };
+  assert.equal(kopru.komutSinamasi(konumlu, null, SIMDI).sina, true);
+
+  const sinanmis = { ...kopru.yeniOlcum('mail', SIMDI), sonSina: SIMDI };
+  assert.equal(kopru.komutSinamasi(konumlu, sinanmis, SIMDI + 1000).sebep, 'yeni-denendi');
+  assert.equal(kopru.komutSinamasi(konumlu, sinanmis, SIMDI + kopru.SINA_ARASI_MS + 1).sina, true);
+
+  assert.equal(kopru.komutSinamasi(kopru.onselKopru('vk'), null, SIMDI).sebep, 'zaten-kanitli');
+  assert.equal(kopru.komutSinamasi({ ...onselMail, hazirSinyali: false }, null, SIMDI).sebep, 'olay-yok');
+});
+
+test('kopruCoz: eşleme + ölçüm birleşimini tek çağrıda verir', { skip: atla }, () => {
+  assert.equal(kopru.kopruCoz(GERCEK_SIBNET, null), null);
+  const ogrenilmis = kopru.olcumKomutOnayla(kopru.olcumGuncelle(null, 'mail', olay('hazir'), SIMDI), 'mail', SIMDI);
+  assert.equal(kopru.kopruCoz(GERCEK_MAIL, ogrenilmis, SIMDI + 1000).komut, true);
 });
 
 test('kopruOrigin: her köprü kendi origin\'ini bildirir', { skip: atla }, () => {

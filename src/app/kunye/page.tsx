@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { kunyeOku, saglikOku, taksonomiOku } from '@/lib/veri';
 import { damgaBicim, formatAd, playerAd, sayiBicim } from '@/lib/bicim';
+import KopruPanel from '@/components/KopruPanel';
 
 export const metadata: Metadata = {
   title: 'Künye ve veri kalitesi',
@@ -233,6 +234,8 @@ export default function KunyeSayfasi() {
           </tbody>
         </table>
       </section>
+
+      <KopruPanel />
 
       <section id="yasal" style={{ marginTop: 46 }}>
         <h2 className="satir-baslik" style={{ fontSize: 19, marginBottom: 14 }}>

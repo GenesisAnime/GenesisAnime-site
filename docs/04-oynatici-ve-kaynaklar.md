@@ -155,7 +155,9 @@ konuşmak zorunda olduğu için sarmalayıcı iframe'e girmeden **çözülür** 
 
 ### Yetenek farkındalıklı oynatıcı şeridi
 
-Ölçüm sonucu arayüzü belirler (`src/lib/kopru.ts` · `KOPRULER`):
+Ölçüm sonucu bugün **önsel varsayım** olarak durur (`src/lib/kopru.ts` · `KOPRU_ONOLERI`); site
+çalışırken kendi kanıtını toplar ve bunu önselin önüne koyar (aşağıdaki "Çalışma anı ölçümü").
+Varsayım (02.10 ölçümü):
 
 | Host | Kaynak payı | Telemetri (gerçek saniye/süre) | Komut (oynat/duraklat/sar) |
 |---|---:|---|---|
@@ -174,6 +176,33 @@ Bu, oynatıcının **kendi olması** yolunda atılabilecek adımın sınırıdı
 `<video>`'muzda oynatmak video barındırma/proxyleme demek olurdu ve proje kapsamı dışıdır
 (`docs/10`, ADR-0005). Kaynağı değiştirmeden iyileştirilebilen kısım — bölüm gezinme, kaynak
 çipleri, tam ekran, gerçek konum — bizim katmanımızda ve artık uygulanıyor.
+
+### Çalışma anı ölçümü: yetenek kanıtla kazanılır (02.10)
+
+Yukarıdaki tablo 02.10'da çekilmiş bir fotoğraftır. Host'lar kendi API'lerini değiştiriyor: bir gün
+susan kaynak ertesi gün konuşabilir ve koda gömülü tablo bunu **asla fark etmez**. Bu yüzden tablo
+önsele indirildi; kararın kaynağı artık bu cihazda biriken kanıt (`etkinKopru`):
+
+| Aşama | Ne olur |
+|---|---|
+| Toplama | Her anlamlı olay (`inited`, `timeupdate`, `seeked`…) `olcumGuncelle` ile yazılır: hazır sinyali, gerçek konum/süre, oturum sayısı, son görülme. |
+| Komut kanıtı | Komut yeteneği **yalnız kanıtla** açılır: kullanıcı şeritten komut kullanıp onay olayı gelirse ya da görünmez sınama başarılı olursa. |
+| Görünmez sınama | Kaynak konum bildiriyor ama komut kanıtı yoksa, oynatıcının **zaten bulunduğu saniyeye** no-op bir “sar” gönderilir. Dinleyen oynatıcı `seeked` yayınlar → düğmeler açılır; dinlemeyende hiçbir şey değişmez. Ekranda görünen hiçbir şey değişmez. |
+| Yanlış pozitif koruması | Sınamada kanıt sayılan olaylar `seeked`/`seek` (komuta özgü) — sürekli akan `timeupdate` sayılmaz. Kaynak ekranda kendiliğinden ilerlerse “komut çalışıyor” sanmak tam da bu tuzağa düşmek olurdu. |
+| Telemetri şartı | Konum bilinmiyorsa sınama yapılmaz (`konum-yok`): hedef 0 olurdu ve oynayan videoyu başa sarabilirdik. Ölçüm yoksa sınama da yok. |
+| Sıklık | Aynı host için sınama en sık **haftada bir**; kayıt **30 gün** sonra bayatlar ve önsele dönülür; şema sürümü değişirse eski kayıt yok sayılır. |
+| Demote | Yetenek kapatmak ayrı kanıt ister: **iki ardışık başarısız sınama** önseli geçersiz kılar. Başarısız sınama da kaydı tazeler (“bugün baktım” bilgisi kaybolmaz), yoksa bayat sayılıp önsele dönülür ve demote hiç uygulanmazdı. |
+
+Sonuç: bir host konuşmaya başlarsa (örneğin sessiz kaynak konum bildirmeye başlarsa) site bunu
+kendiliğinden görür ve düğmeleri açar; tersi de kanıtla olur, tek bir şüpheli günle değil.
+
+Kullanıcı ne görür: şeritte `.oynatici-kopru-olcum` “ölçüldü” rozeti (ipucu: gözlem sayısı, son
+görülme tarihi) ve yetenek ilk kez açıldığında bir kerelik `.oynatici-kopru-kesif` duyurusu. Ne
+öğrenildiğini görmek ve sıfırlamak için `/kunye` → “Oynatıcı köprüsü” paneli
+([`KopruPanel.tsx`](../../src/components/KopruPanel.tsx)). Ölçüm **cihazda** tutulur
+(`localStorage` · `genesisanime:v1:kopru-yetenek`), sunucuya gönderilmez — hesap eşitlemesine de
+karışmaz. Mekanizmanın sözleşmesi [`tools/testler/kopru.test.mjs`](../../tools/testler/kopru.test.mjs)
+içindeki 33 testle sabitlenmiştir.
 
 ## Neden hâlâ iframe kabuğu? (kendi `<video>` ölçümü, 2026-10-02)
 

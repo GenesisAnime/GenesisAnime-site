@@ -27,14 +27,22 @@ import { bildirimGonder } from '@/lib/bildirim';
 import {
   KOMUT_DENEME_ARASI_MS,
   KOMUT_DENEME_SAYISI,
+  SINA_PENCERESI_MS,
   komutlar,
   komutOnaylandi,
+  komutSinamasi,
   kopruBul,
+  kopruCoz,
   kopruOrigin,
   kaynakAdresi,
   medyaSaati,
   olayCoz,
+  olcumGuncelle,
+  olcumKomutOnayla,
+  olcumSinaBasarisiz,
+  sinaOnaylandi,
   type KopruEylem,
+  type KopruOlcumu,
 } from '@/lib/kopru';
 import { useBaglandi, useCalismayanlar, useTercihler } from '@/lib/depo/kanca';
 import {
@@ -44,6 +52,8 @@ import {
   izlenenHaritasi,
   konumKaydet,
   konumOku,
+  kopruOlcumKaydet,
+  kopruOlcumleri,
   tercihKaydet,
 } from '@/lib/depo/yerel';
 import { AraIkon, DisBaglantiIkon, OynatIkon, SagIkon, SolIkon, TikIkon } from './Ikon';
@@ -218,9 +228,25 @@ export default function IzleIstemci() {
      yetenek farkındalığı `@/lib/kopru` içinde. Kural: **kanıtlanmamış** host'a
      kontrol düğmesi gösterilmez (ölü düğme, düğmesizlikten kötüdür). */
 
-  const kopru = useMemo(() => (aktifKaynak ? kopruBul(aktifKaynak[2]) : null), [aktifKaynak]);
+  const kopruAdi = useMemo(() => (aktifKaynak ? kopruBul(aktifKaynak[2]) : null), [aktifKaynak]);
   /** iframe'e giden adres: sarmalayıcı çözülür, destekli host'ta API açılır. */
   const iframeAdresi = useMemo(() => (aktifKaynak ? kaynakAdresi(aktifKaynak[2]) : ''), [aktifKaynak]);
+
+  /* Çalışma anı ölçümü: bu cihazda biriken yetenek kaydı (bkz. kopru.ts). */
+  const [olcumler, setOlcumler] = useState<Record<string, KopruOlcumu>>({});
+  useEffect(() => setOlcumler(kopruOlcumleri()), []);
+
+  const olcum = kopruAdi ? olcumler[kopruAdi] ?? null : null;
+  const kopru = useMemo(
+    () => (aktifKaynak ? kopruCoz(aktifKaynak[2], olcum) : null),
+    [aktifKaynak, olcum]
+  );
+
+  /** Ölçümü hem duruma hem cihaz deposuna yazar. */
+  const olcumYaz = useCallback((yeni: KopruOlcumu) => {
+    kopruOlcumKaydet(yeni);
+    setOlcumler((eski) => ({ ...eski, [yeni.ad]: yeni }));
+  }, []);
 
   const cerceveRef = useRef<HTMLIFrameElement>(null);
   const [konum, setKonum] = useState(0);
@@ -228,7 +254,11 @@ export default function IzleIstemci() {
   const [oynuyor, setOynuyor] = useState<boolean | null>(null);
   const [kopruHazir, setKopruHazir] = useState(false);
   const [kaldigiYer, setKaldigiYer] = useState(0);
+  const [sinaMesaji, setSinaMesaji] = useState<'kontrol-bulundu' | null>(null);
   const sonKayitRef = useRef(0);
+  const konumRef = useRef(0);
+  konumRef.current = konum;
+  const sinaRef = useRef<{ hedef: number; zamanlayici: number | null } | null>(null);
   const bekleyenRef = useRef<{ eylem: KopruEylem; hedef: number; deneme: number; zamanlayici: number | null } | null>(
     null
   );
@@ -281,20 +311,84 @@ export default function IzleIstemci() {
       if (typeof cikti.sure === 'number' && cikti.sure > 0) setGercekSure(Math.round(cikti.sure));
       if (typeof cikti.saniye === 'number') setKonum(Math.max(0, Math.round(cikti.saniye)));
       if (typeof cikti.oynuyor === 'boolean') setOynuyor(cikti.oynuyor);
+
+      /* Çalışma anı ölçümü: her anlamlı olay kayda geçer (yetenek ekler, silmez). */
+      olcumYaz(olcumGuncelle(kopruOlcumleri()[kopru.ad] ?? olcum, kopru.ad, cikti, Date.now()));
+
+      /* Sınama penceresinde komuta özgü bir olay geldiyse kanal kanıtlanmıştır. */
+      const sina = sinaRef.current;
+      if (sina && sinaOnaylandi(cikti)) {
+        if (sina.zamanlayici) window.clearTimeout(sina.zamanlayici);
+        sinaRef.current = null;
+        olcumYaz(olcumKomutOnayla(kopruOlcumleri()[kopru.ad] ?? olcum, kopru.ad, Date.now()));
+        setSinaMesaji('kontrol-bulundu');
+      }
+
       const bekleyen = bekleyenRef.current;
       if (bekleyen && komutOnaylandi(bekleyen.eylem, bekleyen.hedef, cikti)) {
         if (bekleyen.zamanlayici) window.clearTimeout(bekleyen.zamanlayici);
         bekleyenRef.current = null;
+        /* Kullanıcı komutunun onayı da komut kanalının kanıtıdır. */
+        if (!(kopruOlcumleri()[kopru.ad] ?? olcum)?.komut) {
+          olcumYaz(olcumKomutOnayla(kopruOlcumleri()[kopru.ad] ?? olcum, kopru.ad, Date.now()));
+        }
       }
     };
     window.addEventListener('message', dinle);
     return () => window.removeEventListener('message', dinle);
-  }, [kopru]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kopru?.ad, olcumYaz]);
 
-  /* Bileşen sökerken bekleyen komut zamanlayıcısı kalmasın. */
+  /**
+   * Görünmez yetenek sınaması.
+   *
+   * Komut kanalı bilinmiyorsa (önsel "yok" diyor) ve oynatıcı konum bildiriyorsa:
+   * oynatıcının **zaten bulunduğu** saniyeye bir sar komutu gönderilir. Dinleyen
+   * oynatıcı `seeked` yayınlar → komut kanalı kanıtlanır ve düğmeler açılır;
+   * dinlemeyen oynatıcıda hiçbir şey olmaz (ne görüntü ne ses değişir).
+   * Aynı host için en sık `SINA_ARASI_MS` (7 gün) bir kez denenir.
+   */
+  useEffect(() => {
+    if (!kopru || !kopruAdi) return;
+    const karar = komutSinamasi(kopru, olcum, Date.now());
+    if (!karar.sina) return;
+
+    const bekle = window.setTimeout(() => {
+      const pencere = cerceveRef.current?.contentWindow;
+      if (!pencere) return;
+      const hedef = Math.max(0, Math.round(konumRef.current));
+      for (const yuk of komutlar(kopru.ad, 'sar', hedef)) {
+        try {
+          pencere.postMessage(yuk, '*');
+          pencere.postMessage(yuk, kopruOrigin(kopru.ad));
+        } catch {
+          /* pencere değişmiş olabilir; sınama penceresi sonucu zaten kapatır */
+        }
+      }
+      const bitis = window.setTimeout(() => {
+        sinaRef.current = null;
+        const guncel = kopruOlcumleri()[kopru.ad] ?? olcum;
+        olcumYaz(olcumSinaBasarisiz(guncel, kopru.ad, Date.now()));
+      }, SINA_PENCERESI_MS);
+      sinaRef.current = { hedef, zamanlayici: bitis };
+    }, 8000);
+
+    return () => window.clearTimeout(bekle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iframeAdresi, kopru?.komut, olcum?.sonSina]);
+
+  /* "Kontrol bulundu" bildirimi kısa süre görünür. */
+  useEffect(() => {
+    if (sinaMesaji !== 'kontrol-bulundu') return;
+    const zamanlayici = window.setTimeout(() => setSinaMesaji(null), 8000);
+    return () => window.clearTimeout(zamanlayici);
+  }, [sinaMesaji]);
+
+  /* Bileşen sökerken bekleyen komut/sınama zamanlayıcıları kalmasın. */
   useEffect(
     () => () => {
       if (bekleyenRef.current?.zamanlayici) window.clearTimeout(bekleyenRef.current.zamanlayici);
+      if (sinaRef.current?.zamanlayici) window.clearTimeout(sinaRef.current.zamanlayici);
     },
     []
   );
@@ -518,6 +612,16 @@ export default function IzleIstemci() {
             <div className="oynatici-kopru">
               <span className={`oynatici-kopru-nokta${kopruHazir ? ' canli' : ''}`} aria-hidden="true" />
               <span className="oynatici-kopru-ad">{kopru.etiket}</span>
+              {kopru.kaynak === 'olcum' ? (
+                <span
+                  className="oynatici-kopru-olcum"
+                  title={`Bu cihazda ölçüldü (${kopru.olcum?.gozlem ?? 0} oturum, en son ${
+                    kopru.olcum?.sonGorulme ? new Date(kopru.olcum.sonGorulme).toLocaleDateString('tr-TR') : '—'
+                  })`}
+                >
+                  ölçüldü
+                </span>
+              ) : null}
               {kopru.telemetri && gercekSure ? (
                 <span className="oynatici-kopru-saat">
                   {medyaSaati(konum)} / {medyaSaati(gercekSure)}
@@ -561,6 +665,12 @@ export default function IzleIstemci() {
                   Bu kaynak kendi oynatıcısını kullanır; oynatma konumu okunamaz.
                 </span>
               )}
+
+              {sinaMesaji === 'kontrol-bulundu' ? (
+                <span className="oynatici-kopru-kesif" role="status">
+                  Bu kaynak kontrol komutlarına cevap verdi — düğmeler açıldı.
+                </span>
+              ) : null}
             </div>
           ) : null}
 

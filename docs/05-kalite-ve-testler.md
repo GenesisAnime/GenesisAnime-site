@@ -6,10 +6,10 @@
 
 | Kontrol | Komut | Beklenen |
 |---|---|---|
-| Birim testleri | `npm test` | 149/149 geçer (~17 sn; ağ/DB yok) |
+| Birim testleri | `npm test` | 175/175 geçer (~28 sn; ağ/DB yok) |
 | Tip denetimi | `npm run typecheck` | 0 hata |
-| Derleme | `npm run build` | `✓ Compiled successfully`, 7.442 statik sayfa |
-| Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.046 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
+| Derleme | `npm run build` | `✓ Compiled successfully`, 7.448 statik sayfa |
+| Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.049 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
 | Veri hattı | `npm run veri` | 6.107 anime dosyası, çıktı sayıları DB ile uyuşur |
 | Tarayıcı duman testi | elle / önizleme paneli | Konsolda hata yok, akış tamamlanır |
 | API uçtan uca | `api && npx wrangler dev` + `npm run api:test` | 45 adım geçer (isteğe bağlı `--oran` ile 46; yerel D1 + gerçek HTTP; yönetici jetonuyla) |
@@ -312,7 +312,11 @@ desteklenmiyorsa test atlanır), `jsonLdGuvenli` kaçışı ve JSON anlamının 
 yapısal denetim: sunucu bileşenlerinde `new Date(…).toLocale*` bulunmamalı, iframe izin listeleri
 `fullscreen` içermeli ve `allowFullScreen` kullanılmamalı.
 
-**`kopru.test.mjs`** (20) gömülü oynatıcı köprüsünün saf mantığını sınar: `href.li` sarmalayıcısının
+**`kopru.test.mjs`** (33) gömülü oynatıcı köprüsünün saf mantığını sınar: **çalışma anı ölçümü**
+(olaydan yetenek çıkarma, oturum sayacı, ölçümün 30 günde bayatlaması, şema sürümü, önsel + ölçüm
+birleşimi, önselin "çalışıyor"unu geçersiz kılan iki başarısız sınama, görünmez sınama kararı ve
+**yanlış pozitif koruması**: `timeupdate` komut kanıtı sayılmaz, yalnız `seeked`), ayrıca klasik
+mantığı sınar: `href.li` sarmalayıcısının
 çözülmesi (yüzde kodlanmış biçim dahil), VK'ya `js_api=1` eklenirken kimlik parametrelerinin
 (`oid`/`id`/`hash`/`hd`) korunması ve etkisiz tekrarın engellenmesi, köprülü/köprüsüz host ayrımı,
 **komut yüklerinin nesne olarak üretilmesi** (metin biçimi ölçümde cevapsız kalmıştı — bu test o
@@ -323,8 +327,8 @@ Ayrıca **yetenek bayraklarını ölçüme sabitler**: yalnız VK'da komut+telem
 true yapmak yeni ölçüm gerektirir. Son test üretim verisini okur ve VK kaynaklarının gerçekten
 `href.li/?` sarmalayıcısıyla yazıldığını doğrular — normalizasyonun yüklü olduğunun kanıtı.
 
-Ölçüm: **149 test / 149 geçti**, yerelde ~17 sn (derleme hemen sonrası ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
-kopru 20 · tmdb 17 · derleme 14 · veri 11 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
+Ölçüm: **175 test / 175 geçti**, yerelde ~28 sn (derleme hemen sonrası ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
+kopru 33 · tmdb 17 · derleme 14 · akis-api 13 · veri 11 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
 ~1,4 sn + html/txt taraması ~2,9 sn + veri taraması ~1,9 sn, kalanı 6 bin anime/961 seri dosyası;
 sıcakta ~7 sn); CI simülasyonunda (arşiv sağlık dosyası yokken)
 aynı sonuç — 941 rozet “doğrulanamadı” olarak raporlanır. Testlerin gerçekten hata yakaladığı üç yoldan ölçüldü:

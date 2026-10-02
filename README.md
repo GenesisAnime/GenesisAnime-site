@@ -5,7 +5,7 @@
 **Türkçe anime arşivi — %100 açık kaynak, tamamen statik, sunucusuz.**
 
 [![Lisans: MIT](https://img.shields.io/badge/lisans-MIT-green)](LICENSE)
-[![Testler: 149/149](https://img.shields.io/badge/testler-149%2F149-success)](docs/05-kalite-ve-testler.md)
+[![Testler: 175/175](https://img.shields.io/badge/testler-175%2F175-success)](docs/05-kalite-ve-testler.md)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
 [![Cloudflare Workers + D1](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-f38020)](docs/11-hesaplar-uygulama.md)
 
@@ -43,13 +43,13 @@ depodadır. Kapalı bileşen, gizli veri işleme veya reklam/izleyici betiği yo
 |---|---|
 | Veri | 6.107 anime · 71.694 bölüm · 316.820 kaynak · 961 seri · 363 fansub grubu |
 | Banner görselleri | TMDB kimliği **5.266** yapımda (%86,2; Fribb 4.907 + arama 359) · 4K katmanı **2.495** · HD katmanı **2.269** · anime detay bandı **5.306/6.107** sayfada dolu (hero 20/24 · kart 391/540 · bant 3,4:1 → kaynağın ~%52'si; TMDB atfı `/kunye/` ve alt bilgide) |
-| Site derlemesi | 7.442 sayfa → `out/` 21.049 dosya / 876,8 MB (GitHub Pages uyumlu; CF Pages 20k sınırını aşıyor) |
+| Site derlemesi | 7.448 sayfa → `out/` 21.049 dosya / 880,6 MB (GitHub Pages uyumlu; CF Pages 20k sınırını aşıyor) |
 | Link sağlığı | kapsam **%58,72** — 173.030 `ok` · 301 `ölü` · 34 `engelli` · 12.861 `belirsiz` (ölçülebilir havuz tükendi) |
 | Otomasyon | günlük link döngüsü zamanlayıcıda (saatlik uyanır, günde bir koşar) · `/yonetim/` panelinden ayar + koşu geçmişi |
-| Testler | `npm test` **149/149** (ağsız) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
+| Testler | `npm test` **175/175** (ağsız) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
 | API | Cloudflare Worker + D1 yayında (bölge WEUR) · CORS yalnızca site kaynağına açık |
 | Son güncelleme | 2 Ekim 2026 |
-| Sıradaki işler | analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme ([docs/10](docs/10-yol-haritasi.md)) |
+| Sıradaki işler | analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · akış köprüsünü oynatıcıya bağlama (Mail.ru %27,9, [docs/12](docs/12-akis-koprusu.md)) ([docs/10](docs/10-yol-haritasi.md)) |
 
 ## Hızlı başlangıç
 
@@ -124,7 +124,7 @@ AniList GraphQL (önbellekli)┘            │                                 
 | `/kesfet/` | 6.107 yapım: tür/yıl/format/durum filtresi, 5 sıralama, ızgara/liste | ✔ |
 | `/ara/?q=` | Anlık arama, vurgulama, alaka sıralaması | ✔ (istemci arama) |
 | `/anime/<slug>/` | Detay: künye, özet, fragman, bölüm listesi, fansub künyesi, ilişkili yapımlar, yasal izleme | ✔ 6.107 sayfa |
-| `/izle/?a=<slug>&b=<no>` | Oynatıcı: kaynak çipleri, **fansub süzgeci**, güvenilirlik sıralaması, bölüm geçişi, klavye kısayolları | ✔ (tek kabuk) |
+| `/izle/?a=<slug>&b=<no>` | Oynatıcı: kaynak çipleri, **fansub süzgeci**, güvenilirlik sıralaması, bölüm geçişi, klavye kısayolları, **kanıta dayalı köprü şeridi** (hangi kaynağın kontrol edilebildiği cihazda ölçülür, `/kunye/` panelinde görünür) | ✔ (tek kabuk) |
 | `/listem/` | İzleme listesi · izlemeye devam et · izlenen bölümler | ✔ (istemci) |
 | `/fansublar/` | 363 fansub grubu dizini, grup → yapım listesi | ✔ |
 | `/fansub/<slug>/` | Fansub grup profili: katkı ölçümü + kapsadığı yapımlar | ✔ 363 sayfa |
@@ -194,7 +194,7 @@ Katkıya açıktır — **issue** açabilir, veri düzeltmesi, fansub eklemesi v
 1. Depoyu **fork**'la ve kendi fork'unda bir **branch** aç (`main` korumalı; doğrudan push yerine
    **pull request** aç).
 2. Pull request'i göndermeden önce bu kontrolleri çalıştır — CI'da da aynıları koşar:
-   `npm run typecheck` → `npm test` (149/149) → `npm run build` → `npm run yayin:hazirla`.
+   `npm run typecheck` → `npm test` (175/175) → `npm run build` → `npm run yayin:hazirla`.
 3. API'ye dokunduysan ayrıca `cd api && npm run dev` + ikinci terminalde `npm run api:test`.
 4. Davranış/karar değişikliği belge gerektirir: ilgili `docs/` dosyası, gerekiyorsa yeni bir ADR
    ([docs/kararlar](docs/kararlar/)) ve `docs/gunluk/kayit.jsonl` satırı.

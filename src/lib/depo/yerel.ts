@@ -12,6 +12,7 @@
  * aynı arayüzü uygulayan bir `api.ts` sürücüsü yazılacak; arayüz kodu değişmeyecek.
  */
 import type { IlerlemeKaydi, ListeKaydi } from '../tipler';
+import type { KopruOlcumu } from '../kopru';
 
 const ONEK = 'genesisanime:v1:';
 const ANAHTAR = {
@@ -20,6 +21,7 @@ const ANAHTAR = {
   listem: `${ONEK}listem`,
   tercih: `${ONEK}tercih`,
   calismayan: `${ONEK}calismayan`,
+  kopru: `${ONEK}kopru-yetenek`,
 } as const;
 
 export interface Tercihler {
@@ -51,6 +53,31 @@ export const VARSAYILAN_TERCIH: Tercihler = {
  * ayrı anlam.
  */
 const konumAnahtari = (slug: string, bolum: number) => `${ONEK}konum:${slug}:${bolum}`;
+
+/*
+ * Köprü yetenek ölçümü (bkz. `kopru.ts` · çalışma anı ölçümü). Cihazda tutulur:
+ * bir kullanıcının gözlemi başka bir kullanıcıyı bağlamaz; önsel tablo zaten
+ * varsayılanı taşıyor. Yeni bir host konuşmaya başlarsa herkes kendi trafiğinde
+ * fark eder ve kendi cihazında hatırlar.
+ */
+export function kopruOlcumleri(): Record<string, KopruOlcumu> {
+  return oku<Record<string, KopruOlcumu>>(ANAHTAR.kopru, {});
+}
+
+export function kopruOlcumKaydet(olcum: KopruOlcumu): void {
+  if (!olcum?.ad) return;
+  yaz(ANAHTAR.kopru, { ...kopruOlcumleri(), [olcum.ad]: olcum });
+}
+
+/** Ölçümleri siler: yetenekler yeniden önsele döner. */
+export function kopruOlcumleriniSil(): void {
+  if (!tarayiciVar()) return;
+  try {
+    window.localStorage.removeItem(ANAHTAR.kopru);
+  } catch {
+    /* yoksay */
+  }
+}
 
 /* ------------------------------ altyapı ------------------------------ */
 

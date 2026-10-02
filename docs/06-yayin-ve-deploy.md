@@ -8,14 +8,14 @@
 
 | Ölçüm | Değer |
 |---|---|
-| Dosya sayısı | **21.043** |
-| Toplam boyut (dosya baytları) | **865,2 MB** |
-| Disk kullanımı (`du`) | 905 MB (küçük dosya başına blok tahsisi nedeniyle daha yüksek) |
+| Dosya sayısı | **21.049** |
+| Toplam boyut (dosya baytları) | **880,6 MB** |
+| Disk kullanımı (`du`) | 927 MB (küçük dosya başına blok tahsisi nedeniyle daha yüksek) |
 | Anime sayfası | 6.107 · seri 961 · fansub 363 |
 | `.nojekyll` | var |
 | `404.html` | var |
-| GitHub Pages (< 1 GB) | ✅ uygun (858 MB — pay az) |
-| Cloudflare Pages (≤ 20.000 dosya) | ❌ **AŞIYOR** (21.043) |
+| GitHub Pages (< 1 GB) | ✅ uygun (880,6 MB — pay az) |
+| Cloudflare Pages (≤ 20.000 dosya) | ❌ **AŞIYOR** (21.049) |
 
 > **Değişim (01.10):** Tur D ile 1.324 grup sayfası (961 seri + 363 fansub) ve PWA/OG varlıkları
 eklendi; dosya sayısı 18.377 → 21.043 oldu ve Cloudflare Pages'in ücretsiz 20.000 dosya sınırı
@@ -27,15 +27,15 @@ boyut küçültme turu gerekir. Ölçüm her koşuda `tools/rapor/yayin-raporu.{
 
 | Bölüm | Boyut | Dosya |
 |---|---:|---:|
-| `anime/` — HTML + RSC | ~690 MB | 12.214 |
-| `seri/` — HTML + RSC | ~85 MB | 1.922 |
-| `fansub/` — HTML + RSC | ~61 MB | 726 |
+| `anime/` — HTML + RSC | ~709 MB | 12.214 |
+| `seri/` — HTML + RSC | ~86 MB | 1.922 |
+| `fansub/` — HTML + RSC | ~62 MB | 726 |
 | `data/` — üretilmiş veri | 64 MB | 6.114 |
-| `_next/` — JS/CSS | ~2 MB | ~30 |
+| `_next/` — JS/CSS | ~2 MB | 37 |
 | PWA/OG (`sw.js`, `og.png`, `ikon/*`, `favicon.svg`) | < 1 MB | 7 |
 | diğer (kök HTML, sitemap, robots, 404, `seriler/`, `fansublar/`, `hesap/`) | ~5 MB | ~30 |
 
-Dosya türü dağılımı: `.html` 7.442 · `.txt` 7.441 (RSC) · `.json` 6.114 · `.png` 5 · `.js` 35 ·
+Dosya türü dağılımı: `.html` 7.444 · `.txt` 7.443 (RSC) · `.json` 6.114 · `.png` 5 · `.js` 37 ·
 `.webmanifest` 1 · `.svg` 1 · `.xml` 1 · `.css` 1.
 
 > `index.txt` dosyaları Next.js'in istemci taraflı gezinme için ürettiği RSC yükleridir ve toplamın
@@ -207,7 +207,7 @@ Push sonrası iki ayar GitHub tarafında yapılır:
 - [ ] `npm run veri` çalıştırıldı ve `public/data/` güncel
 - [ ] `npm run veri:anilist` (isteğe bağlı, önbellek zaten `tools/cache` içinde)
 - [ ] `npm run typecheck` → 0 hata
-- [ ] `npm run build` → 7.442 sayfa
+- [ ] `npm run build` → 7.448 sayfa
 - [ ] `npm run yayin:hazirla` → GitHub Pages < 1 GB (CF Pages artık aşıyor, bilinçli)
 - [ ] Depoda `public/data/` commit edildi (`.gitignore` bunu engellemiyor) ✔ (783dca6)
 - [ ] `origin` bağlandı ve `git push -u origin main` atıldı (`push` hâlâ bekliyor)
