@@ -102,6 +102,9 @@ API'si yayınlayan kaynakta görünür (ölçüm: `docs/04`):
 - `.oynatici-kopru-dugmeler` — yalnız **komut kanalı kanıtlanmış** host'ta basılır. Kanıt yoksa
   yerine `.oynatici-kopru-not` ("bu kaynak kendi oynatıcısını kullanır") gelir. Kural: ölü düğme
   göstermek, düğme göstermemekten kötüdür.
+- `.cip.kapali` + `.cip-durum` ve `.rozet-kapali` — **kullanım dışı player** (03.10: Sibnet) için
+  solgun çip, çip içi etiket ve grup başlığı rozeti. Kaynak gizlenmez (dashed kenarlık "silinmedi,
+  sadece önerilmiyor" der); sebep ve tarihler `title` ipucunda durur. Ayrıntı: `docs/04`.
 - `.oynatici-kopru-olcum` — yetenek koda gömülü tablodan değil **bu cihazdaki ölçümden** geliyorsa
   görünen küçük "ölçüldü" rozeti; ipucu gözlem sayısını ve son görülme tarihini taşır. "Neden
   burada düğme var?" sorusunu görünmez bir varsayıma değil kanıta bağlar.

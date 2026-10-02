@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Anime, Taksonomi } from '@/lib/tipler';
 import { animeVeriYolu, genelYol } from '@/lib/yollar';
 import { bolumNumarasi, embedUygun, kaynakEtiketi, kaynakGrubu, kaynakGrupla, playerAd, sayiBicim } from '@/lib/bicim';
+import { durumOzeti, kullanimDisiMi, oynaticiDurumu, type OynatıcıDurum } from '@/lib/oynatici';
 import { bildirimGonder } from '@/lib/bildirim';
 import {
   KOMUT_DENEME_ARASI_MS,
@@ -179,6 +180,11 @@ export default function IzleIstemci() {
         const py = y[0] === tercihler.kaynakTercihi ? 0 : 1;
         if (px !== py) return px - py;
       }
+      /* Kullanım dışı player'ın kaynakları **listede kalır ama önerilmez**: en sona düşer.
+         Gizlemek yanlış olurdu — tek kaynağı Sibnet olan bölümde oynatıcıyı boşaltırdı. */
+      const kx = kullanimDisiMi(x[0]) ? 1 : 0;
+      const ky = kullanimDisiMi(y[0]) ? 1 : 0;
+      if (kx !== ky) return kx - ky;
       return 0;
     });
   }, [bolum, calismayanlar, tercihler.dogrulanmisOncelik, tercihler.kaynakTercihi]);
@@ -214,6 +220,9 @@ export default function IzleIstemci() {
 
   const aktifKaynak =
     gosterilenKaynaklar[Math.min(kaynakSira, Math.max(0, gosterilenKaynaklar.length - 1))] ?? null;
+
+  /** Seçili kaynağın player'ı kullanım dışıysa durum kaydı (etiket + sebep + tarihler). */
+  const aktifDurum = aktifKaynak ? oynaticiDurumu(aktifKaynak[0]) : null;
 
   const guvenlik = useMemo(() => {
     const harita = new Map<string, { guvenilirlik: number; ok: number; kontrol: number }>();
@@ -560,6 +569,12 @@ export default function IzleIstemci() {
   }
 
   const gruplar = kaynakGrupla(gosterilenKaynaklar);
+  /** Grup başlıklarındaki durum rozetleri (yalnız kullanım dışı player'lar için dolu). */
+  const grupDurumlari = new Map<string, OynatıcıDurum>();
+  for (const g of gruplar) {
+    const d = oynaticiDurumu(g.player);
+    if (d) grupDurumlari.set(g.player, d);
+  }
   const seciliK = gosterilenKaynaklar[Math.min(kaynakSira, gosterilenKaynaklar.length - 1)] ?? null;
   const seciliEkip = seciliK && bolum ? bolum.ekip.find((e) => e.g === seciliK[1]) ?? null : null;
   const guven = seciliK ? guvenlik.get(seciliK[0]) : undefined;
@@ -672,6 +687,17 @@ export default function IzleIstemci() {
                   Bu kaynak kontrol komutlarına cevap verdi — düğmeler açıldı.
                 </span>
               ) : null}
+            </div>
+          ) : null}
+
+          {aktifDurum && aktifKaynak ? (
+            <div className="uyari-kutu uyari" style={{ marginTop: 12, marginBottom: 4 }}>
+              <span aria-hidden="true">⚠️</span>
+              <span>
+                <b>{playerAd(aktifKaynak[0])}</b> kaynakları şu an <b>{aktifDurum.etiket.toLowerCase()}</b>{' '}
+                sayılıyor ({durumOzeti(aktifDurum)}). {aktifDurum.sebep} Kaynağı yine de deneyebilirsin;
+                çalışmazsa “Kaynak çalışmıyor” düğmesini kullan ya da başka bir kaynağa geç.
+              </span>
             </div>
           ) : null}
 
@@ -817,6 +843,14 @@ export default function IzleIstemci() {
                     <div className="kaynak-grup-basi">
                       <span>
                         {playerAd(g.player)} <span style={{ color: 'var(--tx3)' }}>· {g.kaynaklar.length}</span>
+                        {grupDurumlari.get(g.player) ? (
+                          <span
+                            className="rozet-kapali"
+                            title={`${grupDurumlari.get(g.player)!.sebep} ${durumOzeti(grupDurumlari.get(g.player)!)}`}
+                          >
+                            {grupDurumlari.get(g.player)!.etiket}
+                          </span>
+                        ) : null}
                       </span>
                       {guv && guv.kontrol > 0 ? (
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -830,24 +864,30 @@ export default function IzleIstemci() {
                       ) : null}
                     </div>
                     <div className="cipler">
-                      {g.kaynaklar.map(({ k, sira: i }) => (
-                        <button
-                          key={`${k[2]}-${i}`}
-                          className={`cip${i === kaynakSira ? ' etkin' : ''}`}
-                          onClick={() => setKaynakSira(i)}
-                          title={`${playerAd(k[0])} · ${kaynakEtiketi(k)}${k[1] ? ` · ${k[1]}` : ''}`}
-                        >
-                          {k[3] === 'ok' ? (
-                            <span className="ok-isaret" title="Çalıştığı doğrulanmış">
-                              ✓
-                            </span>
-                          ) : (
-                            <OynatIkon boyut={11} />
-                          )}
-                          {k[1] && k[1] !== k[0] ? <span className="fansub">{k[1]}</span> : null}
-                          <span>#{i + 1}</span>
-                        </button>
-                      ))}
+                      {g.kaynaklar.map(({ k, sira: i }) => {
+                        const durum = oynaticiDurumu(k[0]);
+                        return (
+                          <button
+                            key={`${k[2]}-${i}`}
+                            className={`cip${i === kaynakSira ? ' etkin' : ''}${durum ? ' kapali' : ''}`}
+                            onClick={() => setKaynakSira(i)}
+                            title={`${playerAd(k[0])} · ${kaynakEtiketi(k)}${k[1] ? ` · ${k[1]}` : ''}${
+                              durum ? ` · ${durum.etiket}: ${durum.sebep}` : ''
+                            }`}
+                          >
+                            {k[3] === 'ok' ? (
+                              <span className="ok-isaret" title="Çalıştığı doğrulanmış">
+                                ✓
+                              </span>
+                            ) : (
+                              <OynatIkon boyut={11} />
+                            )}
+                            {k[1] && k[1] !== k[0] ? <span className="fansub">{k[1]}</span> : null}
+                            <span>#{i + 1}</span>
+                            {durum ? <span className="cip-durum">{durum.etiket}</span> : null}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 );

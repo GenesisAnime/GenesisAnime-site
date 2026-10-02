@@ -206,6 +206,37 @@ görülme tarihi) ve yetenek ilk kez açıldığında bir kerelik `.oynatici-kop
 karışmaz. Mekanizmanın sözleşmesi [`tools/testler/kopru.test.mjs`](../../tools/testler/kopru.test.mjs)
 içindeki 33 testle sabitlenmiştir.
 
+## Kullanım dışı player'lar (elle karar, tarihli — 03.10.2026)
+
+Bazı player'ların kaynakları bizim taraftan **tümden** erişilemez hâle geliyor: sunucu isteklerimize
+403 dönüyor. Bu, "kaynak öldü" işaretlemesinden ayrı bir durumdur ve ayrı bir yerde tutulur
+([`src/lib/oynatici.ts`](../../src/lib/oynatici.ts)):
+
+| Durum | Anlamı | Nerede tutulur |
+|---|---|---|
+| Ölü kaynak | Tek URL bitti; kullanıcı işaretledi, tarama doğruladı | `calismayanlar` (cihaz) + arşiv sağlığı (veri) |
+| Kullanım dışı player | Player'ın tamamı **geçici olarak** önerilmiyor | `oynatici.ts` (kod, elle, tarihli) |
+
+Kurallar:
+
+1. **Kaynak gizlenmez.** Kullanım dışı player'ın çipleri listede kalır (solgun, "Kullanım dışı"
+etiketli; grup başlığında rozet) ve varsayılan seçimde **en sona** düşer. Tek kaynağı o player olan
+bölümde oynatıcı boşalmaz — kaynağı yine de deneyebilirsin.
+2. **Karar tarihlidir ve gözden geçirme tarihi taşır.** "Şu anlık erişim yok" süresiz yasak değil;
+kayıt `karar`, `gozdenGecirme`, `gecici` ve ölçüm kanıtı (`belge`) alanlarını taşır ve kullanıcıya
+gösterilir.
+3. **Sebep ölçümden gelir** — "çalışmıyor gibi görünüyor" değil, ölçülen durum kodu yazılır.
+4. **İki yüzeyde birden görünür:** oynatıcı (uyarı şeridi + grup rozeti + solgun çip) ve `/kunye`
+(Player güvenilirliği tablosunda "Durum" sütunu + açıklama kutusu).
+[`tools/testler/oynatici.test.mjs`](../../tools/testler/oynatici.test.mjs) iki yüzeyin etiketi
+kaybetmemesini ve kaynakların **filtrelenmemesini** denetler.
+
+**Bugünkü durum:** **Sibnet** (kaynakların ~%42,1'i) kullanım dışı — `video.sibnet.ru` isteklerimize
+403 ("administrative rules") döndürüyor ve akış adresi alınamıyor (ölçüm:
+[`docs/olcum/akis-2026-10-02.json`](../olcum/akis-2026-10-02.json)). Karar 3 Ekim 2026, gözden
+geçirme 3 Kasım 2026. Host tekrar cevap verirse tek satır silinerek geri açılır; kaynaklar o güne
+kadar **silinmeden, etiketli** biçimde bekler.
+
 ## Neden hâlâ iframe kabuğu? (kendi `<video>` ölçümü, 2026-10-02)
 
 "Embed'i söküp videoyu kendi oynatıcımızda oynatalım" isteği ölçüldü (`npm run akis:olcum`):

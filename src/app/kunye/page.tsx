@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { kunyeOku, saglikOku, taksonomiOku } from '@/lib/veri';
 import { damgaBicim, formatAd, playerAd, sayiBicim } from '@/lib/bicim';
+import { durumOzeti, kullanimDisiPlayerlar, oynaticiDurumu } from '@/lib/oynatici';
 import KopruPanel from '@/components/KopruPanel';
 
 export const metadata: Metadata = {
@@ -136,13 +137,27 @@ export default function KunyeSayfasi() {
         <p style={{ color: 'var(--tx3)', fontSize: 13, marginBottom: 12 }}>
           Kesin karara varılan örneklemde her player için çalışma oranı (belirsiz ölçümler paydaya
           girmez). Oynatıcı, kaynakları bu orana göre sıralar; doğrulanmış kaynaklar her zaman öne
-          alınır. Örneklemi küçük olan player'ların oranı temkinli okunmalıdır.
+          alınır. Örneklemi küçük olan player'ların oranı temkinli okunmalıdır. “Kullanım dışı”
+          player'ın kaynakları listede kalır ama <b>önerilmez</b> (silinmez: durum değişirse geri
+          açılır).
         </p>
+        {kullanimDisiPlayerlar().map((d) => (
+          <div className="uyari-kutu uyari" key={d.player} style={{ marginBottom: 12 }}>
+            <span aria-hidden="true">⚠️</span>
+            <span>
+              <b>{playerAd(d.player)}</b> kaynakları geçici olarak <b>{d.etiket.toLowerCase()}</b>{' '}
+              sayılıyor ({durumOzeti(d)}). Sebep: {d.sebep} Ölçüm kanıtı:{' '}
+              <code>{d.belge}</code>. Kaynaklar gizlenmez, yalnızca geri plana düşer ve oynatıcıda
+              etiketlenir.
+            </span>
+          </div>
+        ))}
         <div style={{ overflowX: 'auto' }}>
           <table className="tablo">
             <thead>
               <tr>
                 <th>Player</th>
+                <th>Durum</th>
                 <th className="sayi">Toplam kaynak</th>
                 <th className="sayi">Kesin karar</th>
                 <th className="sayi">Çalışıyor</th>
@@ -152,9 +167,20 @@ export default function KunyeSayfasi() {
               </tr>
             </thead>
             <tbody>
-              {taksonomi.playerlar.slice(0, 22).map((p) => (
+              {taksonomi.playerlar.slice(0, 22).map((p) => {
+                const durum = oynaticiDurumu(p.ad);
+                return (
                 <tr key={p.ad}>
                   <td>{playerAd(p.ad)}</td>
+                  <td>
+                    {durum ? (
+                      <span className="rozet-kapali" style={{ marginLeft: 0 }} title={durum.sebep}>
+                        {durum.etiket}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td className="sayi">{sayiBicim(p.link)}</td>
                   <td className="sayi">{sayiBicim(p.kontrol)}</td>
                   <td className="sayi">{sayiBicim(p.ok)}</td>
@@ -164,7 +190,8 @@ export default function KunyeSayfasi() {
                     {p.kontrol > 0 ? `%${Math.round(p.guvenilirlik * 100)}` : '—'}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

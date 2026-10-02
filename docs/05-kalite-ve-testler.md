@@ -6,7 +6,7 @@
 
 | Kontrol | Komut | Beklenen |
 |---|---|---|
-| Birim testleri | `npm test` | 175/175 geçer (~28 sn; ağ/DB yok) |
+| Birim testleri | `npm test` | 183/183 geçer (~16 sn; ağ/DB yok) |
 | Tip denetimi | `npm run typecheck` | 0 hata |
 | Derleme | `npm run build` | `✓ Compiled successfully`, 7.448 statik sayfa |
 | Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.049 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
@@ -327,8 +327,14 @@ Ayrıca **yetenek bayraklarını ölçüme sabitler**: yalnız VK'da komut+telem
 true yapmak yeni ölçüm gerektirir. Son test üretim verisini okur ve VK kaynaklarının gerçekten
 `href.li/?` sarmalayıcısıyla yazıldığını doğrular — normalizasyonun yüklü olduğunun kanıtı.
 
-Ölçüm: **175 test / 175 geçti**, yerelde ~28 sn (derleme hemen sonrası ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
-kopru 33 · tmdb 17 · derleme 14 · akis-api 13 · veri 11 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
+**`oynatici.test.mjs`** (8) "kullanım dışı player" durumunun sözleşmesini korur: sebep/tarih/kanıt
+alanları eksik bir kayıt, bilinmeyen anahtarla yazılmış bir player (taksonomide karşılığı olmadığını
+`playerAd` karşılaştırması yakalar) ve etiketin tek yüzeyde kalması testi düşürür. Ayrıca **gizleme
+yasağını** yapısal olarak denetler: kaynak listesi kullanım dışı player'a göre filtrelenirse (çip
+listesinden atılırsa) test kırmızıya döner — kaynak arşivin parçasıdır, yalnızca etiketlenir.
+
+Ölçüm: **183 test / 183 geçti**, yerelde ~16 sn (derleme hemen sonrası ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
+kopru 33 · tmdb 17 · derleme 14 · akis-api 13 · veri 11 · oynatici 8 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
 ~1,4 sn + html/txt taraması ~2,9 sn + veri taraması ~1,9 sn, kalanı 6 bin anime/961 seri dosyası;
 sıcakta ~7 sn); CI simülasyonunda (arşiv sağlık dosyası yokken)
 aynı sonuç — 941 rozet “doğrulanamadı” olarak raporlanır. Testlerin gerçekten hata yakaladığı üç yoldan ölçüldü:

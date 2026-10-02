@@ -61,7 +61,7 @@ Her iş paketinden sonra:
 Bir iş "bitti" sayılmadan önce:
 
 ```bash
-npm test                                # tools/ birim + veri/çıktı bütünlüğü testleri (ağsız, ~17 sn, 175 test)
+npm test                                # tools/ birim + veri/çıktı bütünlüğü testleri (ağsız, ~17 sn, 183 test)
 npm run api:test                        # api/ değiştiyse: çalışan Worker'a (wrangler dev) uçtan uca duman testi
 npm run typecheck                       # tip hatası yok
 npm run build                           # 7.448 sayfa üretilmeli, hata yok

@@ -1271,6 +1271,45 @@ a.etiket:hover {
   font-size: 11px;
 }
 
+/*
+ * Kullanım dışı player'ın çipi: liste kalır (kaynak arşivin parçası), ama
+ * "çalışır görünme" sinyali kalkar. Ayrıntı ve tarih `title` içinde.
+ */
+.cip.kapali {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.cip.kapali:hover {
+  opacity: 1;
+}
+
+.cip .cip-durum {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px dashed var(--uyari);
+  background: rgba(251, 191, 36, 0.08);
+  color: var(--uyari);
+  white-space: nowrap;
+}
+
+/* Grup başlığındaki aynı etiket (player adının yanında). */
+.rozet-kapali {
+  margin-left: 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px dashed var(--uyari);
+  background: rgba(251, 191, 36, 0.08);
+  color: var(--uyari);
+  cursor: help;
+}
+
 .cip .fansub {
   color: var(--tx3);
   font-weight: 500;

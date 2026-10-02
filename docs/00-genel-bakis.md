@@ -64,6 +64,11 @@ modern ve kullanılabilir bir izleme sitesine dönüştürmek:
    kaynaklar için "yeni sekmede aç" sunulur.
 5. **141 yapımın çalışan kaynağı yok, 47 yapımın bölüm kaydı yok.** Bunlar katalogda görünür ve
    sayfalarında uyarı verilir.
+6. **Sibnet (kaynakların %42,1'i) 03.10'dan beri kullanım dışı.** Sunucu isteklerimize 403 ("administrative
+   rules") döndürüyor ve akış adresi alınamıyor. Kaynaklar **silinmedi**: listede kalır, solgun +
+   "Kullanım dışı" etiketli gösterilir ve varsayılan seçimde geri plana düşer. Karar tarihli ve
+   gözden geçirme tarihli (3 Kasım 2026); host tekrar cevap verirse tek satırla geri açılır. Bu,
+   arşivin bugünkü kaynak kapasitesinin gerçekte olduğundan büyük görünmemesi içindir — `docs/04`.
 
 ## İlgili belgeler
 
