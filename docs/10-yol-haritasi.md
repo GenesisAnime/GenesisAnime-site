@@ -84,7 +84,7 @@ href.li, uqload, videoapi vb. tükendi).
 | Haftalık "arşive yeni eklenenler" akışı | Geri dönen ziyaretçi |
 | ~~PWA + çevrimdışı iskelet~~ | ✅ 01.10: manifest + servis çalışanı + ikon seti (statik veri cache-first) |
 | Çoklu dil (TR varsayılan, EN iskelet) | Arşivin uluslararası görünürlüğü |
-| ~~4K banner'lar (TMDB backdrop)~~ | ✅ 02.10: AniList 1900 px'de tavanlanıyor (ölçüldü). Eşleme kimliği banner URL'inden değil veriden (`anilist`) okunacak şekilde düzeltildi: TMDB kimliği **3.724 → 4.907** (arşivin %80,4'ü), banner'sız 1.182 yapım ilk kez kapsama girdi. 4K katmanı **2.403** (%39,3), 3000 px altı için HD katmanı **2.094**; anime detay bandı **5.164** sayfada dolu (%84,6). Açık kalan: Fribb'de karşılığı olmayan **943** yapım için arama tabanlı eşleme (TMDB `/search`), 257 yapımın AniList kimliği yok. Günlük §15 · H-29 |
+| ~~4K banner'lar (TMDB backdrop)~~ | ✅ 02.10: AniList 1900 px'de tavanlanıyor (ölçüldü). Eşleme kimliği banner URL'inden değil veriden (`anilist`) okunacak şekilde düzeltildi; ardından veri kümesinde karşılığı olmayanlar için **arama tabanlı eşleme** eklendi (güven etiketli + gölge moduyla risk ölçümlü). TMDB kimliği **3.724 → 5.266** (arşivin %86,2'si), 4K katmanı **2.495** (%40,9), HD katmanı **2.269**, anime detay bandı **5.306/6.107** sayfada dolu (%86,9). Açık kalan **801** sayfa (TMDB'de karşılığı olmayan tek bölümlük OVA/özel bölümler) ve 257 yapımın AniList kimliği yokluğu. Günlük §15 · H-29 · H-30 |
 | ~~Fansub sayfalarında çevirmen profili~~ | ✅ 01.10: `/fansub/<slug>/` grup sayfaları (363 grup) |
 | Veri kalitesi panosu (her yapım için kaynak sağlık skoru) | Şeffaflık; Faz 7 ile beslenir |
 | "İzleme sırası" önerisi (ilişkili yapımlardan otomatik) | Uzun serilerde rehberlik |

@@ -42,6 +42,8 @@ const s = {
   anilistBannerdanCikarilan: 0,
   tmdbKimlik: 0,
   tmdbKimliksiz: 0,
+  tmdbFribb: 0,
+  tmdbArama: 0,
   backdropKaydi: 0,
   backdropYok: 0,
   dortK: 0,
@@ -98,6 +100,8 @@ for (const dosya of fs.readdirSync(YOLLAR.animeData)) {
     continue;
   }
   s.tmdbKimlik++;
+  if (esleme[a.slug].kaynak === 'arama') s.tmdbArama++;
+  else s.tmdbFribb++;
 
   const k = backdrops[a.slug];
   const genislik = k && !k.yok ? Number(k.genislik) || 0 : 0;
@@ -134,7 +138,8 @@ log('   huni');
 log(`     arşiv                        : ${s.arsiv}  (banner'lı ${s.bannerli} · banner'sız ${s.bannersiz})`);
 log(`     AniList kimliği              : ${s.anilistKimlikli} · kimliksiz ${s.anilistKimliksiz} (eşlemeye giremez)`);
 log(`       (banner URL'inden çıkarılabilen, alan boşken: ${s.anilistBannerdanCikarilan})`);
-log(`     TMDB kimliği (Fribb)         : ${s.tmdbKimlik}  · arşivin %${yuzde(s.tmdbKimlik, s.arsiv)}'i`);
+log(`     TMDB kimliği                 : ${s.tmdbKimlik}  · arşivin %${yuzde(s.tmdbKimlik, s.arsiv)}'i`);
+log(`       kaynak: Fribb ${s.tmdbFribb} · arama ${s.tmdbArama}`);
 log(`       eşlemede bulunamayan       : ${s.tmdbKimliksiz}${s.anilistKimliksiz ? ` (+ kimliksiz ${s.anilistKimliksiz})` : ''}`);
 log(`     backdrop kaydı               : ${s.backdropKaydi}  · backdrop yok: ${s.backdropYok}`);
 log(`     4K katmanı (≥3000) → banner4k: ${s.dortK}  · arşivin %${yuzde(s.dortK, s.arsiv)}'i · bunların banner'sızı ${s.bannersiz4K}`);
@@ -157,6 +162,7 @@ const rapor = {
   kovalar,
   oranlar: {
     anilist_kimlik: yuzde(s.anilistKimlikli, s.arsiv),
+    arama_payi: yuzde(s.tmdbArama, s.tmdbKimlik),
     tmdb_kimlik: yuzde(s.tmdbKimlik, s.arsiv),
     dortK: yuzde(s.dortK, s.arsiv),
     band_dolu: yuzde(s.band4K + s.bandHd + s.bandAniList, s.arsiv),

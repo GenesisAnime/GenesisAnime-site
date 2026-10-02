@@ -53,6 +53,29 @@ Kontrol edilen küme neredeyse tamamen One Piece bölümlerine ait (kaynak: `Kon
 | Fragman | 3.242 |
 | Önbellek boyutu | 8,31 MB |
 
+### TMDB eşlemesi · iki aşamalı
+
+1. **Veri kümesi (anahtarsız)** — `npm run tmdb:esle`: AniList kimliği → Fribb `anime-list`
+   eşlemesi. Kimlik veriden (`anilist`) okunur. Ölçüm: **4.907** yapım.
+2. **Arama (anahtar gerekir)** — `npm run tmdb:ara`: veri kümesinde karşılığı olmayan yapımlar
+   için TMDB `/search` ucu. Eşleşme üç bağımsız şarta bağlanır — **animasyon türü (16), başlık
+   benzerliği ≥0,85, yıl ±1** — ve her kayıt `tam`/`yakin` güven etiketi taşır; kabul edilenler
+   `tools/cache/tmdb.json`'a `kaynak:'arama'` ile yazılır (`tmdb:esle` bu kayıtları korur).
+
+**Risk ölçümü (`npm run tmdb:ara -- --golge=200`).** Arama mantığı, veri kümesinde karşılığı
+**olan** 200 yapımda gizlice çalıştırılıp bulunan kimlik Fribb kimliğiyle karşılaştırıldı:
+
+| Sonuç | Adet | Yorum |
+|---|---:|---|
+| Aynı kimlik | 141/200 (%70,5) | arama doğru kaydı buldu |
+| Farklı kimlik — **granülerlik** (film↔dizi, aynı ad+yıl) | 11 | Fribb dizinin kimliğini verirken arama asıl film kaydını buluyor (arşivdeki kayıt film) |
+| Farklı kimlik — **aynı tip** (incelenmeli) | 1 | TMDB'de çift kayıt (`saint-seiya-soul-of-gold`); açık yanlış eşleşme değil |
+| Bulunamadı | 47/200 (%23,5) | yanlış eşleşme değil, yalnızca kapsam kaybı |
+
+Yani ölçülen **yanlış yapım bağlama oranı %0**; 6%'lık "farklı kimlik" sınıfının tamamı aynı başlık
+ve yıl taşıyan farklı granülerlikteki kayıtlardı. Kuralın muhafazakârlığı bilinçlidir: yanlış görsel,
+boş banddan kötüdür.
+
 ## Dönüşüm adımları (`tools/export-data.mjs`)
 
 1. **Girdi okuma** — sağlık haritası, AniList önbelleği, SQLite tabloları.
@@ -145,10 +168,11 @@ Banner görseli üç katmanlıdır ve sıra `src` seçiminde bellidir:
 | TMDB (HD) | `bannerTmdb` | <3000 px, ama AniList banner'ı yoksa (boş bandı doldurur) ya da genişlik ≥1900 px (AniList tavanını geçer) | Detay bandı |
 | AniList | `banner` | 1900 px tavanı | Yedek (her yerde)| `banner4kGenislik` / `bannerTmdbGenislik` kaynağın gerçek genişliğidir ve `srcSet` adayını bildirir
 
-Ölçüm (02.10.2026): TMDB kimliği **4.907** yapımda (%80,4), 4K katmanı **2.403**, HD katmanı
-**2.094**; anime sayfası bandı **5.164** sayfada (%84,6) dolu, 943 sayfada boş (Fribb eşlemesinde
-karşılığı olmayan yapımlar — arama tabanlı eşleme bekliyor). Bu huni `npm run tmdb:kapsam` ile
-her zaman yeniden üretilebilir (ağ yok; `tools/rapor/tmdb-kapsam.json`).
+Ölçüm (02.10.2026, arama aşaması dahil): TMDB kimliği **5.266** yapımda (%86,2 — Fribb 4.907 +
+arama 359), backdrop kaydı **5.079**, 4K katmanı **2.495** (%40,9), HD katmanı **2.269**; anime
+sayfası bandı **5.306** sayfada (%86,9) dolu, **801** sayfada boş (TMDB'de karşılığı olmayan
+tek bölümlük OVA/özel bölümler). Bu huni `npm run tmdb:kapsam` ile her zaman yeniden üretilebilir
+(ağ yok; `tools/rapor/tmdb-kapsam.json`).
 (ölçüm: **2.060 yapım**). Gerekçe: AniList banner CDN'i 1900 px'de tavanlanıyor (ölçüldü) ve hero
 74vh yüksekliğinde 3840 px'e kadar ekranlarda bulanık kalıyordu. Eşleme (`npm run tmdb:esle`) ve
 backdrop çekimi (`npm run tmdb:zenginlestir`) TMDB anahtarı gerektirir; önbellek yoksa alan `null`

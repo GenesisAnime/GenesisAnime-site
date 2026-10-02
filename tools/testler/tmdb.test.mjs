@@ -24,9 +24,13 @@ import { ROOT } from '../lib/ortak.mjs';
 import {
   anahtarYontemi,
   anilistKimligiCikar,
+  aramaEslesmesi,
   backdropUrl,
   bantOrani,
+  baslikBenzerligi,
+  baslikNormalize,
   enIyiBackdrop,
+  formatTip,
   kirpimOrani,
   tmdbIdSec,
 } from '../lib/tmdb.mjs';
@@ -117,6 +121,68 @@ test('kirpimOrani: 16:9 kaynak dar bantlarda ne kadar kalıyor', () => {
   assert.equal(kirpimOrani(1.5, 3), 0.5);
   assert.equal(kirpimOrani(0, 3), 0);
   assert.equal(kirpimOrani(2, 0), 0);
+});
+
+test('baslikNormalize: diakritik, noktalama ve sezon işaretleri sadeleşir', () => {
+  assert.equal(baslikNormalize('Kimi no Na wa.'), 'kimi no na wa');
+  assert.equal(baslikNormalize('ÖĞRENCİ İŞLERİ'), 'ogrenci isleri');
+  assert.equal(baslikNormalize('Foo Season 2'), 'foo');
+  assert.equal(baslikNormalize('Foo Sezon 3'), 'foo');
+  assert.equal(baslikNormalize('Foo Part II'), 'foo');
+  assert.equal(baslikNormalize('Foo II'), 'foo 2', 'romen rakamı sayıya çevrilir');
+  assert.equal(baslikNormalize(''), '');
+  assert.equal(baslikNormalize(null), '');
+  // Noktalama tek başına başlığı yok etmez: "009-1" sayı kalmalı.
+  assert.equal(baslikNormalize('009-1: R&B'), '009 1 r b');
+});
+
+test('baslikBenzerligi: birebir, kapsama ve ilgisiz başlıklar', () => {
+  assert.equal(baslikBenzerligi('Naruto', 'naruto'), 1);
+  assert.equal(baslikBenzerligi('ÖĞRENCİ', 'ogrenci'), 1, 'diakritik farkı eşitliği bozmaz');
+  // Kapsama: "X" ile "X: Alt Başlık" — yıl kontrolü olmasa yanlış eşleşme üretebilir,
+  // bu yüzden benzerlik 1 değil, 0,9 ağırlıklıdır (karar `aramaEslesmesi`de).
+  const kapsama = baslikBenzerligi('Kimi no Na wa', 'Kimi no Na wa: Another Side');
+  assert.ok(kapsama >= 0.85 && kapsama < 1, `kapsama beklenen bantta: ${kapsama}`);
+  assert.ok(baslikBenzerligi('Naruto', 'Bleach') < 0.5);
+  assert.equal(baslikBenzerligi('', 'Naruto'), 0);
+  assert.equal(baslikBenzerligi(null, null), 0);
+});
+
+test('formatTip: yalnızca MOVIE film sayılır', () => {
+  assert.equal(formatTip('MOVIE'), 'movie');
+  assert.equal(formatTip('movie'), 'movie');
+  assert.equal(formatTip('TV'), 'tv');
+  assert.equal(formatTip('OVA'), 'tv');
+  assert.equal(formatTip('SPECIAL'), 'tv');
+  assert.equal(formatTip(null), 'tv');
+});
+
+test('aramaEslesmesi: animasyon olmayan aday asla kabul edilmez', () => {
+  const hedef = { adlar: ['Naruto'], yil: 2002, tip: 'tv' };
+  const aday = { ad: 'Naruto', ozgunAd: 'Naruto', yil: 2002, tip: 'tv', animasyon: false };
+  assert.equal(aramaEslesmesi(aday, hedef).guven, 'yok');
+  assert.equal(aramaEslesmesi(aday, hedef).neden, 'animasyon-degil');
+});
+
+test('aramaEslesmesi: birebir ad + birebir yıl → tam', () => {
+  const hedef = { adlar: ['Kimetsu no Yaiba'], yil: 2019, tip: 'tv' };
+  const aday = { ad: 'Demon Slayer: Kimetsu no Yaiba', ozgunAd: 'Kimetsu no Yaiba', yil: 2019, tip: 'tv', animasyon: true };
+  const s = aramaEslesmesi(aday, hedef);
+  assert.equal(s.guven, 'tam');
+  assert.equal(s.puan, 1);
+});
+
+test('aramaEslesmesi: yıl kayması ve tip uyuşmazlığı güveni düşürür', () => {
+  const hedef = { adlar: ['Somethin'], yil: 2020, tip: 'tv' };
+  // Yıl ±1: TMDB ile arşiv sık sık bir yıl kayar → yine kabul, ama 'yakin'.
+  assert.equal(aramaEslesmesi({ ad: 'Somethin', yil: 2021, tip: 'tv', animasyon: true }, hedef).guven, 'yakin');
+  // Yıl 5 yıl uzak: başlık birebir olsa bile reddedilir (farklı sezon/yapım riski).
+  assert.equal(aramaEslesmesi({ ad: 'Somethin', yil: 2025, tip: 'tv', animasyon: true }, hedef).guven, 'yok');
+  // Tip uyuşmazlığı (film adayı, dizi aranıyor) birebir adla bile 'tam' olamaz.
+  const capraz = aramaEslesmesi({ ad: 'Somethin', yil: 2020, tip: 'movie', animasyon: true }, hedef);
+  assert.equal(capraz.guven, 'yakin');
+  // Benzer ama farklı ad + farklı yıl → red.
+  assert.equal(aramaEslesmesi({ ad: 'Something Else', yil: 1998, tip: 'tv', animasyon: true }, hedef).guven, 'yok');
 });
 
 test('anahtarYontemi: v3 anahtarı ile v4 token ayrılır', () => {

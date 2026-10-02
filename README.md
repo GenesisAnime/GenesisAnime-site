@@ -5,7 +5,7 @@
 **Türkçe anime arşivi — %100 açık kaynak, tamamen statik, sunucusuz.**
 
 [![Lisans: MIT](https://img.shields.io/badge/lisans-MIT-green)](LICENSE)
-[![Testler: 123/123](https://img.shields.io/badge/testler-123%2F123-success)](docs/05-kalite-ve-testler.md)
+[![Testler: 129/129](https://img.shields.io/badge/testler-129%2F129-success)](docs/05-kalite-ve-testler.md)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
 [![Cloudflare Workers + D1](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-f38020)](docs/11-hesaplar-uygulama.md)
 
@@ -42,11 +42,11 @@ depodadır. Kapalı bileşen, gizli veri işleme veya reklam/izleyici betiği yo
 | Alan | Durum |
 |---|---|
 | Veri | 6.107 anime · 71.694 bölüm · 316.820 kaynak · 961 seri · 363 fansub grubu |
-| Banner görselleri | TMDB kimliği **4.907** yapımda (%80,4) · 4K katmanı **2.403** · HD katmanı **2.094** · anime detay bandı **5.164/6.107** sayfada dolu (hero 20/24 · kart 391/540 · bant 3,4:1 → kaynağın ~%52'si; TMDB atfı `/kunye/` ve alt bilgide) |
+| Banner görselleri | TMDB kimliği **5.266** yapımda (%86,2; Fribb 4.907 + arama 359) · 4K katmanı **2.495** · HD katmanı **2.269** · anime detay bandı **5.306/6.107** sayfada dolu (hero 20/24 · kart 391/540 · bant 3,4:1 → kaynağın ~%52'si; TMDB atfı `/kunye/` ve alt bilgide) |
 | Site derlemesi | 7.442 sayfa → `out/` 21.049 dosya / 876,8 MB (GitHub Pages uyumlu; CF Pages 20k sınırını aşıyor) |
 | Link sağlığı | kapsam **%58,72** — 173.030 `ok` · 301 `ölü` · 34 `engelli` · 12.861 `belirsiz` (ölçülebilir havuz tükendi) |
 | Otomasyon | günlük link döngüsü zamanlayıcıda (saatlik uyanır, günde bir koşar) · `/yonetim/` panelinden ayar + koşu geçmişi |
-| Testler | `npm test` **123/123** (ağsız) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
+| Testler | `npm test` **129/129** (ağsız) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
 | API | Cloudflare Worker + D1 yayında (bölge WEUR) · CORS yalnızca site kaynağına açık |
 | Son güncelleme | 2 Ekim 2026 |
 | Sıradaki işler | analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme ([docs/10](docs/10-yol-haritasi.md)) |
@@ -140,6 +140,10 @@ AniList GraphQL (önbellekli)┘            │                                 
 |---|---|
 | `npm run veri` | SQLite + link sağlığı + AniList önbelleğinden tüm site verisini üretir |
 | `npm run veri:anilist` | AniList'ten zenginleştirme çeker (`--limit N`, `--yenile`) |
+| `npm run tmdb:esle` | AniList kimliği → Fribb `anime-list` veri kümesiyle TMDB kimliği eşlemesi (anahtarsız) |
+| `npm run tmdb:ara` | Veri kümesinde karşılığı olmayan yapımlar için arama tabanlı eşleme; `--golge=N` yanlış eşleşme riskini ölçer |
+| `npm run tmdb:zenginlestir` | Eşlenen kimliklerin backdrop yollarını çeker (TMDB anahtarı gerekir, kesintiye dayanıklı) |
+| `npm run tmdb:kapsam` | Görsel kapsamı hunisi: kimlik → backdrop → 4K/HD katmanı → bandı dolu sayfa (`tools/rapor/tmdb-kapsam.json`) |
 | `npm run link:tara` | Link sağlığı taraması (partili, eşzamanlı, kesintiye dayanıklı; `--bildirim` ile kullanıcı bildirileri öne alınır) |
 | `npm run link:durum` | Tarama kapsamı ve dağılımı + `tools/rapor/link-tarama.md` |
 | `npm run link:bildirim` | Worker'daki kullanıcı bildirimlerini yerel kuyruğa çeker (`--kuru` yazmadan gösterir) |
@@ -183,7 +187,7 @@ Katkıya açıktır — **issue** açabilir, veri düzeltmesi, fansub eklemesi v
 1. Depoyu **fork**'la ve kendi fork'unda bir **branch** aç (`main` korumalı; doğrudan push yerine
    **pull request** aç).
 2. Pull request'i göndermeden önce bu kontrolleri çalıştır — CI'da da aynıları koşar:
-   `npm run typecheck` → `npm test` (123/123) → `npm run build` → `npm run yayin:hazirla`.
+   `npm run typecheck` → `npm test` (129/129) → `npm run build` → `npm run yayin:hazirla`.
 3. API'ye dokunduysan ayrıca `cd api && npm run dev` + ikinci terminalde `npm run api:test`.
 4. Davranış/karar değişikliği belge gerektirir: ilgili `docs/` dosyası, gerekiyorsa yeni bir ADR
    ([docs/kararlar](docs/kararlar/)) ve `docs/gunluk/kayit.jsonl` satırı.

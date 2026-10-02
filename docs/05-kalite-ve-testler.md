@@ -6,7 +6,7 @@
 
 | Kontrol | Komut | Beklenen |
 |---|---|---|
-| Birim testleri | `npm test` | 123/123 geçer (~16 sn; ağ/DB yok) |
+| Birim testleri | `npm test` | 129/129 geçer (~16 sn; ağ/DB yok) |
 | Tip denetimi | `npm run typecheck` | 0 hata |
 | Derleme | `npm run build` | `✓ Compiled successfully`, 7.442 statik sayfa |
 | Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.046 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
@@ -285,7 +285,7 @@ edilmemesi** (gerçek hata gizlenmez) ve `out/` sökümünün kilit dışı hata
 Sahte `fs` + sahte `bekle` kullanılır; testler ne diske ne saate dokunur (gerçek kilitli klasörle
 ölçüm H-27'de).
 
-**`tmdb.test.mjs`** (11) 4K banner hazırlığının saf kısmını sınar (ağ yok): AniList kimliğinin üç CDN
+**`tmdb.test.mjs`** (17) 4K banner hazırlığının saf kısmını sınar (ağ yok): AniList kimliğinin üç CDN
 şemasından çıkarılması (`banner/123-hash`, `banner/n6682-hash`, `cover/large/bx1-hash`; bu dosya
 ilk koşuda `n` önekli şemayı yakaladı ve kimlik ayrıştırıcısı düzeltildi), TMDB
 eşleme alanının dizi/film ayrımıyla okunması ve bozuk alanın “eşleşme yok” sayılması, backdrop CDN
@@ -294,7 +294,11 @@ işaretlenmesi ve kırpım matematiği (`kirpimOrani`: 16:9 kaynak 7,8:1 bantta 
 %23'ünü korur, hero bandında %82'sini — yani “4K'ya geçince görsel değişir” iddiası ölçülür).
 Ayrıca anime detay bandının ölçüsü `globals.css`'ten okunur (`.anime-bant` yüksekliği, `.kap`
 genişliği, `.bilgi-izgara` kolonları) ve 16:9 kaynağın **≥%50'sinin** görünmesi şart koşulur: CSS
-değişip kırpım bozulursa test kırmızıya döner, ölçü sessizce kaymaz.
+değişip kırpım bozulursa test kırmızıya döner, ölçü sessizce kaymaz. Arama tabanlı eşlemenin
+yargı kısmı da burada korunur (H-30): başlık normalizasyonu (diakritik, noktalama, “Season 2”
+atımı, romen rakamı), başlık benzerliği (kapsama durumu 1 değil 0,9 ağırlıklı), `formatTip` ve
+`aramaEslesmesi`nin üç şartı — animasyon türü, benzerlik eşiği, yıl ±1. Birebir başlıkta bile beş
+yıl uzak bir aday reddedilir; animasyon türü olmayan aday asla kabul edilmez.
 
 **`hesap.test.mjs`** (7) yerel/sunucu birleştirmesini sınar: “en yeni kazanır” (ilerleme,
 izlenen, liste), eşit zamanda yerel üstünlüğü, tercihlerde yerel kazanması, çalışmayanlar
@@ -308,8 +312,8 @@ desteklenmiyorsa test atlanır), `jsonLdGuvenli` kaçışı ve JSON anlamının 
 yapısal denetim: sunucu bileşenlerinde `new Date(…).toLocale*` bulunmamalı, iframe izin listeleri
 `fullscreen` içermeli ve `allowFullScreen` kullanılmamalı.
 
-Ölçüm: **123 test / 123 geçti**, yerelde ~16 sn (derleme hemen sonrası ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
-derleme 14 · veri 11 · tmdb 11 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
+Ölçüm: **129 test / 129 geçti**, yerelde ~16 sn (derleme hemen sonrası ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
+tmdb 17 · derleme 14 · veri 11 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
 ~1,4 sn + html/txt taraması ~2,9 sn + veri taraması ~1,9 sn, kalanı 6 bin anime/961 seri dosyası;
 sıcakta ~7 sn); CI simülasyonunda (arşiv sağlık dosyası yokken)
 aynı sonuç — 941 rozet “doğrulanamadı” olarak raporlanır. Testlerin gerçekten hata yakaladığı üç yoldan ölçüldü:
@@ -471,7 +475,7 @@ başarılı olduğu hâlde `yayinla` işi (`needs: derle`) hiç çalışmadı �
 iki kez yayınlatmadı. Düzeltme: beklenti artık anın kendisinden türetiliyor; test `yerelGun()`in
 yerel bileşenleri kullandığını doğruluyor ve UTC günü ayrıştığında sabit bir gün değil
 **eşitsizliği** sınıyor. Kanıt: aynı dosya `TZ=UTC node --test …` altında 8/8, tam kapı
-`TZ=UTC npm test` ile 123/123 geçiyor. Ders: yerele/saat dilimine bağlı beklenti yalnızca yazıldığı
+`TZ=UTC npm test` ile 129/129 geçiyor. Ders: yerele/saat dilimine bağlı beklenti yalnızca yazıldığı
 makinede doğrudur; CI'ı yerelde taklit etmenin en ucuz yolu `TZ=UTC npm test`.
 
 ### H-29 · TMDB eşlemesi kimliği yalnızca banner URL'inden çıkarıyordu (kapsamın üçte biri dışarıda)
@@ -501,6 +505,46 @@ doldurur, varsa yalnızca AniList tavanını (1900 px) geçtiğinde tercih edili
 Kalan 943 yapımın Fribb eşlemesinde karşılığı yok (257'sinin AniList kimliği de yok); onlar için arama
 tabanlı eşleme (TMDB `/search`) gerekiyor. Ders: paydası yazılmayan bir kapsam oranı yanıltır —
 “%91,4” hangi kümenin içinde ölçüldüğü söylenmeden bir başarı gibi okunuyordu.
+
+### H-30 · Veri kümesinde karşılığı olmayan yapımlar için aramanın riski ölçülmeden kullanılamazdı
+
+Fribb `anime-list` 943 yapımı kapsamıyor (çoğu OVA/ONA/özel bölüm). Onlar için TMDB arama ucu
+gerekiyordu ama arama "en iyi tahmin" üretir: **yanlış yapımı bağlamak, bandı boş bırakmaktan
+kötüdür** (sayfada başka bir yapımın görseli görünür). Bu yüzden kabul üç bağımsız şarta bağlandı —
+animasyon türü (`genre_ids` içinde 16), başlık benzerliği ≥0,85 ve **yıl ±1** — ve güven etiketi
+yazıldı (`tam`/`yakin`). Benzerlik fonksiyonu "biri diğerini kapsıyor" durumunu bilinçli olarak 1
+değil 0,9 sayar: "X" ile "X: Alt Başlık" sık sık aynı yapımdır ama yıl kontrolü olmadan
+"Naruto"/"Naruto: Shippuuden" gibi çiftleri karıştırır.
+
+**Riskin ölçülmesi (`npm run tmdb:ara -- --golge=200`).** Ölçüm, hattın kendisiyle yapıldı: veri
+kümesinde karşılığı **olan** 200 yapımda arama gizlice çalıştırıldı (Fribb kimliği saklandı), sonra
+bulunan kimlik Fribb'in kimliğiyle karşılaştırıldı.
+
+| Sonuç | Adet | Sınıf |
+|---|---:|---|
+| Aynı kimlik | 141/200 (%70,5) | doğru |
+| Farklı kimlik, çapraz tip (film↔dizi, aynı ad+yıl) | 11 | granülerlik farkı — Fribb dizinin kimliğini verirken arama asıl film kaydını buluyor |
+| Farklı kimlik, aynı tip | 1 | TMDB'de çift kayıt (`saint-seiya-soul-of-gold`) — incelenmeli sınıfı |
+| Bulunamadı | 47/200 (%23,5) | kapsam kaybı, yanlış eşleşme değil |
+
+Ölçülen **yanlış yapım bağlama oranı %0**: "farklı kimlik" sınıfının tamamı aynı başlık ve yılı
+taşıyan farklı granülerlikteki kayıtlardı. Ders: bir sezgisel (heuristik) hattı üretime almadan
+önce, **doğru cevabı bilinen bir örneklemde** ölçmek gerekiyor — gölge modu bunun için kalıcı bir
+araçtır, tek seferlik bir deney değil.
+
+**Tam koşu ve kapattığı boşluk.** 943 hedefin **359'u** kabul edildi (%38,1: `tam` 193 · `yakin` 166),
+584'ünde TMDB'de karşılık yok (çoğu tek bölümlük OVA/özel bölüm — TMDB bunları ana dizinin içine
+gömüyor). Kabul edilen 359 kaydın 102'si "çapraz tip": arşiv kaydı OVA/SPECIAL derken TMDB aynı
+eseri film sayıyor (`Ark IX (2013)` gibi) — örneklemde hepsi **aynı ad + aynı yıl** taşıyordu.
+
+| Ölçüt | Arama öncesi | Arama sonrası |
+|---|---|---|
+| TMDB kimliği | 4.907 (%80,4) | **5.266 (%86,2)** |
+| Backdrop kaydı | 4.779 | **5.079** |
+| 4K katmanı (≥3000 px) | 2.403 | **2.495 (%40,9)** |
+| HD katmanı (<3000 px) | 2.094 | **2.269** |
+| Bandı dolu anime sayfası | 5.164 (%84,6) | **5.306 (%86,9)** |
+| Bandı boş anime | 943 | **801** |
 
 **`api-dokumani.test.mjs`** (3) yayınlanan API belgesinin koddan kopmadığını sınar (ağ yok):
 `src/app/api-dokumani/page.tsx` içindeki her `YÖNTEM /yol` satırı gerçekten yönlendiriliyor mu

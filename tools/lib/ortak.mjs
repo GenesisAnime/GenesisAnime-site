@@ -55,6 +55,23 @@ export function okuJson(dosya, varsayilan = null) {
   return JSON.parse(fs.readFileSync(dosya, 'utf8'));
 }
 
+/**
+ * Kök `.env` dosyasından tek bir değer okur (jetonlar depoda tutulmaz).
+ * `anahtarlar` sırayla denenir; bulunamazsa boş dize döner. Tırnaklar temizlenir.
+ */
+export function envDeger(dosya, ...anahtarlar) {
+  if (!fs.existsSync(dosya)) return '';
+  for (const satir of fs.readFileSync(dosya, 'utf8').split('\n')) {
+    const t = satir.trim();
+    if (!t || t.startsWith('#')) continue;
+    const esit = t.indexOf('=');
+    if (esit < 1) continue;
+    if (!anahtarlar.includes(t.slice(0, esit).trim())) continue;
+    return t.slice(esit + 1).trim().replace(/^["']|["']$/g, '');
+  }
+  return '';
+}
+
 export function kb(bayt) {
   return `${(bayt / 1024).toFixed(1)} KB`;
 }

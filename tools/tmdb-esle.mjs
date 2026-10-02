@@ -30,7 +30,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, YOLLAR, baslik, log, yazJson } from './lib/ortak.mjs';
+import { ROOT, YOLLAR, baslik, log, okuJson, yazJson } from './lib/ortak.mjs';
 import { anilistKimligiCikar, tmdbIdSec } from './lib/tmdb.mjs';
 
 const KAYNAK = 'https://raw.githubusercontent.com/Fribb/anime-lists/master/anime-list-full.json';
@@ -108,6 +108,18 @@ for (const dosya of fs.readdirSync(YOLLAR.animeData)) {
   kayitlar[a.slug] = { anilist, tip: tmdb.tip, id: tmdb.id, bannerli: banli };
 }
 
+// Arama tabanlı eşleşmeler (`npm run tmdb:ara`) aynı dosyaya `kaynak:'arama'` ile
+// yazılır. Fribb eşlemesi onları SİLMEMELİ: bu adım her koştuğunda 900+ kaydı
+// silip kapsamı sessizce geriye düşürürdü.
+const oncekiKayitlar = okuJson(CIKTI, { kayitlar: {} }).kayitlar || {};
+let korunanArama = 0;
+for (const [slug, k] of Object.entries(oncekiKayitlar)) {
+  if (k?.kaynak === 'arama' && !kayitlar[slug]) {
+    kayitlar[slug] = k;
+    korunanArama++;
+  }
+}
+
 const tmdbKimlikli = Object.keys(kayitlar).length;
 const cikti = {
   uretim: new Date().toISOString(),
@@ -134,6 +146,7 @@ log(`     AniList kimliği  : ${anilistKimlikli} · kimliksiz ${anilistKimliksiz
 log(`     kimlik eşleşmesi : ${eslesen} (Fribb'de yok: ${anilistKimlikli - eslesen})`);
 log(`       banner'sız eşleşen: ${kimliksizEslesen}`);
 log(`     TMDB kimliği     : ${tmdbKimlikli} (arşivin %${((100 * tmdbKimlikli) / arsiv).toFixed(1)}'i, kimliği olanların %${((100 * tmdbKimlikli) / anilistKimlikli).toFixed(1)}'i)`);
+if (korunanArama) log(`       (arama tabanlı ${korunanArama} kayıt korundu — tmdb:ara çıktısı)`);
 log(`     tip              : dizi ${tv} · film ${film}`);
 log(
   `     banner'lı kümede : dizi ${bannerliTip.tv} · film ${bannerliTip.movie}` +

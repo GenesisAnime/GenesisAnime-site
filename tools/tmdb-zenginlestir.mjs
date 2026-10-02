@@ -25,7 +25,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, YOLLAR, baslik, log, yazJson } from './lib/ortak.mjs';
+import { ROOT, YOLLAR, baslik, envDeger, log, yazJson } from './lib/ortak.mjs';
 import { anahtarYontemi, backdropUrl, enIyiBackdrop } from './lib/tmdb.mjs';
 
 const ESLEME = path.join(ROOT, 'tools', 'cache', 'tmdb.json');
@@ -43,20 +43,6 @@ const kuru = argVar('kuru');
 const yenile = argVar('yenile');
 const sadeceHero = argVar('sadece-hero');
 
-/** Kök `.env`ten değer okur (jetonlar depoda tutulmaz). */
-function envDosyasiOku(dosya, anahtarlar) {
-  if (!fs.existsSync(dosya)) return '';
-  for (const satir of fs.readFileSync(dosya, 'utf8').split('\n')) {
-    const t = satir.trim();
-    if (!t || t.startsWith('#')) continue;
-    const esit = t.indexOf('=');
-    if (esit < 1) continue;
-    if (!anahtarlar.includes(t.slice(0, esit).trim())) continue;
-    return t.slice(esit + 1).trim().replace(/^["']|["']$/g, '');
-  }
-  return '';
-}
-
 const uyu = (ms) => new Promise((r) => setTimeout(r, ms));
 
 baslik('TMDB backdrop zenginleştirme');
@@ -64,7 +50,7 @@ baslik('TMDB backdrop zenginleştirme');
 const anahtar =
   process.env.TMDB_ANAHTAR ||
   process.env.TMDB_API_KEY ||
-  envDosyasiOku(path.join(ROOT, '.env'), ['TMDB_ANAHTAR', 'TMDB_API_KEY']);
+  envDeger(path.join(ROOT, '.env'), 'TMDB_ANAHTAR', 'TMDB_API_KEY');
 const yontem = anahtarYontemi(anahtar);
 if (!yontem && !kuru) {
   log('   ! TMDB anahtarı yok.');
@@ -191,6 +177,8 @@ for (const [slug, kayit] of hedefler) {
     kayitlar[slug] = {
       tip: kayit.tip,
       id: kayit.id,
+      // Kaynak izi: Fribb eşlemesi mi, arama tabanlı eşleme mi (bkz. tmdb-ara-esle.mjs).
+      kaynak: kayit.kaynak || 'fribb',
       yol: secilen.yol,
       url: backdropUrl(secilen.yol),
       genislik: secilen.genislik,
