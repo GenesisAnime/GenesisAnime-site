@@ -1,6 +1,6 @@
 # 02 · Veri Hattı
 
-> Son güncelleme: 2026-10-01 · Ölçümler `tools/rapor/veri-raporu.md` çıktısından
+> Son güncelleme: 2026-10-02 · Ölçümler `tools/rapor/veri-raporu.md` çıktısından
 
 ## Girdiler
 
@@ -64,12 +64,15 @@ Kontrol edilen küme neredeyse tamamen One Piece bölümlerine ait (kaynak: `Kon
 5. **Ana sayfa satırları** — hero (banner + yıl ≥ 2010 + puan ≥ 70, puan sırası, 24 kayıt; her
    kart `fr` alanında fragman bilgisini de taşır) ve 18 satır (popüler, yeni, sezon, filmler,
    klasikler, kısa seriler + 10 tür satırı).
-6. **Seri (franchise) grupları** — ilişki grafiği union-find ile birleştirilir; her anime
+6. **4K banner (TMDB backdrop)** — `tools/cache/tmdb-backdrop.json` okunur; yalnızca `yeterli` +
+   `genislik ≥ 3000` kayıtlar animeye `banner4k`, ana sayfa kartına `ban4k` + `bw` (kaynağın gerçek
+   genişliği, `srcSet` adayı) olarak yazılır. Önbellek yoksa alanlar `null` kalır.
+7. **Seri (franchise) grupları** — ilişki grafiği union-find ile birleştirilir; her anime
    dosyasına `seri` alanı, `seriler.json`'a grup listesi yazılır (aşağıda).
-7. **Fansub slug'ları** — grup adı `araAnahtari` + tire ile slug'lanır (`TAÇE` → `tace`);
+8. **Fansub slug'ları** — grup adı `araAnahtari` + tire ile slug'lanır (`TAÇE` → `tace`);
    `taksonomi.fansublar` ve `fansublar.json` bu slug'ı `s` alanında taşır.
-8. **Çıktı yazımı** — JSON dosyaları + ölçümler.
-9. **Rapor** — `tools/rapor/veri-raporu.{md,json}`.
+9. **Çıktı yazımı** — JSON dosyaları + ölçümler.
+10. **Rapor** — `tools/rapor/veri-raporu.{md,json}`.
 
 ### Kaynak filtresi politikası (ADR-0003)
 
@@ -109,6 +112,7 @@ Toplam koşu süresi: **8,6–11,1 sn**.
   "slug": "naruto", "ad": "Naruto", "adEn": null,
   "yil": 2002, "puan": 80, "format": "TV", "durum": "FINISHED", "sezon": "FALL", "sure": 23,
   "poster": "https://cdn.myanimelist.net/...", "banner": "https://s4.anilist.co/...",
+  "banner4k": "https://image.tmdb.org/t/p/original/...",
   "ozet": "Naruto Uzumaki, a hyperactive...", "turler": ["Aksiyon", "Macera", "..."],
   "iliski": [{ "t": "SEQUEL", "s": "naruto-shippuuden", "ad": "...", "p": "...", "f": "TV" }],
   "seri": "naruto",
@@ -125,6 +129,14 @@ Toplam koşu süresi: **8,6–11,1 sn**.
 
 `src` dizisindeki 4. eleman (`"ok"`) yalnızca çalıştığı doğrulanmış kaynaklarda bulunur.
 `seri` alanı 2+ üyeli ilişki ağı yoksa `null` kalır.
+
+`banner4k`, **yalnızca gerçekten geniş (≥3000 px) bir TMDB backdrop'u bulunan** yapımlarda dolar
+(ölçüm: **2.060 yapım**). Gerekçe: AniList banner CDN'i 1900 px'de tavanlanıyor (ölçüldü) ve hero
+74vh yüksekliğinde 3840 px'e kadar ekranlarda bulanık kalıyordu. Eşleme (`npm run tmdb:esle`) ve
+backdrop çekimi (`npm run tmdb:zenginlestir`) TMDB anahtarı gerektirir; önbellek yoksa alan `null`
+kalır ve site AniList banner'ında çalışmaya devam eder — eksik 4K bir hata değildir. Görseller
+TMDB'den geldiği için `/kunye/` ve alt bilgide **atıf zorunludur** (“This product uses the TMDB API
+but is not endorsed or certified by TMDB.”).
 
 ### Seri (franchise) grubu nasıl kurulur?
 

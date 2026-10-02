@@ -20,6 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import {
+  ROOT,
   YOLLAR,
   DURUM,
   saglikOku,
@@ -60,8 +61,18 @@ const kendiSaglik = saglikOku([YOLLAR.linkDurum]);
 const anilist = okuJson(YOLLAR.anilistCache, {});
 const anilistVar = Object.keys(anilist).length > 0;
 
+// TMDB backdrop'ları (4K banner): `npm run tmdb:zenginlestir` üretir, anahtar
+// gerektirir ve depoda tutulmaz. Yoksa site AniList banner'ında kalır — eksik
+// dosya bir hata değil, "4K yok" demektir.
+const tmdbOnbellek = okuJson(path.join(ROOT, 'tools', 'cache', 'tmdb-backdrop.json'), {});
+const tmdbDortK = new Map();
+for (const [slug, k] of Object.entries(tmdbOnbellek.kayitlar || {})) {
+  if (k && k.yeterli && k.url && k.genislik > 0) tmdbDortK.set(slug, k);
+}
+
 log(`   link sağlık kaydı : ${saglik.size}`);
 log(`   AniList önbelleği : ${anilistVar ? `${Object.keys(anilist).length} anime` : 'YOK (zenginleştirme atlanacak)'}`);
+log(`   TMDB 4K backdrop  : ${tmdbDortK.size ? `${tmdbDortK.size} anime (≥3000 px)` : 'YOK (banner geliştirmesi atlanacak)'}`);
 
 const db = new DatabaseSync(YOLLAR.db, { readOnly: true });
 
@@ -209,6 +220,7 @@ const sayac = {
   tutulanKaynak: 0,
   tekilKaynak: new Set(),
   dogrulanmisKaynak: 0,
+  banner4k: 0,
   bölümsüzAnime: 0,
   kaynaksizAnime: 0,
   zenginlestirilmis: 0,
@@ -444,6 +456,11 @@ for (const a of animeSatirlari) {
 
   const poster = meta?.poster_url || an?.xl || null;
   const banner = an?.ban || null;
+  // 4K banner yalnızca gerçekten geniş bir TMDB backdrop'u varsa yazılır: eşit
+  // veya daha küçük bir görsel için kaynak değiştirmenin anlamı yok.
+  const dortK = tmdbDortK.get(a.slug) || null;
+  const banner4k = dortK ? dortK.url : null;
+  if (banner4k) sayac.banner4k++;
   const yil = meta?.year || null;
   // DİKKAT: arşivdeki `score` kolonu 0–10 ölçeğinde saklanıyor (ör. 5.59 = 56).
   // AniList averageScore ise 0–100. İkisini tek ölçekte (0–100) birleştiriyoruz.
@@ -507,6 +524,7 @@ for (const a of animeSatirlari) {
     sure,
     poster,
     banner,
+    banner4k,
     ozet,
     turler,
     iliski,
@@ -545,6 +563,8 @@ for (const a of animeSatirlari) {
       format,
       p: poster,
       ban: banner,
+      ban4k: banner4k,
+      bw: dortK ? dortK.genislik : null,
       bs: dizi.length,
       ks: animeKaynak,
       t: turler.slice(0, 3),
@@ -603,14 +623,18 @@ function satir(baslikMetin, kayitlar, tur = null) {
 log(
   `   hero havuzu: ${havuz.length} · kaynaklı: ${kaynakliHavuz.length} · ` +
     `bannerlı: ${kaynakliHavuz.filter((x) => x.ban).length} · ` +
-    `banner+yıl≥2010: ${kaynakliHavuz.filter((x) => x.ban && x.yil && x.yil >= 2010).length} · ` +
-    `+puan≥70: ${kaynakliHavuz.filter((x) => x.ban && x.yil && x.yil >= 2010 && puanli(x) >= 70).length}`
+    `4K: ${kaynakliHavuz.filter((x) => x.ban4k).length} · ` +
+    `banner+yıl≥2010: ${kaynakliHavuz.filter((x) => (x.ban || x.ban4k) && x.yil && x.yil >= 2010).length} · ` +
+    `+puan≥70: ${kaynakliHavuz.filter((x) => (x.ban || x.ban4k) && x.yil && x.yil >= 2010 && puanli(x) >= 70).length}`
 );
 
+// Hero görseli ya AniList banner'ından ya TMDB 4K backdrop'undan gelir; ikisi de
+// yoksa aday olamaz. 4K varsa hero onu kullanır (16:9 → bantta dikey %82 görünür).
 const hero = kaynakliHavuz
-  .filter((x) => x.ban && x.yil && x.yil >= 2010 && puanli(x) >= 70)
+  .filter((x) => (x.ban || x.ban4k) && x.yil && x.yil >= 2010 && puanli(x) >= 70)
   .sort((a, b) => puanli(b) - puanli(a))
   .slice(0, 24);
+log(`   hero: ${hero.length} kayıt · 4K: ${hero.filter((x) => x.ban4k).length}`);
 
 const satirlar = [
   satir(
@@ -756,6 +780,7 @@ const kunye = {
   anime: animeSatirlari.length,
   bolum: bolumById.size,
   kaynak: sayac.tutulanKaynak,
+  banner4k: sayac.banner4k,
   tekilKaynak: sayac.tekilKaynak.size,
   dogrulanmisKaynak: sayac.dogrulanmisKaynak,
   fansubGrubu: taksonomi.fansublar.length,
@@ -801,6 +826,8 @@ const rapor = {
     katalogKaydi: katalog.length,
     anaSayfaSatiri: satirlar.length,
     heroKaydi: hero.length,
+    hero4k: hero.filter((x) => x.ban4k).length,
+    banner4kAnime: sayac.banner4k,
     dosyaBoyutlari: {
       katalog: kb(boyutlar.katalog),
       anaSayfa: kb(boyutlar.anaSayfa),

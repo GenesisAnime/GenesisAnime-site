@@ -1,6 +1,6 @@
 # 10 · Yol Haritası
 
-> Son güncelleme: 2026-10-01
+> Son güncelleme: 2026-10-02
 
 ## Tamamlanan fazlar
 
@@ -84,7 +84,7 @@ href.li, uqload, videoapi vb. tükendi).
 | Haftalık "arşive yeni eklenenler" akışı | Geri dönen ziyaretçi |
 | ~~PWA + çevrimdışı iskelet~~ | ✅ 01.10: manifest + servis çalışanı + ikon seti (statik veri cache-first) |
 | Çoklu dil (TR varsayılan, EN iskelet) | Arşivin uluslararası görünürlüğü |
-| 4K banner'lar (TMDB backdrop) | ⏳ 01.10: AniList 1900 px'de tavanlanıyor (ölçüldü); eşleme katmanı hazır — banner'lı 4.075 animenin %91,4'ü TMDB kimliğine bağlandı. Backdrop yolları **ücretsiz TMDB API anahtarı** bekliyor; kırpım değişir (16:9 → dar bant), atıf satırı gerekir. Günlük §15 |
+| ~~4K banner'lar (TMDB backdrop)~~ | ✅ 02.10: AniList 1900 px'de tavanlanıyor (ölçüldü); TMDB eşlemesi banner'lı 4.075 yapımın **%91,4'ünü** kimliğe bağladı (tv 3.353 · film 371), backdrop zenginleştirmesi **3.720 kayıt / 2.060 4K (≥3000 px, en geniş 3840)**. `banner4k` alanı + hero `srcSet` + `/kunye/` ve alt bilgi atfı yayında (hero 20/24 · ana sayfa kartı 391/540 4K). Açık kalan: anime detay bandı 7,8:1 olduğu için 16:9 kaynağın dikey %23'ü görünüyor — bant kalınlaştırma kararı. Günlük §15 |
 | ~~Fansub sayfalarında çevirmen profili~~ | ✅ 01.10: `/fansub/<slug>/` grup sayfaları (363 grup) |
 | Veri kalitesi panosu (her yapım için kaynak sağlık skoru) | Şeffaflık; Faz 7 ile beslenir |
 | "İzleme sırası" önerisi (ilişkili yapımlardan otomatik) | Uzun serilerde rehberlik |

@@ -59,6 +59,8 @@ export interface Anime {
   sure: number | null;
   poster: string | null;
   banner: string | null;
+  /** TMDB backdrop'u (≥3000 px) — hero/bant için gerçek 4K kaynak; yoksa null */
+  banner4k: string | null;
   ozet: string | null;
   turler: string[];
   iliski: Iliski[];
@@ -101,6 +103,10 @@ export interface AnaSayfaKarti {
   format: string | null;
   p: string;
   ban: string | null;
+  /** 4K backdrop (varsa hero onu kullanır) */
+  ban4k: string | null;
+  /** `ban4k` kaynağının gerçek genişliği — srcSet adayını doğru bildirmek için */
+  bw: number | null;
   bs: number;
   ks: number;
   t: string[];
@@ -173,6 +179,8 @@ export interface Kunye {
   anime: number;
   bolum: number;
   kaynak: number;
+  /** 4K (≥3000 px) TMDB backdrop'u olan yapım sayısı */
+  banner4k: number;
   tekilKaynak: number;
   dogrulanmisKaynak: number;
   fansubGrubu: number;

@@ -178,6 +178,7 @@ export default function KunyeSayfasi() {
           <span className="etiket">Bölüm: {sayiBicim(kunye.bolum)}</span>
           <span className="etiket">Tür: {sayiBicim(kunye.tur)}</span>
           <span className="etiket">Player: {sayiBicim(kunye.player)}</span>
+          <span className="etiket">4K banner: {sayiBicim(kunye.banner4k)}</span>
           <span className="etiket">Bölüm kaydı olmayan yapım: {sayiBicim(kunye.bölümsüzAnime)}</span>
           <span className="etiket">Çalışan kaynağı kalmayan yapım: {sayiBicim(kunye.kaynaksizAnime)}</span>
         </div>
@@ -208,6 +209,14 @@ export default function KunyeSayfasi() {
             <tr>
               <td>Kapak, puan, yıl, özet, tür, ilişkili yapımlar, yasal bağlantılar</td>
               <td>AniList GraphQL API ({sayiBicim(kunye.zenginlestirilmisAnime)} yapım eşleştirildi)</td>
+            </tr>
+            <tr>
+              <td>4K banner görselleri ({sayiBicim(kunye.banner4k)} yapım — geniş ekran hero ve afiş bantları)</td>
+              <td>
+                TMDB (The Movie Database) — görseller TMDB API'sinden alınır. Bu ürün TMDB API'sini
+                kullanır ancak TMDB tarafından onaylanmamış veya sertifikalanmamıştır: “This product uses
+                the TMDB API but is not endorsed or certified by TMDB.”
+              </td>
             </tr>
             <tr>
               <td>Fansub grubu ve çevirmen/redaktör bilgisi</td>

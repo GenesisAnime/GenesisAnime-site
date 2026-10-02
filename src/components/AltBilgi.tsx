@@ -69,6 +69,11 @@ export default function AltBilgi({ kunye }: { kunye: Kunye }) {
             doğrulanmamış kaynaklar da listelenir. Çalışmayan bir kaynağa denk geldiğinde oynatıcı
             sayfasındaki <b>“Kaynak çalışmıyor”</b> düğmesini kullanabilirsin.
           </p>
+          <p style={{ marginTop: 10 }}>
+            Geniş ekran görsellerin bir bölümü TMDB’den alınır: <i>This product uses the TMDB API but
+            is not endorsed or certified by TMDB.</i> Diğer kapak ve görsel verileri AniList API’sinden
+            gelir.
+          </p>
           <p style={{ marginTop: 14, fontSize: 12, color: 'var(--tx3)' }}>
             Veri derlemesi: {damgaBicim(kunye.uretim)}
           </p>

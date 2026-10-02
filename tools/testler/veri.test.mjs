@@ -14,6 +14,8 @@
  *   · ölü/engelli URL sızıntısı yok — sızıntı, üretilmiş verinin sağlık
  *     kaydından geri kaldığını gösterir; çözümü `npm run veri`'dir
  *   · kunye.json toplamları gerçek dosyalarla birebir (kaynak/tekil/rozetti/bölüm)
+ *   · `banner4k` alanı yalnızca gerçek 4K (TMDB `original`) adresi taşır; ana sayfa
+ *     kartlarındaki `ban4k`/`bw` ikilisi anlamlıdır ve önbellekle birebir (varsa)
  *
  * Çalıştırma: `npm test`
  */
@@ -27,6 +29,10 @@ import { DURUM, ROOT, YOLLAR, saglikOku } from '../lib/ortak.mjs';
 const VERI = YOLLAR.publicData;
 const ANIME = YOLLAR.animeData;
 const ORNEK_SINIRI = 8;
+
+/** 4K banner kaynağı (TMDB `original`); önbellek `tools/cache/tmdb-backdrop.json`. */
+const TMDB_ORIJINAL = 'https://image.tmdb.org/t/p/original/';
+const TMDB_ONBELLEK = path.join(ROOT, 'tools', 'cache', 'tmdb-backdrop.json');
 
 /** katalog.json'un sözleşmesi (export-data.mjs ile aynı sıra). */
 const KOLONLAR = [
@@ -115,6 +121,7 @@ function tamTarama() {
     bicim: kutu(),
     katalog: kutu(),
     sizinti: kutu(),
+    banner4k: kutu(),
   };
   const yasak = yasakKumesi();
   const tekil = new Set();
@@ -123,6 +130,7 @@ function tamTarama() {
   let kaynak = 0;
   let bolum = 0;
   let rozetli = 0;
+  let dortK = 0;
 
   for (const dosya of dosyalar) {
     const slug = dosya.slice(0, -'.json'.length);
@@ -134,6 +142,16 @@ function tamTarama() {
     }
     if (veri.bolumSayisi !== veri.bolumler.length) {
       ekle(hatalar.sayac, `${slug}: bolumSayisi ${veri.bolumSayisi} ≠ ${veri.bolumler.length}`);
+    }
+
+    // 4K banner yalnızca TMDB `original` adresi olabilir: küçük bir varyant
+    // (w1280 vb.) yazılırsa alan adı yalan söyler ve hero yine bulanık kalır.
+    if (veri.banner4k === null || veri.banner4k === undefined) {
+      if (veri.banner4k === undefined) ekle(hatalar.banner4k, `${slug}: banner4k alanı yok`);
+    } else if (typeof veri.banner4k !== 'string' || !veri.banner4k.startsWith(TMDB_ORIJINAL)) {
+      ekle(hatalar.banner4k, `${slug}: banner4k TMDB original adresi değil (${String(veri.banner4k).slice(0, 80)})`);
+    } else {
+      dortK++;
     }
 
     let dosyaKaynak = 0;
@@ -192,7 +210,7 @@ function tamTarama() {
     bolum += veri.bolumler.length;
   }
 
-  _tarama = { hatalar, dosyaSayisi: dosyalar.length, kaynak, bolum, rozetli, tekil, fansubAdlari };
+  _tarama = { hatalar, dosyaSayisi: dosyalar.length, kaynak, bolum, rozetli, dortK, tekil, fansubAdlari };
   return _tarama;
 }
 
@@ -290,7 +308,42 @@ test('ölü/engelli URL sızıntısı yok (sızıntı = bayat veri)', () => {
 });
 
 /* ================================================================ */
-/* 6 · kunye.json toplamları gerçek veriyle birebir                 */
+/* 6 · 4K banner alanı (TMDB)                                       */
+/* ================================================================ */
+
+test('banner4k: yalnızca TMDB original adresi taşınır ve kunye sayısı birebir', () => {
+  const s = tamTarama();
+  sifirOlmali(s.hatalar.banner4k, '4K banner alanı');
+  assert.equal(kunye().banner4k, s.dortK, 'kunye.banner4k ≠ 4K banner taşıyan anime sayısı');
+});
+
+test('ana sayfa kartları: ban4k ve bw birlikte anlamlı', () => {
+  const anaSayfa = jsonOku(path.join(VERI, 'ana-sayfa.json'));
+  const kartlar = [...anaSayfa.hero, ...anaSayfa.satirlar.flatMap((s) => s.ogeler)];
+  // Kural: ban4k varsa kaynağın gerçek genişliği ≥3000 bildirilir (srcSet adayı),
+  // yoksa ikisi birden null olur — yarım dolu alan hero'da yanlış aday üretir.
+  const hatali = kartlar.filter((k) =>
+    k.ban4k ? !String(k.ban4k).startsWith(TMDB_ORIJINAL) || !(k.bw >= 3000) : k.bw !== null
+  );
+  assert.deepEqual(hatali.slice(0, 3).map((k) => k.s), [], 'ban4k/bw tutarsız (hero veya satır kartı)');
+});
+
+test(
+  'banner4k: TMDB önbelleğiyle birebir (önbellek varsa)',
+  { skip: fs.existsSync(TMDB_ONBELLEK) ? false : '4K önbelleği yok — TMDB anahtarı gerekir' },
+  () => {
+    const kayitlar = JSON.parse(fs.readFileSync(TMDB_ONBELLEK, 'utf8')).kayitlar || {};
+    const dortK = Object.values(kayitlar).filter((k) => k?.yeterli && k.url && k.genislik > 0).length;
+    assert.equal(
+      kunye().banner4k,
+      dortK,
+      'kunye.banner4k ≠ önbellekteki 4K kayıt sayısı — veri bayat, `npm run veri` gerekir'
+    );
+  }
+);
+
+/* ================================================================ */
+/* 7 · kunye.json toplamları gerçek veriyle birebir                 */
 /* ================================================================ */
 
 test('kunye.json toplamları gerçek dosyalarla birebir', () => {
@@ -304,7 +357,7 @@ test('kunye.json toplamları gerçek dosyalarla birebir', () => {
 });
 
 /* ================================================================ */
-/* 7 · seriler.json — franchise (seri) grupları                     */
+/* 8 · seriler.json — franchise (seri) grupları                     */
 /* ================================================================ */
 
 // Arşivdeki en uzun anime slug'ı 144 karakter; üst sınır rahat bırakılır.
@@ -374,7 +427,7 @@ test('seriler.json: geçerli slug, ≥2 üye, tek grup üyeliği ve anime dosyal
 });
 
 /* ================================================================ */
-/* 8 · fansublar.json — grup slug'ları ve kapsama                   */
+/* 9 · fansublar.json — grup slug'ları ve kapsama                   */
 /* ================================================================ */
 
 test('fansublar.json: tekil slug/ad, taksonomiyle aynı küme, kaynak adlarını kapsar', () => {

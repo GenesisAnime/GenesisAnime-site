@@ -33,8 +33,15 @@ function kosu(sonuc, yerelSaat, gun = GUN) {
 test('yerelGun: gün anahtarı yerel saate göre üretilir', () => {
   assert.equal(yerelGun(saat(23, 59)), '2026-10-02');
   assert.equal(yerelGun(saat(0, 0)), '2026-10-02');
-  // UTC'ye çevrildiğinde gün değişse bile yerel gün aynı kalmalı.
-  assert.equal(yerelGun('2026-10-01T22:30:00.000Z'), '2026-10-02');
+  // ISO metni aynı ana döner; gün anahtarı yerel bileşenlerden üretilir.
+  const sabah = saat(1, 30);
+  assert.equal(yerelGun(sabah), '2026-10-02');
+  assert.equal(yerelGun(sabah.toISOString()), '2026-10-02');
+  // Test dilden bağımsız olmalı: UTC günü ile yerel gün yalnızca dilim
+  // kaydırdığında ayrışır (CI UTC'de koşar, geliştirici makinesi UTC+3'te).
+  // Sabit bir UTC beklentisi yazmak testi yalnızca tek dilimde doğru yapardı.
+  const utcGun = sabah.toISOString().slice(0, 10);
+  if (utcGun !== '2026-10-02') assert.notEqual(yerelGun(sabah), utcGun);
 });
 
 test('donguKarari: panel kapalıysa koşmaz', () => {

@@ -1,12 +1,12 @@
 # 05 · Kalite ve Testler
 
-> Son güncelleme: 2026-10-01
+> Son güncelleme: 2026-10-02
 
 ## Kontroller (CI ile aynı komutlar)
 
 | Kontrol | Komut | Beklenen |
 |---|---|---|
-| Birim testleri | `npm test` | 119/119 geçer (~12 sn; ağ/DB yok) |
+| Birim testleri | `npm test` | 122/122 geçer (~16 sn; ağ/DB yok) |
 | Tip denetimi | `npm run typecheck` | 0 hata |
 | Derleme | `npm run build` | `✓ Compiled successfully`, 7.442 statik sayfa |
 | Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.046 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
@@ -231,7 +231,8 @@ kaydıyla (`tools/cache/link-durum.jsonl` + arşiv geçmişi) karşılaştırır
 | Anime sayaçları | `bolumSayisi`, `kaynakSayisi`, bölüm `ks` ve sırası `n`, bölüm verisiyle tutarlı |
 | Kaynak girdisi | Her `src` girdisi `[player, fansub, url(, "ok")]` biçiminde; URL `new URL()` ile ayrıştırılabilir http(s) olmalı |
 | Ölü/engelli sızıntısı | Hiçbir dosyada `olu`/`engelli` URL yok — çıkarsa üretilmiş veri sağlık kaydından geri kalmıştır; çözümü `npm run veri` |
-| Künye toplamları | `kunye.json` (kaynak/tekil/rozetli/bölüm/seriGrubu) gerçek dosyalarla birebir |
+| Künye toplamları | `kunye.json` (kaynak/tekil/rozetli/bölüm/seriGrubu/`banner4k`) gerçek dosyalarla birebir |
+| 4K banner alanı | `banner4k` yalnızca TMDB `original` (≥3000 px) adresi taşır — küçük bir varyant yazılırsa alan adı yalan söyler; ana sayfa kartlarında `ban4k`/`bw` ikilisi yarım dolu olamaz (hero yanlış `srcSet` adayı bildirir) |
 | Seri grupları | `seriler.json`: geçerli slug, en az 2 üye, her üye katalogda, hiçbir yapım iki grupta; `anime.seri` alanı gruplarla **simetrik** |
 | Fansub grupları | `fansublar.json`: tekil slug/ad, `taksonomi.fansublar` ile aynı slug kümesi, kaynaklarda geçen her grup adı dizinde var |
 
@@ -303,8 +304,8 @@ desteklenmiyorsa test atlanır), `jsonLdGuvenli` kaçışı ve JSON anlamının 
 yapısal denetim: sunucu bileşenlerinde `new Date(…).toLocale*` bulunmamalı, iframe izin listeleri
 `fullscreen` içermeli ve `allowFullScreen` kullanılmamalı.
 
-Ölçüm: **119 test / 119 geçti**, yerelde ~12 sn (son ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
-derleme 14 · tmdb 10 · veri 8 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
+Ölçüm: **122 test / 122 geçti**, yerelde ~16 sn (derleme hemen sonrası ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
+derleme 14 · veri 11 · tmdb 10 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
 ~1,4 sn + html/txt taraması ~2,9 sn + veri taraması ~1,9 sn, kalanı 6 bin anime/961 seri dosyası;
 sıcakta ~7 sn); CI simülasyonunda (arşiv sağlık dosyası yokken)
 aynı sonuç — 941 rozet “doğrulanamadı” olarak raporlanır. Testlerin gerçekten hata yakaladığı üç yoldan ölçüldü:
@@ -455,6 +456,19 @@ söküm 3 denemede `ok:false` döndü ve `kilit:true` işaretlendi; kilit kalkı
 ve klasör gerçekten silindi (≈6 sn bekleme). Dikkat çeken ayrıntı: Windows bu senaryoda `EBUSY`
 değil **`EPERM, Permission denied`** verdi — algılama bu yüzden tek bir koda değil, kilit sınıfına
 bakıyor. Ayrıntı: `tools/lib/derleme.mjs`, testler `tools/testler/derleme.test.mjs` (14).
+
+### H-28 · Testin beklentisi yerel saat dilimine bağlıydı (CI kırmızı, yayın dağıtımı durdu)
+
+`dongu.test.mjs` içindeki gün anahtarı testi sabit bir UTC anını (`2026-10-01T22:30:00.000Z`) yerel
+güne çevirip `2026-10-02` bekliyordu. Bu beklenti yalnızca UTC+2 ve doğusunda doğrudur; GitHub
+koşucuları UTC'de çalıştığı için aynı an orada `2026-10-01` döndü ve **iki yayın koşusu da**
+(`62ffc09`, `a347d7f`) test adımında düştü: `expected '2026-10-02', actual '2026-10-01'`. Derleme
+başarılı olduğu hâlde `yayinla` işi (`needs: derle`) hiç çalışmadı — yani saat dilimi hatası siteyi
+iki kez yayınlatmadı. Düzeltme: beklenti artık anın kendisinden türetiliyor; test `yerelGun()`in
+yerel bileşenleri kullandığını doğruluyor ve UTC günü ayrıştığında sabit bir gün değil
+**eşitsizliği** sınıyor. Kanıt: aynı dosya `TZ=UTC node --test …` altında 8/8, tam kapı
+`TZ=UTC npm test` ile 122/122 geçiyor. Ders: yerele/saat dilimine bağlı beklenti yalnızca yazıldığı
+makinede doğrudur; CI'ı yerelde taklit etmenin en ucuz yolu `TZ=UTC npm test`.
 
 **`api-dokumani.test.mjs`** (3) yayınlanan API belgesinin koddan kopmadığını sınar (ağ yok):
 `src/app/api-dokumani/page.tsx` içindeki her `YÖNTEM /yol` satırı gerçekten yönlendiriliyor mu

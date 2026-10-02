@@ -17,6 +17,14 @@ interface Props {
   ogeler: AnaSayfaKarti[];
 }
 
+/**
+ * TMDB adresinin küçük varyantı: 4K kaynağı her ekrana indirmemek için `srcSet`
+ * adayı olarak `w1280` verilir ve tarayıcı ekranına uygun olanı seçer.
+ */
+function kucukBackdrop(url: string) {
+  return url.replace('/t/p/original/', '/t/p/w1280/');
+}
+
 export default function Hero({ ogeler }: Props) {
   const [sira, setSira] = useState(0);
   const [duraklat, setDuraklat] = useState(false);
@@ -55,7 +63,18 @@ export default function Hero({ ogeler }: Props) {
       onMouseLeave={() => setDuraklat(false)}
       aria-label="Öne çıkan yapım"
     >
-      {aktif.ban ? (
+      {aktif.ban4k ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          className="hero-gorsel"
+          src={kucukBackdrop(aktif.ban4k)}
+          srcSet={`${kucukBackdrop(aktif.ban4k)} 1280w, ${aktif.ban4k} ${aktif.bw ?? 3840}w`}
+          sizes="100vw"
+          alt=""
+          aria-hidden="true"
+          fetchPriority="high"
+        />
+      ) : aktif.ban ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img className="hero-gorsel" src={aktif.ban} alt="" aria-hidden="true" fetchPriority="high" />
       ) : aktif.p ? (
