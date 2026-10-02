@@ -579,6 +579,21 @@ Ders: **varlık kanıtı, görünürlük kanıtı değildir.** Saati dışarıda
 varsayılan değer, okuyan tarafı sessizce öldürebilir; bu tür parametreler varsayılansız bırakılmalı
 ki unutulmaları derleyiciye yakalansın.
 
+### H-35 · Cache API zone içinde paylaşılıyor: test Worker'ının ölçümü üretimde servis edildi
+
+Üretim yayınından sonra canlı sayfa beklenen davranışı verdi ama videonun baytları **test
+Worker'ından** akıyordu: `/akis/coz` girdileri aynı zone'da (`*.workers.dev`) ölçüm sırasında test
+Worker'ı tarafından yazılmıştı ve üretim Worker'ı aynı anahtarı okuduğu için `aktarim` adresi test
+Worker'ına işaret ediyordu. Yani “iki ayrı Worker” varsayımı önbellek için yanlıştı: **içerik
+anahtarına worker kimliği girmiyorsa aynı hesaptaki Worker'lar birbirinin önbelleğini görür.**
+
+Yakalanma yolu tek bir alanı okumaktı: canlı sayfada `video.currentSrc`'nin host'u (774 KB'lık
+derlemeyi incelemek değil). Düzeltme iki katmanlı: önbellek anahtarı `v=2`'ye sürümlendi (eski
+girdiler görünmez) ve test Worker'ının silinmesi önerildi — yazan taraf tek kalsın.
+
+Ders: **dağıtım sonrası doğrulama “sayfa çalışıyor” değil “hangi kaynaktan çalışıyor” sorusunu
+sormalı.** Test ve üretim aynı altyapıyı paylaşıyorsa test artefaktları üretimde görünebilir.
+
 ### H-34 · Konum koruma yazıldı ama sessizce çalışmadı: canlı konum ref'i, okunmadan önce sıfırlanıyordu
 
 Kaynak değişiminde oynatma konumunu taşıyan yol (`#t=`), tarayıcı testinde beklendiği gibi

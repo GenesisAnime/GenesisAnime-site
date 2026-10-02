@@ -432,8 +432,12 @@ async function akisCozUc(istek, env, cors) {
   if (!kaynakTuru(kaynak)) return json({ ok: false, hata: 'desteklenmiyor' }, 400, cors);
 
   const onbellek = caches.default;
-  /* Önbellek anahtarı origin'den bağımsız: CORS başlıkları yanıt üretilirken eklenir. */
-  const anahtar = new Request(`https://akis-onbellek.local/coz?v=1&k=${encodeURIComponent(kaynak)}`);
+  /* Önbellek anahtarı origin'den bağımsız: CORS başlıkları yanıt üretilirken eklenir.
+     SÜRÜM NOTU (v2, 03.10): Cache API aynı zone'daki worker'lar arasında PAYLAŞILIYOR —
+     test Worker'ının ölçüm sırasında yazdığı girdiler üretimde servis edildi ve
+     `aktarim` adresi test Worker'ına işaret etti (canlı doğrulamada yakalandı, H-35).
+     Anahtarı sürümlemek o girdileri görünmez kılar; yeni girdiyi sunan worker yazar. */
+  const anahtar = new Request(`https://akis-onbellek.local/coz?v=2&k=${encodeURIComponent(kaynak)}`);
   /* `?t=` → istemci taze çözümleme istiyor (imzası düşmüş adres 403/502 verdi).
      Önbelleği atlarız ama sonucu yine yazarız: **tazeleme** budur. */
   const taze = onbellekAtlaMi(u.searchParams);

@@ -105,23 +105,28 @@ API'sine sorar, 404 görür ve sessizce iframe'e düşer — özellik, `cd api &
    çözümleme/gün; önbellek vuruşları sayılmaz). Aşılırsa 429 döner ve istemci bunu ayrı anlatıp
    iframe'e düşer — sessiz gerileme yok. Kalan: istek sayacı ve başarısızlık oranı (gözlemlenebilirlik).
 
-## Test Worker'ı
+## Üretime alma (03.10)
 
-Ölçüm için `genesisanime-akis-test` adlı **ayrı** Worker yayınlandı; üretim Worker'ı
-(`genesisanime-api`) bu değişikliklerle henüz yeniden yayınlanmadı. Silmek için:
+Üretim Worker'ı (`genesisanime-api`) bu uçlarla **yayınlandı** (sürüm `30a3f4cf`); mevcut uçlara
+dokunulmadı (`/saglik`, `/` ve D1 uçları aynen çalışıyor). Canlıda doğrulandı: izleme sayfasında
+video `genesisanime-api` üzerinden akıyor (`readyState 4` · `854×480` · oynuyor) ve şerit
+"Kendi oynatıcımız" diyor.
+
+Ölçüm için duran `genesisanime-akis-test` Worker'ı artık gerekli değil; silmek için:
 
 ```
 cd api && npx wrangler delete --name genesisanime-akis-test
 ```
 
-Üretime almak (yönetici kararı): `cd api && npm run deploy` — yeni uçlar eklemeli, mevcut uçlara
-dokunmaz.
+**Paylaşılan önbellek dersi (H-35):** Cache API aynı zone'daki (`*.workers.dev`) worker'lar
+arasında paylaşılıyor — test Worker'ının ölçüm sırasında yazdığı girdiler üretimde servis edildi ve
+`aktarim` adresi test Worker'ına işaret etti. Canlı doğrulama yakaladı; önbellek anahtarı `v=2`'ye
+sürümlenerek eski girdiler görünmez kılındı. Test Worker'ı silinince yazan taraf da tek kalır.
 
 ## Sonraki adımlar
 
-1. ~~İstemci entegrasyonu~~ ✅ 03.10 (yukarıda). **Etkinleştirme adımı kaldı:** üretim Worker'ı
-   (`genesisanime-api`) bu uçlarla yeniden yayınlanmadı; o yayın yapılana kadar site köprüyü
-   deneyip iframe'e düşer (`cd api && npm run deploy`, yönetici kararı).
+1. ~~İstemci entegrasyonu~~ ✅ 03.10 · ~~üretime alma~~ ✅ 03.10 (sürüm `30a3f4cf`; canlıda kendi
+   oynatıcımız doğrulandı).
 2. ~~Yeniden çözümleme~~ ✅ 03.10: 403/502'de seçim başına bir kez `?t=` ile taze adres.
 3. ~~Orana sınır~~ ✅ 03.10 (günlük 300, önbellek vuruşu ücretsiz) — kalan: istek sayacı ve
    başarısızlık oranı (gözlemlenebilirlik).

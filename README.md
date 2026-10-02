@@ -47,9 +47,9 @@ depodadır. Kapalı bileşen, gizli veri işleme veya reklam/izleyici betiği yo
 | Link sağlığı | kapsam **%58,72** — 173.030 `ok` · 301 `ölü` · 34 `engelli` · 12.861 `belirsiz` (ölçülebilir havuz tükendi) |
 | Otomasyon | günlük link döngüsü zamanlayıcıda (saatlik uyanır, günde bir koşar) · `/yonetim/` panelinden ayar + koşu geçmişi |
 | Testler | `npm test` **202/202** (ağsız) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
-| API | Cloudflare Worker + D1 yayında (bölge WEUR) · CORS yalnızca site kaynağına açık |
+| API | Cloudflare Worker + D1 yayında (bölge WEUR; akış köprüsü uçları 03.10'dan beri üretimde) · CORS yalnızca site kaynağına açık |
 | Son güncelleme | 3 Ekim 2026 |
-| Sıradaki işler | analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · akış köprüsü uçlarını üretim Worker'ına yayınlama (Mail.ru kendi oynatıcımızda hazır ve günlük sınırlı, [docs/12](docs/12-akis-koprusu.md)) · Odnoklassniki çözümleyicisi ([docs/10](docs/10-yol-haritasi.md)) |
+| Sıradaki işler | analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · Odnoklassniki çözümleyicisi · akış köprüsünde gözlemlenebilirlik (istek sayacı/oran) · markalı kontrol çubuğu ([docs/12](docs/12-akis-koprusu.md) · [docs/10](docs/10-yol-haritasi.md)) |
 
 ## Hızlı başlangıç
 
