@@ -172,6 +172,10 @@ AniList GraphQL (önbellekli)┘            │                                 
 - Siteye bağlamak için derleme anında verilen değişkenler:
   `NEXT_PUBLIC_API` (hesap + senkron) ve `NEXT_PUBLIC_BILDIRIM_API` (oynatıcı bildirimi).
   Boş bırakılırsa hiçbir istek atılmaz — site hesapsız, tam çalışır.
+- Akış köprüsü (temel): `/akis/coz` (embed → doğrudan akış adresi) ve `/akis/aktar` (medya
+  baytları, Range korunarak). Açık proxy değildir: yalnız izin listesindeki medya host'ları ve
+  yalnız imzalı adresler geçer. Ölçüm, sınırlar ve sonraki adımlar:
+  [docs/12-akis-koprusu.md](docs/12-akis-koprusu.md).
 - Gizlilik: ham IP hiçbir yerde tutulmaz (yalnızca tuzlu özet), parolalar PBKDF2-HMAC-SHA256 ile
   özetlenir, jetonlar D1'de SHA-256 özetli saklanır; çerez kullanılmaz.
 
@@ -220,6 +224,7 @@ indirebilir veya hesabını ve sunucudaki kopyasını geri döndürülemez biçi
 - [docs/09-link-sagligi-otomasyonu.md](docs/09-link-sagligi-otomasyonu.md) — link tarama sistemi
 - [docs/10-yol-haritasi.md](docs/10-yol-haritasi.md) — fazlar ve sıradaki işler
 - [docs/11-hesaplar-uygulama.md](docs/11-hesaplar-uygulama.md) — hesaplar, senkron, bildirim hattı
+- [docs/12-akis-koprusu.md](docs/12-akis-koprusu.md) — kendi `<video>` oynatıcısının temeli: akış çözümleyici + aktarım ucu
 - [docs/gunluk/](docs/gunluk/) — kronolojik çalışma günlüğü
 - [docs/kararlar/](docs/kararlar/) — mimari karar kayıtları (ADR)
 - [AGENTS.md](AGENTS.md) — çalışma kuralları ve kalite kontrolleri

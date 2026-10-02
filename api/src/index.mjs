@@ -65,6 +65,7 @@ import {
   TARAMA_KOSU_SINIRI,
   yolCoz,
 } from './yardimci.mjs';
+import { aktar, akisCoz, kaynakTuru } from './akis.mjs';
 
 /* ================================================================ */
 /* 1 · İşleyiciler                                                  */
@@ -394,6 +395,78 @@ async function taramaKalp(istek, env, cors) {
 }
 
 /* ================================================================ */
+/* 1.9 · Akış köprüsü (çözümleyici + aktarım)                       */
+/* ================================================================ */
+
+/**
+ * `GET /akis/coz?kaynak=<embed adresi>`
+ *
+ * Embed adresini doğrudan akışa çevirir. İmzalar günlük olduğu için sonuç
+ * imza bitişine kadar Cache API'de tutulur — kaynağı her oynatmada yeniden
+ * yormayız. Yanıt, oynatıcının kullanacağı `aktarim` adresini de içerir.
+ */
+async function akisCozUc(istek, env, cors) {
+  const u = new URL(istek.url);
+  const kaynak = (u.searchParams.get('kaynak') || '').trim();
+  if (!kaynak) return json({ ok: false, hata: 'kaynak-yok' }, 400, cors);
+  if (!kaynakTuru(kaynak)) return json({ ok: false, hata: 'desteklenmiyor' }, 400, cors);
+
+  const onbellek = caches.default;
+  /* Önbellek anahtarı origin'den bağımsız: CORS başlıkları yanıt üretilirken eklenir. */
+  const anahtar = new Request(`https://akis-onbellek.local/coz?v=1&k=${encodeURIComponent(kaynak)}`);
+  const vurulan = await onbellek.match(anahtar);
+  if (vurulan) {
+    const veri = await vurulan.json();
+    return json(veri, 200, { ...cors, 'X-Akis-Onbellek': 'vuruldu' });
+  }
+
+  const sonuc = await akisCoz(kaynak, { siteOrigin: env.SITE_ORIGIN });
+  if (!sonuc.ok) {
+    /* Sızıntı yok: yalnız sınıflandırma döner, upstream gövdesi değil. */
+    return json({ ok: false, hata: sonuc.hata, durum: sonuc.durum ?? null }, 404, cors);
+  }
+
+  const veri = {
+    ok: true,
+    kaynakAdi: sonuc.kaynakAdi,
+    tur: sonuc.tur,
+    url: sonuc.url,
+    imzaBitis: sonuc.imzaBitis,
+    aktarim: `${u.origin}/akis/aktar?u=${encodeURIComponent(sonuc.url)}`,
+  };
+
+  const saniye = sonuc.imzaBitis ? Math.floor((sonuc.imzaBitis - Date.now()) / 1000) : 3600;
+  const ttl = Math.max(60, Math.min(6 * 60 * 60, saniye));
+  await onbellek.put(
+    anahtar,
+    new Response(JSON.stringify(veri), {
+      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': `max-age=${ttl}` },
+    })
+  );
+
+  return json(veri, 200, cors);
+}
+
+/**
+ * `GET|HEAD /akis/aktar?u=<imzalı akış adresi>`
+ *
+ * Medya baytlarını Range'i koruyarak aktarır. Yalnızca izin listesindeki
+ * host'lar ve yalnız imzalı adresler geçer (bkz. akis.mjs · aktarimIzni) —
+ * uç bir açık proxy değildir.
+ */
+async function akisAktarUc(istek, env, cors) {
+  const u = new URL(istek.url);
+  const hedef = u.searchParams.get('u') || '';
+  if (!hedef) return json({ ok: false, hata: 'adres-yok' }, 400, cors);
+
+  const sonuc = await aktar(istek, hedef, { cors });
+  if (sonuc.hata) {
+    return json({ ok: false, hata: sonuc.hata, ayrinti: sonuc.ayrinti ?? null }, sonuc.durum, cors);
+  }
+  return new Response(sonuc.govde, { status: sonuc.durum, headers: sonuc.basliklar });
+}
+
+/* ================================================================ */
 /* 2 · Ana yönlendirici                                             */
 /* ================================================================ */
 
@@ -445,6 +518,10 @@ async function istekIsle(istek, env) {
         return await taramaKosu(istek, env, cors);
       case 'tarama-kalp':
         return await taramaKalp(istek, env, cors);
+      case 'akis-coz':
+        return await akisCozUc(istek, env, cors);
+      case 'akis-aktar':
+        return await akisAktarUc(istek, env, cors);
       case 'yontem-yok':
         return json({ ok: false, hata: 'yontem-yok' }, 405, cors);
       default:
@@ -458,7 +535,17 @@ async function istekIsle(istek, env) {
 }
 
 export default {
-  fetch(istek, env) {
-    return istekIsle(istek, env);
+  /**
+   * `ctx` (ExecutionContext) yalnızca `waitUntil` için hazır tutulur: bugün
+   * kullanılmıyor, ama uzun süren aktarımlarda önbellek yazımını isteğin
+   * dışına taşımak gerektiğinde imzayı değiştirmek yeterli olsun.
+   */
+  fetch(istek, env, ctx) {
+    return istekIsekSar(istek, env, ctx);
   },
 };
+
+function istekIsekSar(istek, env, ctx) {
+  void ctx;
+  return istekIsle(istek, env);
+}

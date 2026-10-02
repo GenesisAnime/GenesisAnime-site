@@ -198,6 +198,10 @@ Yani kendi `<video>`'muzda oynatmanın şartı araya **proxy** koymak: kendi sun
 [`docs/olcum/akis-2026-10-02.json`](../olcum/akis-2026-10-02.json).
 
 Bu yüzden bugünkü oynatıcı **kabuk**tur: video yüzeyi kaynağın kendisi (iframe), kontrol/konum katmanı bizim.
+
+Aktarım katmanının **temeli** kuruldu ve Cloudflare edge'inde uçtan uca doğrulandı (Mail.ru, kaynakların
+%27,9'u, kendi `<video>` elemanımızda oynuyor): [12-akis-koprusu.md](12-akis-koprusu.md). Oynatıcı
+entegrasyonu sıradaki adımdır; köprü çözülemeyen kaynaklarda iframe yolu korunur.
 Doğrudan oynanabilir bir adres çıkarsa (yeni host, değişen politika) kendi `<video>` yolunu devreye
 alacak çözümleyici zinciri sonraki adımdır; bugün ölçüm bunu tetiklemiyor.
 

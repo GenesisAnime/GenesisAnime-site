@@ -150,6 +150,10 @@ export function yolCoz(yol, yontem) {
   if (y === '/me/veri' && m === 'GET') return { islem: 'me-veri' };
   if (y === '/me' && m === 'DELETE') return { islem: 'me-sil' };
 
+  // Akış çözümleyici + aktarım (bkz. src/akis.mjs, docs/12).
+  if (y === '/akis/coz' && m === 'GET') return { islem: 'akis-coz' };
+  if ((y === '/akis/aktar' || y === '/akis/akis') && (m === 'GET' || m === 'HEAD')) return { islem: 'akis-aktar' };
+
   // Link tarama döngüsü (hepsi yönetici jetonu ister).
   if (y === '/tarama/ayar' && m === 'GET') return { islem: 'tarama-ayar' };
   if (y === '/tarama/ayar' && m === 'PUT') return { islem: 'tarama-ayar-yaz' };
@@ -160,6 +164,8 @@ export function yolCoz(yol, yontem) {
   // Bilinen yolda yanlış yöntem mi, gerçekten bilinmeyen yol mu?
   const bilinen = [
     '/saglik',
+    '/akis/coz',
+    '/akis/aktar',
     '/bildirim',
     '/auth/kayit',
     '/auth/giris',
