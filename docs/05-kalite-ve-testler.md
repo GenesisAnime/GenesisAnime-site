@@ -6,7 +6,7 @@
 
 | Kontrol | Komut | Beklenen |
 |---|---|---|
-| Birim testleri | `npm test` | 129/129 geçer (~16 sn; ağ/DB yok) |
+| Birim testleri | `npm test` | 149/149 geçer (~17 sn; ağ/DB yok) |
 | Tip denetimi | `npm run typecheck` | 0 hata |
 | Derleme | `npm run build` | `✓ Compiled successfully`, 7.442 statik sayfa |
 | Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.046 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
@@ -312,8 +312,19 @@ desteklenmiyorsa test atlanır), `jsonLdGuvenli` kaçışı ve JSON anlamının 
 yapısal denetim: sunucu bileşenlerinde `new Date(…).toLocale*` bulunmamalı, iframe izin listeleri
 `fullscreen` içermeli ve `allowFullScreen` kullanılmamalı.
 
-Ölçüm: **129 test / 129 geçti**, yerelde ~16 sn (derleme hemen sonrası ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
-tmdb 17 · derleme 14 · veri 11 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
+**`kopru.test.mjs`** (20) gömülü oynatıcı köprüsünün saf mantığını sınar: `href.li` sarmalayıcısının
+çözülmesi (yüzde kodlanmış biçim dahil), VK'ya `js_api=1` eklenirken kimlik parametrelerinin
+(`oid`/`id`/`hash`/`hd`) korunması ve etkisiz tekrarın engellenmesi, köprülü/köprüsüz host ayrımı,
+**komut yüklerinin nesne olarak üretilmesi** (metin biçimi ölçümde cevapsız kalmıştı — bu test o
+hatanın geri gelmesini engeller), üç host'un farklı olay şemalarının (VK düz nesne, OK `data`
+içinde, Mail.ru düz/kodlanmış `"inited"` metni) tek biçime indirgenmesi, komut onay kuralı
+(`komutOnaylandi`: oynat/duraklat/sar için ayrı kanıt) ve medya saati biçimi (`1450 → 24:10`).
+Ayrıca **yetenek bayraklarını ölçüme sabitler**: yalnız VK'da komut+telemetri var; bir bayrağı
+true yapmak yeni ölçüm gerektirir. Son test üretim verisini okur ve VK kaynaklarının gerçekten
+`href.li/?` sarmalayıcısıyla yazıldığını doğrular — normalizasyonun yüklü olduğunun kanıtı.
+
+Ölçüm: **149 test / 149 geçti**, yerelde ~17 sn (derleme hemen sonrası ölçüm; dosya dağılımı: tarama 32 · bildirim 24 ·
+kopru 20 · tmdb 17 · derleme 14 · veri 11 · döngü 8 · çıktı 7 · hesap 7 · biçim 6 · api-dokumani 3; soğuk disk önbelleğinde böyle — out verisi
 ~1,4 sn + html/txt taraması ~2,9 sn + veri taraması ~1,9 sn, kalanı 6 bin anime/961 seri dosyası;
 sıcakta ~7 sn); CI simülasyonunda (arşiv sağlık dosyası yokken)
 aynı sonuç — 941 rozet “doğrulanamadı” olarak raporlanır. Testlerin gerçekten hata yakaladığı üç yoldan ölçüldü:
@@ -475,7 +486,7 @@ başarılı olduğu hâlde `yayinla` işi (`needs: derle`) hiç çalışmadı �
 iki kez yayınlatmadı. Düzeltme: beklenti artık anın kendisinden türetiliyor; test `yerelGun()`in
 yerel bileşenleri kullandığını doğruluyor ve UTC günü ayrıştığında sabit bir gün değil
 **eşitsizliği** sınıyor. Kanıt: aynı dosya `TZ=UTC node --test …` altında 8/8, tam kapı
-`TZ=UTC npm test` ile 129/129 geçiyor. Ders: yerele/saat dilimine bağlı beklenti yalnızca yazıldığı
+`TZ=UTC npm test` ile 149/149 geçiyor. Ders: yerele/saat dilimine bağlı beklenti yalnızca yazıldığı
 makinede doğrudur; CI'ı yerelde taklit etmenin en ucuz yolu `TZ=UTC npm test`.
 
 ### H-29 · TMDB eşlemesi kimliği yalnızca banner URL'inden çıkarıyordu (kapsamın üçte biri dışarıda)
@@ -505,6 +516,29 @@ doldurur, varsa yalnızca AniList tavanını (1900 px) geçtiğinde tercih edili
 Kalan 943 yapımın Fribb eşlemesinde karşılığı yok (257'sinin AniList kimliği de yok); onlar için arama
 tabanlı eşleme (TMDB `/search`) gerekiyor. Ders: paydası yazılmayan bir kapsam oranı yanıltır —
 “%91,4” hangi kümenin içinde ölçüldüğü söylenmeden bir başarı gibi okunuyordu.
+
+### H-31 · "Cevap veren host" ile "komut dinleyen host" aynı şey değil
+
+Gömülü oynatıcıların kaçının kontrol edilebildiği sorusu ilk denemede yanlış ölçüldü: test sayfası
+`postMessage` yüklerini **JSON metni** olarak gönderdi ve üç host'tan hiçbiri tepki vermedi. Bu
+sonuç "hiçbir kaynak kontrol edilemiyor" diye okunacaktı. Oysa aynı komutlar **nesne** olarak
+gönderildiğinde VK 1. denemede `seeked` + `started` + 34 `timeupdate` olayı döndü.
+
+Ölçümün üç ayrı tuzağı vardı ve üçü de kayıt altına alındı:
+
+1. **Biçim**: aynı mesaj metin olarak sessiz, nesne olarak etkili. Yük biçimi, yeteneğin kendisi
+   kadar belirleyici.
+2. **Zamanlama**: komut, oynatıcı gelen mesaj dinleyicisini kurmadan gönderilirse kayboluyor;
+   bu yüzden komut onay olayı gelene kadar yinelenir (`KOMUT_DENEME_SAYISI`) ve "gönderdim"
+   asla "oldu" sayılmaz.
+3. **Kapsam**: iki ayrı soru ("olay yayınlıyor mu" / "komut kabul ediyor mu") iki ayrı test
+   sayfasıyla ölçüldü. Tek sayfada toplansaydı, ilk turdaki başarısız sonuç ikinci turu da
+   yanıltacaktı.
+
+Ders: bir yeteneği **ölçtükten sonra** arayüze taşı ve ölçümü teste yaz. `kopru.test.mjs` yetenek
+bayraklarını sabitler: yalnız VK'da `komut: true`. Bir bayrağı kanıtsız true yapmak testi kırmızıya
+döndürür. Ayrıca ölçüm sayfaları (`tools/kopru-test.html`, `tools/kopru-komut-test.html`) repoda
+kalır — host davranışı değişirse yeniden ölçmek tek komutluk iştir.
 
 ### H-30 · Veri kümesinde karşılığı olmayan yapımlar için aramanın riski ölçülmeden kullanılamazdı
 

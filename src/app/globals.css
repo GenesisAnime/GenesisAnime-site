@@ -1027,6 +1027,56 @@ a.etiket:hover {
   margin-top: 14px;
 }
 
+/*
+ * Köprü şeridi — yalnızca postMessage API'si yayınlayan host'ta görünür.
+ * ``canli`` noktası, kaynağın gerçekten cevap verdiğinin işaretidir: kaynak
+ * değişip köprü kurulmazsa şerit sessiz kalır (sahte durum gösterilmez).
+ */
+.oynatici-kopru {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--rad);
+  font-size: 13px;
+}
+
+.oynatici-kopru-nokta {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tx3);
+  flex: none;
+}
+
+.oynatici-kopru-nokta.canli {
+  background: #22c55e;
+}
+
+.oynatici-kopru-ad {
+  font-weight: 600;
+  color: var(--tx2);
+}
+
+.oynatici-kopru-saat {
+  font-variant-numeric: tabular-nums;
+  color: var(--tx2);
+}
+
+.oynatici-kopru-dugmeler {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.oynatici-kopru-not {
+  color: var(--tx3);
+}
+
 .oynatici-cubuk-grup {
   display: flex;
   flex-wrap: wrap;

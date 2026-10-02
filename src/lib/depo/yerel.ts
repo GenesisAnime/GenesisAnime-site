@@ -43,6 +43,15 @@ export const VARSAYILAN_TERCIH: Tercihler = {
   fansubSuzgeci: [],
 };
 
+/*
+ * Köprü destekli kaynaklarda (ölçüm: `tools/kopru-komut-test.html`) oynatıcının
+ * bildirdiği **gerçek** saniye burada tutulur. Hesap eşitlemesine dahil edilmez:
+ * sunucudaki `IlerlemeKaydi.saniye` alanı "sayfada geçirilen süre" demektir ve
+ * gerçek konumla karıştırılırsa "kaldığın yer" yanlış hesaplanır. Ayrı anahtar,
+ * ayrı anlam.
+ */
+const konumAnahtari = (slug: string, bolum: number) => `${ONEK}konum:${slug}:${bolum}`;
+
 /* ------------------------------ altyapı ------------------------------ */
 
 function tarayiciVar(): boolean {
@@ -122,6 +131,28 @@ export function ilerlemeHaritasi(): Record<string, IlerlemeKaydi> {
  * useSyncExternalStore `getSnapshot`'ı referans karşılaştırdığı için bu fonksiyon
  * her çağrıda yeni dizi üretmemelidir; aksi halde React sonsuz render döngüsüne girer.
  */
+/** Köprü telemetrisinden öğrenilen gerçek konumu cihazda saklar. */
+export function konumKaydet(slug: string, bolum: number, saniye: number): void {
+  if (!tarayiciVar() || !slug || !Number.isFinite(saniye) || saniye <= 0) return;
+  try {
+    window.localStorage.setItem(konumAnahtari(slug, bolum), String(Math.floor(saniye)));
+  } catch {
+    /* kota dolu olabilir; konum kritik veri değil, sessizce geç */
+  }
+}
+
+/** Saklanan gerçek konumu döner; yoksa 0. */
+export function konumOku(slug: string, bolum: number): number {
+  if (!tarayiciVar() || !slug) return 0;
+  try {
+    const ham = window.localStorage.getItem(konumAnahtari(slug, bolum));
+    const sayi = ham ? Number(ham) : 0;
+    return Number.isFinite(sayi) && sayi > 0 ? Math.floor(sayi) : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export function ilerlemeListesi(): IlerlemeKaydi[] {
   if (!onbellekler.ilerlemeSirali) {
     onbellekler.ilerlemeSirali = Object.values(ilerlemeHaritasi()).sort((a, b) => b.zaman - a.zaman);

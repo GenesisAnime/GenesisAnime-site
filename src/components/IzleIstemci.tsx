@@ -8,10 +8,14 @@
  *  3. doğrulanmış + tercih edilen player öne alınarak bir kaynak seçilir
  *  4. kaynak iframe ile gömülür (video barındırılmaz, üçüncü taraf sayfa gösterilir)
  *  5. sayfada geçirilen süre ölçülür ve "izlemeye devam et" kaydı güncellenir
+ *  6. kaynak postMessage API'si yayınlıyorsa (VK, ölçüldü) gerçek konum/süre
+ *     köprüden okunur ve oynat/duraklat/sar komutları gönderilir
  *
  * Kısıt (dürüstçe): iframe içeriği farklı kaynakta olduğu için videonun gerçek
- * oynatma konumu/süresi okunamaz. Bu yüzden ilerleme "sayfada geçirilen süre"
- * olarak tutulur ve bölüm, 90 saniye sonra izlendi sayılır.
+ * oynatma konumu/süresi **yalnızca** API yayınlayan host'ta okunabilir. Ölçüm
+ * (tools/kopru-test.html): kaynakların ~%7'si (VK) konuşuyor, ~%42'si (Sibnet)
+ * tamamen opak. Opak kaynakta ilerleme "sayfada geçirilen süre" olarak tutulur
+ * ve bölüm 90 saniye sonra izlendi sayılır.
  */
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -20,8 +24,28 @@ import type { Anime, Taksonomi } from '@/lib/tipler';
 import { animeVeriYolu, genelYol } from '@/lib/yollar';
 import { bolumNumarasi, embedUygun, kaynakEtiketi, kaynakGrubu, kaynakGrupla, playerAd, sayiBicim } from '@/lib/bicim';
 import { bildirimGonder } from '@/lib/bildirim';
+import {
+  KOMUT_DENEME_ARASI_MS,
+  KOMUT_DENEME_SAYISI,
+  komutlar,
+  komutOnaylandi,
+  kopruBul,
+  kopruOrigin,
+  kaynakAdresi,
+  medyaSaati,
+  olayCoz,
+  type KopruEylem,
+} from '@/lib/kopru';
 import { useBaglandi, useCalismayanlar, useTercihler } from '@/lib/depo/kanca';
-import { calismayanIsaretle, ilerlemeKaydet, izlenenEkle, izlenenHaritasi, tercihKaydet } from '@/lib/depo/yerel';
+import {
+  calismayanIsaretle,
+  ilerlemeKaydet,
+  izlenenEkle,
+  izlenenHaritasi,
+  konumKaydet,
+  konumOku,
+  tercihKaydet,
+} from '@/lib/depo/yerel';
 import { AraIkon, DisBaglantiIkon, OynatIkon, SagIkon, SolIkon, TikIkon } from './Ikon';
 
 const IZLENDI_SAYILMA_SANIYESI = 90;
@@ -188,6 +212,105 @@ export default function IzleIstemci() {
     }
     return harita;
   }, [taksonomi]);
+
+  /* ---------------------- gömülü oynatıcı köprüsü ---------------------- */
+  /* Bazı host'lar resmî postMessage API'si yayınlıyor; ölçüm sonuçları ve
+     yetenek farkındalığı `@/lib/kopru` içinde. Kural: **kanıtlanmamış** host'a
+     kontrol düğmesi gösterilmez (ölü düğme, düğmesizlikten kötüdür). */
+
+  const kopru = useMemo(() => (aktifKaynak ? kopruBul(aktifKaynak[2]) : null), [aktifKaynak]);
+  /** iframe'e giden adres: sarmalayıcı çözülür, destekli host'ta API açılır. */
+  const iframeAdresi = useMemo(() => (aktifKaynak ? kaynakAdresi(aktifKaynak[2]) : ''), [aktifKaynak]);
+
+  const cerceveRef = useRef<HTMLIFrameElement>(null);
+  const [konum, setKonum] = useState(0);
+  const [gercekSure, setGercekSure] = useState(0);
+  const [oynuyor, setOynuyor] = useState<boolean | null>(null);
+  const [kopruHazir, setKopruHazir] = useState(false);
+  const [kaldigiYer, setKaldigiYer] = useState(0);
+  const sonKayitRef = useRef(0);
+  const bekleyenRef = useRef<{ eylem: KopruEylem; hedef: number; deneme: number; zamanlayici: number | null } | null>(
+    null
+  );
+
+  /**
+   * Komutu gönderir ve **onaylanana kadar yineler**. Ölçümde komut, oynatıcı
+   * dinleyiciyi kurmadan gönderildiğinde sessizce kayboluyordu; bu yüzden
+   * "gönderdim" ile "oldu" ayrı şeyler sayılır.
+   */
+  const komutGonder = useCallback(
+    (eylem: KopruEylem, hedef = 0) => {
+      if (!kopru?.komut || !cerceveRef.current?.contentWindow) return;
+      if (bekleyenRef.current?.zamanlayici) window.clearTimeout(bekleyenRef.current.zamanlayici);
+      const bekleyen = { eylem, hedef, deneme: 0, zamanlayici: null as number | null };
+      bekleyenRef.current = bekleyen;
+      const gonder = () => {
+        const pencere = cerceveRef.current?.contentWindow;
+        if (!pencere) return;
+        /* Yükler **nesne** olarak gider: metin biçimi ölçümde cevapsız kaldı. */
+        for (const yuk of komutlar(kopru.ad, eylem, hedef)) {
+          try {
+            pencere.postMessage(yuk, '*');
+            pencere.postMessage(yuk, kopruOrigin(kopru.ad));
+          } catch {
+            /* kaynak penceresi değişmiş olabilir; deneme döngüsü devam eder */
+          }
+        }
+        bekleyen.deneme += 1;
+        if (bekleyen.deneme < KOMUT_DENEME_SAYISI) {
+          bekleyen.zamanlayici = window.setTimeout(gonder, KOMUT_DENEME_ARASI_MS);
+        }
+      };
+      gonder();
+    },
+    [kopru]
+  );
+
+  useEffect(() => {
+    if (!kopru) return;
+    setKopruHazir(false);
+    setKonum(0);
+    setGercekSure(0);
+    setOynuyor(null);
+    sonKayitRef.current = 0;
+    const dinle = (olay: MessageEvent) => {
+      if (olay.origin !== kopruOrigin(kopru.ad)) return;
+      const cikti = olayCoz(olay.data);
+      if (cikti.tur === 'yok') return;
+      if (cikti.tur === 'hazir') setKopruHazir(true);
+      if (typeof cikti.sure === 'number' && cikti.sure > 0) setGercekSure(Math.round(cikti.sure));
+      if (typeof cikti.saniye === 'number') setKonum(Math.max(0, Math.round(cikti.saniye)));
+      if (typeof cikti.oynuyor === 'boolean') setOynuyor(cikti.oynuyor);
+      const bekleyen = bekleyenRef.current;
+      if (bekleyen && komutOnaylandi(bekleyen.eylem, bekleyen.hedef, cikti)) {
+        if (bekleyen.zamanlayici) window.clearTimeout(bekleyen.zamanlayici);
+        bekleyenRef.current = null;
+      }
+    };
+    window.addEventListener('message', dinle);
+    return () => window.removeEventListener('message', dinle);
+  }, [kopru]);
+
+  /* Bileşen sökerken bekleyen komut zamanlayıcısı kalmasın. */
+  useEffect(
+    () => () => {
+      if (bekleyenRef.current?.zamanlayici) window.clearTimeout(bekleyenRef.current.zamanlayici);
+    },
+    []
+  );
+
+  /* Kaldığı yeri oku ve gerçek konumu (15 sn'de bir) cihazda sakla. */
+  useEffect(() => {
+    if (!anime || !bolum || !kopru?.telemetri) return;
+    setKaldigiYer(konumOku(anime.slug, bolum.n));
+  }, [anime, bolum, kopru]);
+
+  useEffect(() => {
+    if (!anime || !bolum || !kopru?.telemetri || !gercekSure) return;
+    if (Math.abs(konum - sonKayitRef.current) < 15) return;
+    sonKayitRef.current = konum;
+    konumKaydet(anime.slug, bolum.n, konum);
+  }, [anime, bolum, kopru, konum, gercekSure]);
 
   /* -------------------------- ilerleme kaydı -------------------------- */
 
@@ -363,7 +486,8 @@ export default function IzleIstemci() {
             {aktifKaynak && gomulebilir ? (
               <iframe
                 key={aktifKaynak[2]}
-                src={aktifKaynak[2]}
+                ref={cerceveRef}
+                src={iframeAdresi}
                 title={`${anime.ad} ${bolumNumarasi(bolum?.no ?? null, bolumSira)}. bölüm — ${playerAd(aktifKaynak[0])}`}
                 allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
                 referrerPolicy="no-referrer"
@@ -388,6 +512,57 @@ export default function IzleIstemci() {
               </div>
             )}
           </div>
+
+          {/* Köprü şeridi: gerçek konum/süre ve (kanıtlanmışsa) kendi kontrollerimiz. */}
+          {aktifKaynak && gomulebilir && kopru ? (
+            <div className="oynatici-kopru">
+              <span className={`oynatici-kopru-nokta${kopruHazir ? ' canli' : ''}`} aria-hidden="true" />
+              <span className="oynatici-kopru-ad">{kopru.etiket}</span>
+              {kopru.telemetri && gercekSure ? (
+                <span className="oynatici-kopru-saat">
+                  {medyaSaati(konum)} / {medyaSaati(gercekSure)}
+                </span>
+              ) : null}
+
+              {kopru.komut ? (
+                <span className="oynatici-kopru-dugmeler">
+                  <button
+                    className="dugme dugme-sade"
+                    onClick={() => komutGonder(oynuyor ? 'duraklat' : 'oynat')}
+                    title="Oynat/duraklat (köprü üzerinden)"
+                  >
+                    {oynuyor ? '❚❚ Duraklat' : '▶ Oynat'}
+                  </button>
+                  <button
+                    className="dugme dugme-sade"
+                    onClick={() => komutGonder('sar', Math.max(0, konum - 10))}
+                    title="10 saniye geri"
+                  >
+                    −10 sn
+                  </button>
+                  <button className="dugme dugme-sade" onClick={() => komutGonder('sar', konum + 10)} title="10 saniye ileri">
+                    +10 sn
+                  </button>
+                  {kaldigiYer > 30 ? (
+                    <button
+                      className="dugme dugme-sade"
+                      onClick={() => {
+                        komutGonder('sar', kaldigiYer);
+                        window.setTimeout(() => komutGonder('oynat'), 1500);
+                      }}
+                      title="Bu cihazda kayıtlı konuma dön"
+                    >
+                      Kaldığın yerden: {medyaSaati(kaldigiYer)}
+                    </button>
+                  ) : null}
+                </span>
+              ) : (
+                <span className="oynatici-kopru-not">
+                  Bu kaynak kendi oynatıcısını kullanır; oynatma konumu okunamaz.
+                </span>
+              )}
+            </div>
+          ) : null}
 
           <div className="oynatici-cubuk">
             <div className="oynatici-cubuk-grup">

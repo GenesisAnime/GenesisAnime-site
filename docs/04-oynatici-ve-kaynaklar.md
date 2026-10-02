@@ -123,6 +123,54 @@ kartı ve "Yeni sekmede aç" düğmesi gösterilir.
                    player'ın kendi davranışı, sitemizin değil
 ```
 
+## Köprü: postMessage API'si olan kaynaklar (ölçüldü, 2026-10-02)
+
+Embed'ler cross-origin olduğu için video elemanına erişemiyoruz — ama bazı host'lar **resmî
+postMessage API'si** yayınlıyor. Tahmin etmek yerine iki test sayfası gerçek embed'lerle
+çalıştırıldı ve sonuç kayda geçti:
+
+| Test sayfası | Soru | Sonuç |
+|---|---|---|
+| [`tools/kopru-test.html`](../../tools/kopru-test.html) | Host olay yayınlıyor mu? | VK ✓ · Odnoklassniki ✓ · Mail.ru ✓ · Dailymotion ✗ · Sibnet ✗ |
+| [`tools/kopru-komut-test.html`](../../tools/kopru-komut-test.html) | Gönderdiğimiz komut etki ediyor mu? | Yalnız **VK** ✓ (1. denemede `seeked` + `started` + 34× `timeupdate`) |
+
+Ölçümün üç dersi (koda da yazıldı):
+
+1. **VK `js_api=1` olmadan konuşmuyor.** Parametre eklendiğinde `inited` (süre dahil: 1450 sn)
+   ve `timeupdate`/`seeked`/`started` olayları geliyor. `referrerPolicy="no-referrer"` bu kanalı
+   engellemiyor (kontrol satırıyla doğrulandı).
+2. **Yükler nesne olarak gönderilmeli.** Aynı komut `JSON.stringify` ile gönderilince cevapsız
+   kaldı; nesne biçiminde çalıştı. `komutlar()` bu yüzden asla metin üretmez.
+3. **Komut, oynatıcı hazır olmadan gönderilirse kayboluyor.** Bu yüzden komut, onay olayı
+   (`komutOnaylandi`) gelene kadar yinelenir — "gönderdim" ile "oldu" ayrı şeylerdir.
+
+Veri kaynağında bir de sapma vardı: VK adresleri arşivde `https://href.li/?https://vk.com/…`
+sarmalayıcısıyla yazılı (gerçek kayıt: `public/data/anime/009-1.json`). Köprü gerçek origin ile
+konuşmak zorunda olduğu için sarmalayıcı iframe'e girmeden **çözülür** (`kopru.ts` ·
+`sarmalayiciCoz`), ayrıca arada bir üçüncü taraf yönlendirici de kalkar.
+
+### Yetenek farkındalıklı oynatıcı şeridi
+
+Ölçüm sonucu arayüzü belirler (`src/lib/kopru.ts` · `KOPRULER`):
+
+| Host | Kaynak payı | Telemetri (gerçek saniye/süre) | Komut (oynat/duraklat/sar) |
+|---|---:|---|---|
+| VK | %7,1 | ✓ | ✓ |
+| Odnoklassniki | %11,5 | ✗ (yalnız `inited`) | ✗ |
+| Mail.ru | %27,9 | ✗ (yalnız `inited`) | ✗ |
+| Sibnet, Drive, Uqload, … | %53,5 | ✗ | ✗ |
+
+Kural: **kanıtlanmamış yetenek için düğme gösterilmez.** Ölü "oynat" düğmesi, düğmesizlikten
+kötüdür. Opak kaynakta şerit "bu kaynak kendi oynatıcısını kullanır; oynatma konumu okunamaz"
+notunu gösterir. Köprü yalnız VK için gerçek konum/süre verir; **gerçek konum cihazda**
+(`genesisanime:v1:konum:<slug>:<bölüm>`) tutulur ve hesap eşitlemesine karıştırılmaz — sunucudaki
+`saniye` alanı "sayfada geçirilen süre" demektir, ikisi ayrı anlamdır.
+
+Bu, oynatıcının **kendi olması** yolunda atılabilecek adımın sınırıdır: embed'i çözüp kendi
+`<video>`'muzda oynatmak video barındırma/proxyleme demek olurdu ve proje kapsamı dışıdır
+(`docs/10`, ADR-0005). Kaynağı değiştirmeden iyileştirilebilen kısım — bölüm gezinme, kaynak
+çipleri, tam ekran, gerçek konum — bizim katmanımızda ve artık uygulanıyor.
+
 ## İlerleme kaydı ve sınırı
 
 ```
@@ -132,10 +180,12 @@ sayfa açılış → sayaç başlar
   "İzledim" düğmesi              → elle işaretleme
 ```
 
-**Neden süre, neden konum değil:** video farklı bir kaynakta (cross-origin) çalıştığı için
-`currentTime` / `duration` okunamaz. Bu nedenle yüzdelik ilerleme çubuğu yerine "son bölüm + ne
-zaman" gösterilir. Bu, hesap tabanlı senkronizasyon (Faz 5) geldiğinde de değişmeyecek bir dış
-kısıttır; ancak kullanıcı "izledim" işaretlemesiyle telafi edilebilir.
+**Neden varsayılan olarak süre, neden konum değil:** video farklı bir kaynakta (cross-origin)
+çalıştığı için `currentTime` / `duration` genel olarak okunamaz; köprü yayınlayan host'ta (VK)
+ise okunur ve şerit gerçek `konum / süre` gösterir. Diğer kaynaklarda yüzdelik ilerleme çubuğu
+yerine "son bölüm + ne zaman" gösterilir. Hesap tabanlı senkronizasyon (Faz 5) geldiğinde de
+bu ayrım korunur (sunucu `saniye` alanı sayfada geçirilen süredir); kullanıcı "izledim"
+işaretlemesiyle telafi edilebilir.
 
 ## Bilinen kısıtlar
 

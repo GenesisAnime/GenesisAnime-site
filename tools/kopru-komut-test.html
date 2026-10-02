@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<title>GenesisAnime · köprü komut testi (faz 2)</title>
+<!--
+  Amaç: faz 1 yalnızca "host olay yayınlıyor mu" sorusunu ölçtü. Bu sayfa asıl
+  soruyu ölçer: gönderdiğimiz komut (seek → play) gerçekten etki ediyor mu?
+
+  İlk denemede komutlar JSON **metni** olarak gönderildi ve hiçbiri etki etmedi.
+  İkinci denemede aynı komutlar elle, sayfa yüklendikten ~90 sn sonra **nesne**
+  olarak gönderildi ve VK'da `seeked`/`started`/`timeupdate` akışı başladı; ama
+  otomatik koşuda (komutlar 2. saniyede) nesne biçimi de sessiz kaldı. Bu yüzden
+  asıl değişken **biçim değil zamanlama** olabilir: VK'nın dış sarmalayıcısı
+  gelen mesaj dinleyicisini oynatıcı açıldıktan sonra kuruyor olabilir.
+
+  Bu sürüm ikisini birbirinden ayırır: her host'a 6 deneme yapılır — ilk üçü
+  **nesne**, son üçü **metin** biçiminde, 4'er saniye arayla. Hangi denemenin
+  hareket ürettiği kaydedilir; böylece hem biçim hem gecikme sorusu cevaplanır.
+
+  Ölçüt: hedef saniyeye seek'ten sonra |time - hedef| <= 8 olan bir olay VEYA
+  state=playing / event=started gelmesi. Yanıt yoksa host "opak" sınıfındadır:
+  görsel iframe kalır, oynat/duraklat düğmesi gösterilmez.
+
+  Çalıştırma: python -m http.server 8021 --directory tools  →  /kopru-komut-test.html
+  Sonuç: window.__KOMUT__ (JSON)
+-->
+<style>
+  body { font: 13px/1.45 system-ui, sans-serif; margin: 16px; background: #111; color: #eee; }
+  table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+  th, td { border: 1px solid #333; padding: 5px 7px; text-align: left; vertical-align: top; }
+  th { background: #1d1d1d; }
+  .ok { color: #4ade80; } .no { color: #f87171; } .bekle { color: #fbbf24; }
+  .kutular { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .kutu { width: 300px; }
+  iframe { width: 300px; height: 169px; border: 1px solid #333; background: #000; }
+  code { color: #93c5fd; }
+</style>
+<h1>Köprü komut testi (faz 2)</h1>
+<p>
+  Her host için: <code>inited</code> olayı geldikten sonra <b>seek</b> komutu (hedef <span id="hedef">–</span> sn)
+  ve 6 sn sonra <b>play</b> komutu gönderilir; 20 sn boyunca olaylar dinlenir.
+</p>
+
+<div class="kutular" id="kutular"></div>
+<table>
+  <thead>
+    <tr><th>Host</th><th>Durum</th><th>Gönderilen</th><th>Gelen olay (zaman damgalı)</th><th>Hüküm</th></tr>
+
+    <!-- Faz 2 · ölçüm 2: nesne biçimi konuşuyor (metin biçimi sessiz kaldı). -->
+  </thead>
+  <tbody id="govde"></tbody>
+</table>
+
+<script>
+/* Sitenin uyguladığı niteliklerin birebir aynısı (IzleIstemci.tsx). */
+const SANDBOX = 'allow-scripts allow-same-origin allow-presentation allow-popups allow-forms';
+const HEDEF = 100;
+const DENEME_SAYISI = 6;
+const DENEME_ARASI_MS = 4000;
+const GOZLEM_MS = 8000;
+const PLAY_GECIKME_MS = 1200;
+
+/* Denemelerin hangi biçimi kullandığı: 1-3 nesne, 4-6 metin. */
+function bicimFor(deneme) {
+  return deneme <= 3 ? 'nesne' : 'metin';
+}
+
+/* Faz 1'de cevap verdiği kanıtlanan üç host. Sibnet/Dailymotion kapsam dışı. */
+const TESTLER = [
+  {
+    id: 'vk',
+    ad: 'VK · video_ext.php + js_api=1',
+    url: 'https://vk.com/video_ext.php?oid=246903127&id=167933218&hash=fa116c68bb4e0d3b&hd=1&js_api=1',
+    origin: 'https://vk.com',
+    seek: (sn) => [{ method: 'seek', time: sn }, { method: 'seek', seconds: sn }],
+    play: () => [{ method: 'play' }, { method: 'playVideo' }],
+  },
+  {
+    id: 'ok',
+    ad: 'Odnoklassniki · videoembed',
+    url: 'https://odnoklassniki.ru/videoembed/2145592347270',
+    origin: 'https://ok.ru',
+    seek: (sn) => [{ method: 'seek', time: sn }, { command: 'seek', time: sn }],
+    play: () => [{ method: 'play' }, { command: 'play' }],
+  },
+  {
+    id: 'mail',
+    ad: 'Mail.ru · my.mail.ru/video/embed',
+    url: 'https://my.mail.ru/video/embed/4898784563322425187',
+    origin: 'https://my.mail.ru',
+    seek: (sn) => [{ method: 'seek', time: sn }, { command: 'seek', time: sn }],
+    play: () => [{ method: 'play' }, { command: 'play' }],
+  },
+];
+
+document.getElementById('hedef').textContent = HEDEF;
+
+const govde = document.getElementById('govde');
+const satirlar = new Map();
+
+for (const t of TESTLER) {
+  const kutu = document.createElement('div');
+  kutu.className = 'kutu';
+  kutu.innerHTML = `<div>${t.ad}</div>`;
+  const iframe = document.createElement('iframe');
+  iframe.src = t.url;
+  iframe.setAttribute('sandbox', SANDBOX);
+  iframe.setAttribute('referrerPolicy', 'no-referrer');
+  iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
+  kutu.appendChild(iframe);
+  document.getElementById('kutular').appendChild(kutu);
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${t.ad}</td><td class="bekle">bekleniyor</td><td></td><td></td><td class="bekle">–</td>`;
+  govde.appendChild(tr);
+
+  satirlar.set(t.id, {
+    test: t,
+    iframe,
+    tr,
+    olaylar: [],
+    gonderilen: [],
+    inited: false,
+    asama: 'init-bekliyor',
+    hüküm: null,
+    denemeler: [],
+    basladi: Date.now(),
+  });
+}
+
+function yaz(id) {
+  const s = satirlar.get(id);
+  const td = s.tr.children;
+  td[1].textContent = s.asama;
+  td[2].textContent = s.gonderilen.join(' · ') || '–';
+  td[3].innerHTML = s.olaylar
+    .map((o) => `<div>[${o.t} ms] <code>${String(o.veri).slice(0, 150)}</code></div>`)
+    .join('') || '<i>olay yok</i>';
+  td[4].textContent = s.hüküm ?? '–';
+  td[4].className = s.hüküm ? (s.hüküm.startsWith('✓') ? 'ok' : 'no') : 'bekle';
+  window.__KOMUT__ = {
+    hedef: HEDEF,
+    bitti: [...satirlar.values()].every((x) => x.hüküm !== null),
+    satirlar: [...satirlar.values()].map((x) => ({
+      id: x.test.id,
+      ad: x.test.ad,
+      asama: x.asama,
+      gonderilen: x.gonderilen,
+      olaylar: x.olaylar,
+      hüküm: x.hüküm,
+      bicim: x.bicim ?? null,
+      basariliDeneme: x.basariliDeneme ?? null,
+      denemeler: x.denemeler ?? [],
+      olayTuru: x.turler ?? null,
+      sure: x.sure ?? null,
+    })),
+  };
+}
+
+function gonder(s, govdeler, etiket, bicim, deneme) {
+  for (const g of govdeler) {
+    const yuk = bicim === 'nesne' ? g : JSON.stringify(g);
+    try {
+      s.iframe.contentWindow.postMessage(yuk, '*');
+      s.iframe.contentWindow.postMessage(yuk, s.test.origin);
+    } catch (e) {
+      s.gonderilen.push(`${deneme}.${etiket}(${bicim}) HATA:${e.message}`);
+      continue;
+    }
+    s.gonderilen.push(`${deneme}.${etiket}(${bicim}):${JSON.stringify(g)}`);
+  }
+  s.asama = `${deneme}. deneme gönderildi (${bicim})`;
+  yaz(s.test.id);
+}
+
+function denemeYap(s) {
+  const deneme = s.denemeler.length + 1;
+  const bicim = bicimFor(deneme);
+  const kayit = { deneme, bicim, t: Date.now() - s.basladi, olayOncesi: s.olaylar.length, hareket: null };
+  s.denemeler.push(kayit);
+  gonder(s, s.test.seek(HEDEF), 'seek', bicim, deneme);
+  setTimeout(() => {
+    gonder(s, s.test.play(), 'play', bicim, deneme);
+    /* Bu denemenin sonucu: sonraki denemeye geçmeden önce olayları say. */
+    setTimeout(() => {
+      kayit.yeniOlay = s.olaylar.length - kayit.olayOncesi;
+      kayit.hareket = hareketVar(s);
+      if (kayit.hareket.oynuyor || kayit.hareket.hedefe) kayit.sonuc = '✓ hareket';
+      else kayit.sonuc = kayit.yeniOlay ? `yalnız ${kayit.yeniOlay} olay` : 'sessiz';
+      yaz(s.test.id);
+      if (kayit.sonuc === '✓ hareket' || s.denemeler.length >= DENEME_SAYISI) {
+        setTimeout(() => hükümVer(s), GOZLEM_MS);
+      } else {
+        setTimeout(() => denemeYap(s), DENEME_ARASI_MS - (PLAY_GECIKME_MS + 2000));
+      }
+    }, PLAY_GECIKME_MS + 2000);
+  }, PLAY_GECIKME_MS);
+}
+
+function olaylarDuz(s) {
+  return s.olaylar
+    .map((o) => {
+      try {
+        const v = JSON.parse(o.veri);
+        return { ...v, _t: o.t };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+/* Hareket ölçütü: hedef saniyeye yakın bir zaman VEYA oynuyor durumu. */
+function hareketVar(s) {
+  const v = olaylarDuz(s);
+  const oynuyor = v.some((x) => x.state === 'playing' || x.event === 'started' || x.event === 'playing');
+  const hedefe = v.some((x) => typeof x.time === 'number' && Math.abs(x.time - HEDEF) <= 8);
+  return { oynuyor, hedefe };
+}
+
+function hükümVer(s) {
+  if (s.hüküm) return;
+  const { oynuyor, hedefe } = hareketVar(s);
+  const turler = {};
+  for (const v of olaylarDuz(s)) turler[v.event || '(düz metin)'] = (turler[v.event || '(düz metin)'] || 0) + 1;
+  s.turler = turler;
+  const sure = olaylarDuz(s).map((x) => x.duration).find((d) => typeof d === 'number' && d > 0) ?? null;
+  s.sure = sure;
+  s.bicim = (s.denemeler.find((d) => d.sonuc === '✓ hareket') || {}).bicim ?? null;
+  s.basariliDeneme = (s.denemeler.find((d) => d.sonuc === '✓ hareket') || {}).deneme ?? null;
+  if (oynuyor || hedefe) {
+    s.hüküm = `✓ komut çalıştı${s.bicim ? ` (${s.bicim} biçimi, ${s.basariliDeneme}. deneme)` : ''}${oynuyor ? ' · playing' : ''}${hedefe ? ` · time≈${HEDEF}` : ''}`;
+  } else if (s.olaylar.length) {
+    s.hüküm = `✗ yalnızca olay var, komut etkisi yok (${s.olaylar.length} olay)`;
+  } else {
+    s.hüküm = '✗ hiç olay yok — konuşmuyor';
+  }
+  s.asama = 'bitti';
+  yaz(s.test.id);
+}
+
+window.addEventListener('message', (olay) => {
+  const s = [...satirlar.values()].find((x) => {
+    const beklenen = x.test.origin;
+    return olay.origin === beklenen || (x.test.id === 'ok' && olay.origin === 'https://ok.ru');
+  });
+  if (!s) return;
+  s.olaylar.push({ t: Date.now() - s.basladi, origin: olay.origin, veri: typeof olay.data === 'string' ? olay.data : JSON.stringify(olay.data) });
+  const duz = String(typeof olay.data === 'string' ? olay.data : JSON.stringify(olay.data));
+  if (!s.inited && /inited/.test(duz)) {
+    s.inited = true;
+    s.asama = 'komut gönderiliyor';
+    /* Komut dinleyicisini en erken anda dene, sonucu denemeler tablosuna yaz. */
+    denemeYap(s);
+  }
+  yaz(s.test.id);
+});
+
+/* init olayı gelmezse de sonuç yaz (boş hüküm ekranda kalmasın). */
+setTimeout(() => {
+  for (const s of satirlar.values()) if (!s.hüküm) hükümVer(s);
+}, DENEME_ARASI_MS * DENEME_SAYISI + GOZLEM_MS + PLAY_GECIKME_MS + 6000);
+</script>
+</html>

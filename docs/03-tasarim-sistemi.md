@@ -89,9 +89,24 @@ görünüyor. Kırpım penceresi `object-position: center 30%` ile ortadan biraz
 görsellerin odağı üst-orta bölgede). Ölçü `tools/testler/tmdb.test.mjs` tarafından `globals.css`
 okunarak doğrulanır: CSS değişip kırpım %50'nin altına inerse test kırmızıya döner.
 
+### Oynatıcı köprü şeridi (02.10)
+
+`/izle` sayfasında iframe'in altında ince bir şerit var: `.oynatici-kopru`. Yalnızca postMessage
+API'si yayınlayan kaynakta görünür (ölçüm: `docs/04`):
+
+- `.oynatici-kopru-nokta` — 8 px durum noktası; `.canli` sınıfı **yalnızca kaynak gerçekten cevap
+  verdiğinde** eklenir (yeşil). Kaynak değişip köprü kurulmazsa nokta gri kalır: sessiz durumu
+  canlı gibi göstermeyiz.
+- `.oynatici-kopru-saat` — `font-variant-numeric: tabular-nums`, çünkü saniye sayacı her saniye
+  değişiyor; orantılı rakamlarda genişlik oynar ve şerit titrer.
+- `.oynatici-kopru-dugmeler` — yalnız **komut kanalı kanıtlanmış** host'ta basılır. Kanıt yoksa
+  yerine `.oynatici-kopru-not` ("bu kaynak kendi oynatıcısını kullanır") gelir. Kural: ölü düğme
+  göstermek, düğme göstermemekten kötüdür.
+
 ## Erişilebilirlik
 
 - `lang="tr"`, "İçeriğe geç" bağlantısı, `aria-label`/`aria-pressed`/`aria-selected` alanları
+- Köprü durum noktası dekoratif (`aria-hidden`): anlamı taşıyan şey yanındaki metin ve saattir
 - Oynatıcıda tam klavye gezinme: `←/→` bölüm, `1-9` kaynak, `F` tam ekran, `/` arama
 - Görsel gölgeler ve kontrast: gövde metni `#f4effc` üzerine `#08060d` (≈18:1)
 - Anlamlı görsellere `alt`, dekoratif olanlara `alt="" aria-hidden="true"`

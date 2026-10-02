@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Köprü testi — hangi embed postMessage'a cevap veriyor?</title>
+<!--
+  kopru-test.html — köprü (postMessage) ölçüm sayfası
+  ===================================================
+  Neden var? Oynatıcıyı "kabuk" olarak geliştirmenin sınırı, kaynak host'unun
+  resmî bir postMessage API'si olup olmamasıdır. Bu sayfa, sitenin gerçek
+  kaynaklarından alınmış embed adreslerini **sitenin birebir aynı iframe
+  nitelikleriyle** gömer (sandbox + referrerPolicy="no-referrer"), ardından
+  yaygın API el sıkışmalarını dener ve iframe'den GELEN her mesajı kaydeder.
+
+  Ölçüm kuralı: bir embed, bizim mesajlarımıza karşılık mesaj göndermiyorsa o
+  host için kontrol çubuğu çizmek yanıltıcıdır (ölü düğme göstermek, hiç
+  göstermemekten kötüdür). Sonuç `window.__KOPRU__` içinde durur ve sayfada
+  tablo olarak da görünür.
+
+  Kullanım (yerel, elle):
+      python -m http.server 8021 --directory tools
+      # sonra tarayıcıda: http://127.0.0.1:8021/kopru-test.html
+  Ağ erişimi gerekir; site derlemesine dahil edilmez (public/ altında değildir).
+-->
+<style>
+  :root { color-scheme: dark }
+  body { margin: 0; background: #0d0f14; color: #e7e9ee; font: 14px/1.5 ui-sans-serif, system-ui, sans-serif; padding: 18px }
+  h1 { font-size: 17px; margin: 0 0 4px }
+  p.not { color: #9aa3b2; margin: 0 0 14px; max-width: 900px }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 18px }
+  th, td { border: 1px solid #242a36; padding: 6px 8px; text-align: left; vertical-align: top; font-size: 12.5px }
+  th { background: #151a22; font-weight: 600 }
+  .kutu { border: 1px solid #242a36; border-radius: 10px; padding: 10px; margin-bottom: 12px; background: #11151c }
+  .kutu h2 { font-size: 13px; margin: 0 0 6px; font-weight: 600 }
+  .kutu code { color: #8fd0ff; word-break: break-all; font-size: 11.5px }
+  iframe { width: 100%; max-width: 560px; aspect-ratio: 16/9; border: 1px solid #232a36; border-radius: 8px; background: #000; display: block; margin-top: 8px }
+  .ok { color: #6ee7a8 } .yok { color: #ff9b9b } .bekle { color: #ffd479 }
+  pre { background: #0a0d12; border: 1px solid #1d2330; border-radius: 8px; padding: 8px; max-height: 260px; overflow: auto; font-size: 11.5px }
+</style>
+</head>
+<body>
+<h1>Köprü testi · embed'ler postMessage'a cevap veriyor mu?</h1>
+<p class="not">
+  Her satır, sitenin <code>IzleIstemci</code> bileşenindeki ile birebir aynı iframe nitelikleriyle
+  (<code>sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-forms"</code>,
+  <code>referrerPolicy="no-referrer"</code>) yüklenir. Yükleme sonrası sırayla yaygın API komutları
+  gönderilir; iframe'den dönen her mesaj kaydedilir. "Cevap" sütunu, o host'un bize bir şey
+  gönderip göndermediğini gösterir — köprü yalnızca cevap veren host'ta kurulabilir.
+</p>
+
+<div id="sonuc"></div>
+<div class="kutu">
+  <h2>Ham kayıt (<code>window.__KOPRU__</code>)</h2>
+  <pre id="ham">çalışıyor…</pre>
+</div>
+<div id="kareler"></div>
+
+<script>
+/* ------------------------------------------------------------------ */
+/* Test hedefleri: gerçek veriden alınmış, doğrulanmış (durum=ok) URL'ler */
+/* ------------------------------------------------------------------ */
+const VK_DUZ = 'https://vk.com/video_ext.php?oid=246903127&id=167933218&hash=fa116c68bb4e0d3b&hd=1';
+const OK_URL = 'https://odnoklassniki.ru/videoembed/2145592347270';
+const MAIL_URL = 'https://my.mail.ru/video/embed/4898784563322425187';
+const DM_URL = 'https://www.dailymotion.com/embed/video/x82sry8';
+const SIBNET_URL = 'https://video.sibnet.ru/shell.php?videoid=1098064';
+
+const TESTLER = [
+  {
+    id: 'vk-jsapi',
+    ad: 'VK · video_ext.php + js_api=1 (href.li sarmalayıcısı temizlendi)',
+    url: `${VK_DUZ}&js_api=1`,
+    not: 'VK resmî API iddiası: js_api=1 ile postMessage açılır',
+  },
+  {
+    id: 'vk-duz',
+    ad: 'VK · js_api parametresiz (kontrol)',
+    url: VK_DUZ,
+    not: 'Parametre eklenmezse köprü kurulmuyor mu?',
+  },
+  {
+    id: 'vk-referrerli',
+    ad: 'VK · js_api=1 + referrerPolicy YOK (kontrol)',
+    url: `${VK_DUZ}&js_api=1`,
+    referrer: false,
+    not: 'no-referrer engelliyorsa bu satır cevap verir',
+  },
+  {
+    id: 'ok',
+    ad: 'Odnoklassniki · videoembed',
+    url: OK_URL,
+    not: 'OK player API iddiası',
+  },
+  {
+    id: 'mail',
+    ad: 'Mail.ru · my.mail.ru/video/embed',
+    url: MAIL_URL,
+    not: 'VK ailesi; ayrı protokol olabilir',
+  },
+  {
+    id: 'dm-postmessage',
+    ad: 'Dailymotion · embed + api=postMessage',
+    url: `${DM_URL}?api=postMessage`,
+    not: 'DM resmî postMessage modu',
+  },
+  {
+    id: 'sibnet',
+    ad: 'Sibnet · shell.php (kaynakların %42 payı — API beklentisi yok)',
+    url: SIBNET_URL,
+    not: 'Kontrol grubu: cevap gelmemesi beklenir',
+  },
+];
+
+/* Sırayla denenecek el sıkışma biçimleri (farklı host'lar farklı şema kullanır). */
+const KOMUTLAR = [
+  { etiket: 'method:play', veri: { method: 'play' } },
+  { etiket: 'method:seek', veri: { method: 'seek', params: [30] } },
+  { etiket: 'command:play', veri: { command: 'play' } },
+  { etiket: 'event:command/func', veri: { event: 'command', func: 'play', args: [] } },
+  { etiket: 'api:play', veri: { api: 1, method: 'play' } },
+];
+
+const kayit = { basladi: new Date().toISOString(), testler: [], bitti: false };
+window.__KOPRU__ = kayit;
+
+/**
+ * iframe pencereleri KAYIT NESNESİNİN DIŞINDA tutulur: cross-origin bir Window
+ * referansını JSON.stringify etmek SecurityError atar ve ölçümü ortasında keser
+ * (ilk koşuda tam olarak bu oldu).
+ */
+const pencereler = new Map();
+
+/** iframe'den gelen mesajları test kimliğine göre toplar. */
+window.addEventListener('message', (e) => {
+  try {
+    for (const t of kayit.testler) {
+      if (e.source === pencereler.get(t.id)) {
+        t.gelen.push({
+          t: Date.now() - t.baslangic,
+          origin: e.origin,
+          veri: String(typeof e.data === 'string' ? e.data : JSON.stringify(e.data)).slice(0, 300),
+        });
+        ciz();
+      }
+    }
+  } catch (hata) {
+    kayit.hata = String(hata && hata.message);
+  }
+});
+
+function ciz() {
+  document.getElementById('sonuc').innerHTML = `
+    <table>
+      <tr><th>Test</th><th>URL</th><th>Cevap</th><th>Gelen mesaj</th><th>Gönderilen</th></tr>
+      ${kayit.testler.map((t) => {
+        const cevap = t.gelen.length ? '<span class="ok">VAR</span>' : (t.gonderildi.length ? '<span class="yok">yok</span>' : '<span class="bekle">bekliyor</span>');
+        return `<tr>
+          <td>${t.id}<br><span style="color:#9aa3b2">${t.ad}</span></td>
+          <td><code>${t.url.replace(/&/g, '&amp;')}</code></td>
+          <td>${cevap}</td>
+          <td>${t.gelen.slice(0, 3).map((g) => `<code>${g.origin} · ${g.veri.replace(/</g, '&lt;')}</code>`).join('<br>') || '—'}</td>
+          <td>${t.gonderildi.map((g) => `${g.etiket}${g.sonuc === 'kapali' ? ' ✗' : ''}`).join(' · ') || '—'}</td>
+        </tr>`;
+      }).join('')}
+    </table>`;
+  try {
+    document.getElementById('ham').textContent = JSON.stringify(kayit, null, 1);
+  } catch (hata) {
+    document.getElementById('ham').textContent = `JSON hatası: ${hata.message}`;
+  }
+}
+
+const uyu = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function kos() {
+  const kareler = document.getElementById('kareler');
+  for (const t of TESTLER) {
+    t.gelen = [];
+    t.gonderildi = [];
+    t.baslangic = Date.now();
+
+    const kutu = document.createElement('div');
+    kutu.className = 'kutu';
+    kutu.innerHTML = `<h2>${t.id} · ${t.ad}</h2><code>${t.url.replace(/&/g, '&amp;')}</code><div style="color:#9aa3b2;font-size:12px">${t.not || ''}</div>`;
+    const f = document.createElement('iframe');
+    f.id = `f-${t.id}`;
+    f.src = t.url;
+    f.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
+    f.setAttribute('allowfullscreen', '');
+    f.setAttribute('loading', 'eager');
+    // Sitenin birebir aynı nitelikleri (ölçümün anlamlı olması için şart).
+    f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allow-popups allow-forms');
+    if (t.referrer !== false) f.setAttribute('referrerpolicy', 'no-referrer');
+    kutu.appendChild(f);
+    kareler.appendChild(kutu);
+
+    pencereler.set(t.id, f.contentWindow); // message eşleşmesi için
+    kayit.testler.push(t);
+    ciz();
+  }
+
+  await uyu(6000); // iframe'lerin yüklenmesi için
+
+  for (const t of TESTLER) {
+    const kare = pencereler.get(t.id);
+    for (const k of KOMUTLAR) {
+      // Hem "*" hem host'un kendi origin'i denenir: bazı oynatıcılar hedef
+      // origin'i katı doğrular, bazıları yalnızca "*" ile dinler.
+      for (const hedef of ['*', new URL(t.url).origin]) {
+        try {
+          kare.postMessage(JSON.stringify(k.veri), hedef);
+        } catch { /* kare kapanmışsa yok say */ }
+      }
+      t.gonderildi.push({ etiket: k.etiket });
+      ciz();
+      await uyu(700);
+    }
+  }
+
+  kayit.bitti = true;
+  kayit.bittiZaman = new Date().toISOString();
+  ciz();
+}
+
+kos();
+</script>
+</body>
+</html>
