@@ -134,6 +134,10 @@ postMessage API'si** yayınlıyor. Tahmin etmek yerine iki test sayfası gerçek
 | [`tools/kopru-test.html`](../../tools/kopru-test.html) | Host olay yayınlıyor mu? | VK ✓ · Odnoklassniki ✓ · Mail.ru ✓ · Dailymotion ✗ · Sibnet ✗ |
 | [`tools/kopru-komut-test.html`](../../tools/kopru-komut-test.html) | Gönderdiğimiz komut etki ediyor mu? | Yalnız **VK** ✓ (1. denemede `seeked` + `started` + 34× `timeupdate`) |
 
+Ham kayıt (host başına alınan olay yükleri, kontrol satırları ve deneme sonuçları):
+[`docs/olcum/kopru-2026-10-02.json`](../olcum/kopru-2026-10-02.json). Ölçüm sayfaları repoda kalır;
+host davranışı değişirse yetenek tablosu tahminle değil aynı testle yeniden ölçülür.
+
 Ölçümün üç dersi (koda da yazıldı):
 
 1. **VK `js_api=1` olmadan konuşmuyor.** Parametre eklendiğinde `inited` (süre dahil: 1450 sn)

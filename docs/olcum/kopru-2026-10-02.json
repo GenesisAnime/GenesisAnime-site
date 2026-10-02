@@ -1,0 +1,108 @@
+{
+  "olcum": "gömülü oynatıcı köprüsü (postMessage)",
+  "tarih": "2026-10-02",
+  "neden": "Oynatıcıya kontrol/telemetri eklemeden önce hangi kaynağın konuştuğunu ölçmek. Arayüz kararı bu kayda dayanır (ADR-0009).",
+  "nasil": "Chromium'da gerçek embed'ler, sitenin uyguladığı iframe niteliklerinin birebir aynısıyla (sandbox='allow-scripts allow-same-origin allow-presentation allow-popups allow-forms', referrerPolicy='no-referrer') yüklendi. Sayfalar: tools/kopru-test.html (olay kanalı), tools/kopru-komut-test.html (komut kanalı).",
+  "faz1_olay_kanali": {
+    "soru": "Host postMessage ile olay yayınlıyor mu?",
+    "satirlar": [
+      {
+        "host": "VK",
+        "adres": "https://vk.com/video_ext.php?oid=246903127&id=167933218&hash=fa116c68bb4e0d3b&hd=1&js_api=1",
+        "kaynak_veri": "public/data/anime/009-1.json (1. bölüm) — arşivde https://href.li/? sarmalayıcısıyla yazılı",
+        "gelen_olay_sayisi": 2,
+        "origin": "https://vk.com",
+        "ornek_yukler": [
+          "{\"videoId\":\"246903127_167933218\",\"state\":\"unstarted\",\"volume\":1,\"muted\":false,\"time\":0,\"duration\":1450,\"quality\":0,\"event\":\"inited\"}",
+          "{\"state\":\"unstarted\",\"volume\":1,\"muted\":false,\"time\":0,\"duration\":1450,\"quality\":480,\"event\":\"qualitychange\"}"
+        ],
+        "sonuc": "✓ konuşuyor"
+      },
+      {
+        "host": "VK (js_api parametresiz, kontrol)",
+        "adres": "https://vk.com/video_ext.php?oid=246903127&id=167933218&hash=fa116c68bb4e0d3b&hd=1",
+        "gelen_olay_sayisi": 0,
+        "sonuc": "✗ js_api=1 zorunlu"
+      },
+      {
+        "host": "VK (js_api=1, referrerPolicy yok, kontrol)",
+        "gelen_olay_sayisi": 2,
+        "sonuc": "olay yok — no-referrer engellemiyor (referrerPolicy'li satırla aynı davranış)"
+      },
+      {
+        "host": "Odnoklassniki",
+        "adres": "https://odnoklassniki.ru/videoembed/2145592347270",
+        "gelen_olay_sayisi": 2,
+        "origin": "https://ok.ru",
+        "ornek_yukler": [
+          "{\"data\":{\"type\":\"initToParent\",\"counterId\":87663567,\"hid\":\"137924979\"},\"__yminfo\":\"...\"}",
+          "{\"event\":\"inited\"}"
+        ],
+        "sonuc": "✓ konuşuyor (ancak saniye/süre yok)"
+      },
+      {
+        "host": "Mail.ru",
+        "adres": "https://my.mail.ru/video/embed/4898784563322425187",
+        "gelen_olay_sayisi": 3,
+        "origin": "https://my.mail.ru",
+        "ornek_yukler": ["{\"event\":\"inited\",\"time\":0}", "{\"event\":\"autoplay\",\"autoplay\":0}", "\"inited\""],
+        "sonuc": "✓ konuşuyor (saniye/süre yok)"
+      },
+      {
+        "host": "Dailymotion",
+        "adres": "https://www.dailymotion.com/embed/video/x82sry8?api=postMessage",
+        "gelen_olay_sayisi": 0,
+        "sonuc": "✗ sessiz"
+      },
+      {
+        "host": "Sibnet (kaynakların ~%42'si, kontrol grubu)",
+        "adres": "https://video.sibnet.ru/shell.php?videoid=1098064",
+        "gelen_olay_sayisi": 0,
+        "sonuc": "✗ sessiz (beklendiği gibi)"
+      }
+    ]
+  },
+  "faz2_komut_kanali": {
+    "soru": "Gönderdiğimiz komut (seek → play) etki ediyor mu?",
+    "yonlendirilen_mesajlar": ["{\"method\":\"seek\",\"time\":100}", "{\"method\":\"play\"}", "{\"method\":\"pause\"}"],
+    "deneme_duzeni": "6 deneme, 4 sn arayla; ilk üçü nesne biçiminde, son üçü JSON metni olarak. Ölçüt: |time - 100| ≤ 8 olan bir olay VEYA state=playing/event=started.",
+    "satirlar": [
+      {
+        "host": "VK",
+        "sonuc": "✓ komut çalıştı — 1. deneme, nesne biçimi",
+        "gelen_olay_sayisi": 38,
+        "olay_dagilimi": { "inited": 1, "qualitychange": 1, "timeupdate": 34, "seeked": 1, "started": 1 },
+        "durumlar": { "playing": 30, "paused": 2, "unstarted": 1 },
+        "kanit": "seeked olayı time=100 ile geldi (hedef tam isabetli), ardından started + playing ve 34 timeupdate",
+        "sure_saniye": 1450
+      },
+      {
+        "host": "Odnoklassniki",
+        "sonuc": "✗ 6 denemede sessiz",
+        "deneme_sonuclari": ["sessiz", "sessiz", "sessiz", "sessiz", "sessiz", "sessiz"],
+        "gelen_olay_sayisi": 2,
+        "olay_dagilimi": { "initToParent": 1, "inited": 1 }
+      },
+      {
+        "host": "Mail.ru",
+        "sonuc": "✗ 6 denemede sessiz",
+        "deneme_sonuclari": ["yalnız 2 olay", "sessiz", "sessiz", "sessiz", "sessiz", "sessiz"],
+        "gelen_olay_sayisi": 3,
+        "olay_dagilimi": { "inited": 1, "autoplay": 1, "düz metin": 1 }
+      }
+    ],
+    "yol_boyunca_duzeltilen_iki_hata": [
+      "İlk koşuda komutlar JSON metni olarak gönderildi ve üç host da sessiz kaldı; 'hiçbir kaynak kontrol edilemiyor' sonucu neredeyse yazılıyordu. Aynı komutlar nesne olarak gönderilince VK kabul etti.",
+      "Komut, oynatıcı gelen mesaj dinleyicisini kurmadan gönderilirse kayboluyor; bu yüzden üretimde komut onay olayı gelene kadar yinelenir."
+    ]
+  },
+  "uretime_etkisi": {
+    "kopru_tablosu": {
+      "vk": { "komut": true, "telemetri": true, "hazirSinyali": true },
+      "ok": { "komut": false, "telemetri": false, "hazirSinyali": true },
+      "mail": { "komut": false, "telemetri": false, "hazirSinyali": true }
+    },
+    "kaynak_paylari": { "Sibnet": "42,1% (opak)", "Mail.ru": "27,9% (yalnız hazır sinyali)", "Odnoklassniki": "11,5% (yalnız hazır sinyali)", "VK": "7,1% (tam köprü)", "diğer": "10,6% (opak)" },
+    "dogrulama": "Derlenmiş sitede (yerel ve canlı) /izle/?a=009-1&b=1 → VK kaynağı: iframe src sarmalayıcısız + js_api=1, şerit '2:03 / 24:11' gösterdi, '+10 sn' sonrası 2:03, 'Oynat' sonrası 2:26 ve düğme 'Duraklat'a döndü."
+  }
+}

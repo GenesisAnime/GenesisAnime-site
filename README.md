@@ -154,6 +154,8 @@ AniList GraphQL (önbellekli)┘            │                                 
 | `npm run dev` | Geliştirme sunucusu |
 | `npm run build` | Statik dışa aktarım (`out/`) |
 | `npm run typecheck` | `tsc --noEmit` |
+| `python tools/onizle-sunucu.py 8031` | Derlenmiş `out/` klasörünü `/GenesisAnime` önekiyle servis eder (statik dışa aktarımda yerel önizleme) |
+| `python -m http.server 8021 --directory tools` | Köprü ölçüm sayfalarını açar: `/kopru-test.html`, `/kopru-komut-test.html` |
 | `npm test` | `tools/` birim + veri/çıktı bütünlüğü testleri (ağsız, bağımlılıksız; `node:test`) |
 | `npm run yayin:hazirla` | `.nojekyll`, çıktı ölçümü, yayın raporu |
 

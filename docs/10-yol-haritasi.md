@@ -77,7 +77,9 @@ href.li, uqload, videoapi vb. tükendi).
 
 | Fikir | Değer |
 |---|---|
-| "Kaldığın yerden devam" için gerçek konum takibi | Farklı kaynaklarda cross-origin kısıt; kendi proxy'si olmadan mümkün değil |
+| ~~"Kaldığın yerden devam" için gerçek konum takibi~~ | ✅ kısmen 02.10: kaynakların %7'sinde (VK) postMessage köprüsü ile **gerçek konum/süre** okunuyor ve oynat/duraklat/sar komutları çalışıyor; kalan %93 opak (Sibnet tek başına %42) — kendi proxy'si olmadan mümkün değil. Ölçüm: [04](04-oynatici-ve-kaynaklar.md) · [olcum/kopru-2026-10-02.json](olcum/kopru-2026-10-02.json) · ADR-0009 |
+| Yüzdelik ilerleme çubuğu ve otomatik bölüm sonu | Köprü olan hostta bile "bölüm bitti" olayı güvenilir değil; ayrı ölçüm ve ayrı karar gerektirir |
+| Opak host'lar için tarayıcı katmanı (sekme içi zaman ölçümü) | Kaynak davranışı değişmeden kontrol yok; yalnız "ne kadar süre açık kaldı" tahmini iyileştirilebilir |
 | ~~Franchise/seri sayfaları~~ | ✅ 01.10: 961 seri grubu, `/seriler/` + `/seri/<slug>/` |
 | Klavye ile tam gezinme ("/", "g h", "g k" komutları) | Güç kullanıcılar |
 | ~~Rastgele bölüm / "Şansıma ne çıkarsa"~~ | ✅ 01.10: hero'daki düğme havuzdan rastgele bölüm açıyor |
