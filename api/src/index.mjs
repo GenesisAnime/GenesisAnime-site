@@ -36,6 +36,7 @@
  */
 
 import {
+  AKIS_GUNLUK_SINIR,
   BILDIRIM_DURUMLARI,
   BILDIRIM_GUNLUK_SINIR,
   BLOB_GOVDE_SINIRI,
@@ -399,6 +400,22 @@ async function taramaKalp(istek, env, cors) {
 /* ================================================================ */
 
 /**
+ * `/akis/coz` için günlük IP sınırı (ölçüm: docs/12 risk listesi #5).
+ *
+ * Önbellek **vuruşları sayılmaz**: sınır, yukarı akışa çıkan gerçek
+ * çözümlemeleri hedefler — uç her çözümlemede kaynağa iki istek yapıyor
+ * (embed + meta). Aynı kaynağı yeniden izlemek önbellekten döner, sayaca
+ * dokunmaz. D1 bağlı değilse (ör. yerel dev) sınır uygulanmaz.
+ */
+async function akisOraniUygun(istek, env) {
+  if (!env.DB) return true;
+  const ip = istek.headers.get('CF-Connecting-IP') || 'yok';
+  const ipHash = await ipTuzla(ip, env.IP_TUZ || env.JWT_SECRET || 'genesis');
+  const gun = new Date().toISOString().slice(0, 10);
+  return !(await oranAsildi(env.DB, `akis:${ipHash}`, gun, AKIS_GUNLUK_SINIR));
+}
+
+/**
  * `GET /akis/coz?kaynak=<embed adresi>`
  *
  * Embed adresini doğrudan akışa çevirir. İmzalar günlük olduğu için sonuç
@@ -424,6 +441,12 @@ async function akisCozUc(istek, env, cors) {
   if (vurulan) {
     const veri = await vurulan.json();
     return json(veri, 200, { ...cors, 'X-Akis-Onbellek': 'vuruldu' });
+  }
+
+  /* Sınır burada: yalnızca gerçek çözümleme (önbellek vuruşu ücretsiz).
+     Aşılırsa istemci iframe yoluna düşer — sessiz bir gerileme değil. */
+  if (!(await akisOraniUygun(istek, env))) {
+    return json({ ok: false, hata: 'cok-fazla-istek' }, 429, cors);
   }
 
   const sonuc = await akisCoz(kaynak, { siteOrigin: env.SITE_ORIGIN });

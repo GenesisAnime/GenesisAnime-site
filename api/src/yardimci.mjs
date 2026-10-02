@@ -30,6 +30,11 @@ export const PBKDF2_TAVAN = 100_000;
 export const PBKDF2_TUR = PBKDF2_TAVAN;
 export const BILDIRIM_GUNLUK_SINIR = 30; // IP başına
 export const GIRIS_SAATLIK_SINIR = 20; // IP başına
+/* `/akis/coz` yukarı akışa iki istek yapıyor (embed + meta); sınır **önbellek
+   vuruşlarını saymaz**, yalnız gerçek çözümlemeleri sayar. Günde 300 çözümleme
+   normal kullanımın çok üstünde (bölüm başına 1-2, kaynak değişiminde birkaç),
+   otomatik kötüye kullanıma karşı ise dar. */
+export const AKIS_GUNLUK_SINIR = 300; // IP başına
 export const GOVDE_SINIRI = 65_536; // 64 KB (genel uçlar)
 // /me/durum taşıma sınırı: iç içe JSON dizesi, tırnak kaçışıyla gövdeyi ~2 katına
 // şişirebilir; bu yüzden blob sınırının iki katı + pay bırakılır. Blob'un kendisi

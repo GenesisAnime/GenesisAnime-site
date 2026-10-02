@@ -5,7 +5,7 @@
 **Türkçe anime arşivi — %100 açık kaynak, tamamen statik, sunucusuz.**
 
 [![Lisans: MIT](https://img.shields.io/badge/lisans-MIT-green)](LICENSE)
-[![Testler: 201/201](https://img.shields.io/badge/testler-201%2F201-success)](docs/05-kalite-ve-testler.md)
+[![Testler: 202/202](https://img.shields.io/badge/testler-202%2F202-success)](docs/05-kalite-ve-testler.md)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
 [![Cloudflare Workers + D1](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-f38020)](docs/11-hesaplar-uygulama.md)
 
@@ -46,10 +46,10 @@ depodadır. Kapalı bileşen, gizli veri işleme veya reklam/izleyici betiği yo
 | Site derlemesi | 7.448 sayfa → `out/` 21.047 dosya / 880,5 MB (GitHub Pages uyumlu; CF Pages 20k sınırını aşıyor) |
 | Link sağlığı | kapsam **%58,72** — 173.030 `ok` · 301 `ölü` · 34 `engelli` · 12.861 `belirsiz` (ölçülebilir havuz tükendi) |
 | Otomasyon | günlük link döngüsü zamanlayıcıda (saatlik uyanır, günde bir koşar) · `/yonetim/` panelinden ayar + koşu geçmişi |
-| Testler | `npm test` **201/201** (ağsız) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
+| Testler | `npm test` **202/202** (ağsız) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
 | API | Cloudflare Worker + D1 yayında (bölge WEUR) · CORS yalnızca site kaynağına açık |
 | Son güncelleme | 3 Ekim 2026 |
-| Sıradaki işler | analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · akış köprüsü uçlarını üretim Worker'ına yayınlama (Mail.ru kendi oynatıcımızda hazır, [docs/12](docs/12-akis-koprusu.md)) · Odnoklassniki çözümleyicisi ([docs/10](docs/10-yol-haritasi.md)) |
+| Sıradaki işler | analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · akış köprüsü uçlarını üretim Worker'ına yayınlama (Mail.ru kendi oynatıcımızda hazır ve günlük sınırlı, [docs/12](docs/12-akis-koprusu.md)) · Odnoklassniki çözümleyicisi ([docs/10](docs/10-yol-haritasi.md)) |
 
 ## Hızlı başlangıç
 

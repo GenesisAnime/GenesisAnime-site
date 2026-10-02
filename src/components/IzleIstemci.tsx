@@ -321,7 +321,8 @@ export default function IzleIstemci() {
       if (akisSurumRef.current !== surum) return;
       if (!sonuc.ok) {
         setAkisDurum('basarisiz');
-        setAkisNotu('cozulemedi');
+        /* Sunucudaki günlük sınır (429) ayrı anlatılır: sebep kullanıcıya görünsün. */
+        setAkisNotu(sonuc.hata === 'cok-fazla-istek' ? 'akis-yogun' : 'cozulemedi');
         return;
       }
       if (!akisOynatilirMi(sonuc.akis.tur)) {

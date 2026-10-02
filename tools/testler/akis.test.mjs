@@ -206,6 +206,7 @@ test('oynatılabilir biçim yalnız mp4; her durum notunun metni var', { skip: a
   assert.equal(akis.akisOynatilirMi('dash'), false);
   for (const not of [
     'cozulemedi',
+    'akis-yogun',
     'tur-desteklenmiyor',
     'akis-durdu',
     'akis-erisilemedi',
@@ -227,5 +228,6 @@ test('oynatıcı: kendi <video> ve iframe yedeği yan yana durur', { skip: bicim
   assert.match(kaynak, /aktarimDurumu\(/, 'video hatasında gerçek neden yoklanmalı');
   assert.match(kaynak, /<iframe/, 'çözülemeyen kaynak bugünkü iframe yolunda kalmak zorunda');
   assert.match(kaynak, /akisAdayi\(aktifKaynak\[0\]/, 'kapsam dar tutulmalı: yalnız Mail.ru');
+  assert.match(kaynak, /'cok-fazla-istek' \? 'akis-yogun'/, 'sunucu sınırı (429) kullanıcıya ayrı anlatılmalı');
   assert.match(kaynak, /konumKaydet\(anime\.slug, bolum\.n, Math\.floor\(videoKonumRef\.current\)\)/, 'gerçek konum cihazda saklanmalı');
 });

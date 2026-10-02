@@ -283,6 +283,77 @@ test('uç: /akis/coz önbelleği kullanır, `?t=` ile atlar ve sonucu tazeler', 
   }
 });
 
+test('uç: /akis/coz günlük IP sınırını uygular, önbellek vuruşu sayılmaz', async () => {
+  const varsayilan = await import('../../api/src/index.mjs');
+  const kapi = varsayilan.default;
+
+  const eskiFetch = globalThis.fetch;
+  const eskiCaches = globalThis.caches;
+  let upstream = 0;
+  try {
+    globalThis.fetch = async (adres) => {
+      upstream += 1;
+      return String(adres).includes('/+/video/meta/')
+        ? new Response(META_JSON, { status: 200, headers: { 'content-type': 'application/json' } })
+        : new Response(EMBED_HTML, { status: 200, headers: { 'content-type': 'text/html' } });
+    };
+    globalThis.caches = { default: { async match() { return undefined; }, async put() {} } };
+
+    /* `oranAsildi`nin iki sorgusunu karşılayan minimal sahte D1 (bildirim testiyle aynı desen). */
+    const sayilar = new Map();
+    const db = {
+      prepare(sql) {
+        const s = sql.replace(/\s+/g, ' ').trim();
+        return {
+          bind(...p) {
+            return {
+              async run() {
+                if (s.startsWith('INSERT INTO oran')) {
+                  const mevcut = sayilar.get(p[0]);
+                  sayilar.set(p[0], { pencere: p[1], sayi: mevcut && mevcut.pencere === p[1] ? mevcut.sayi : 0 });
+                  return { meta: { changes: 1 } };
+                }
+                if (s.startsWith('UPDATE oran SET sayi = sayi + 1')) {
+                  const satir = sayilar.get(p[0]);
+                  if (!satir || satir.pencere !== p[1] || satir.sayi >= p[2]) return { meta: { changes: 0 } };
+                  satir.sayi += 1;
+                  return { meta: { changes: 1 } };
+                }
+                throw new Error('beklenmeyen sorgu: ' + s);
+              },
+            };
+          },
+        };
+      },
+    };
+
+    const env = { SITE_ORIGIN: 'https://nutaliaxd.github.io', DB: db, IP_TUZ: 'tuz' };
+    const istek = () =>
+      new Request(`https://api.test/akis/coz?kaynak=${encodeURIComponent(EMBED)}&t=${Math.random()}`, {
+        headers: { 'CF-Connecting-IP': '203.0.113.7' },
+      });
+
+    const ilk = await kapi.fetch(istek(), env, {});
+    assert.equal(ilk.status, 200, 'sınırın altında çözümleme yapılmalı');
+    const ikinci = await kapi.fetch(istek(), env, {});
+    assert.equal(ikinci.status, 200);
+    assert.equal(upstream, 4, 'iki çözümleme = dört yukarı akış isteği (embed + meta, 2 kez)');
+
+    /* Sınırı yapay olarak doldur: sonraki istek 429 almalı ve kaynağa HİÇ gitmemeli. */
+    const anahtar = [...sayilar.keys()].find((k) => String(k).startsWith('akis:'));
+    assert.ok(anahtar, 'sayaç akis: önekli olmalı');
+    sayilar.get(anahtar).sayi = 1_000_000;
+    const asildi = await kapi.fetch(istek(), env, {});
+    assert.equal(asildi.status, 429);
+    assert.equal((await asildi.json()).hata, 'cok-fazla-istek');
+    assert.equal(upstream, 4, 'sınır aşılınca kaynağa istek gitmemeli');
+  } finally {
+    globalThis.fetch = eskiFetch;
+    if (eskiCaches === undefined) delete globalThis.caches;
+    else globalThis.caches = eskiCaches;
+  }
+});
+
 test('yolCoz: köprü uçları yönlendiricide tanımlı', () => {
   assert.deepEqual(yardimci.yolCoz('/akis/coz', 'GET'), { islem: 'akis-coz' });
   assert.deepEqual(yardimci.yolCoz('/akis/aktar', 'GET'), { islem: 'akis-aktar' });

@@ -204,6 +204,7 @@ export function akisOynatilirMi(tur: string): boolean {
 /** Kullanıcıya gösterilen durum notları (tek kaynaktan; bileşen metin yazmaz). */
 export type AkisNotu =
   | 'cozulemedi'
+  | 'akis-yogun'
   | 'tur-desteklenmiyor'
   | 'akis-durdu'
   | 'akis-erisilemedi'
@@ -212,6 +213,7 @@ export type AkisNotu =
 
 const NOTLAR: Record<AkisNotu, string> = {
   cozulemedi: 'Akış çözümlenemedi; kaynak kendi oynatıcısıyla açıldı.',
+  'akis-yogun': 'Akış servisi şu an yoğun (günlük istek sınırı); kaynak kendi oynatıcısıyla açıldı.',
   'tur-desteklenmiyor':
     'Kaynak mp4 dışı bir biçimde (HLS/DASH) sunuluyor; kendi oynatıcımız şimdilik yalnız mp4 oynatıyor.',
   'akis-durdu': 'Akış oynatılamadı; kaynak kendi oynatıcısıyla açıldı.',

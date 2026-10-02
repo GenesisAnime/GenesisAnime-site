@@ -67,6 +67,8 @@ kaynak bugünkü iframe yoluyla açılır.
    yine alınamazsa kaynak iframe'e düşer, döngü kurulmaz.
 4. Gerçek konum cihazda saklanır (`konumKaydet`): bölüm yeniden açıldığında kaldığı yerden başlar
    (iframe yolunda bu bilgi hiç yoktu).
+5. Sunucu günlük sınırı aşarsa (429) istemci bunu ayrı anlatır ("akış servisi şu an yoğun") ve
+   kaynağı iframe'de açar; kullanıcıya sessiz bir hata gösterilmez.
 
 | Ölçüm (03.10, tarayıcı) | Sonuç |
 |---|---|
@@ -99,8 +101,9 @@ API'sine sorar, 404 görür ve sessizce iframe'e düşer — özellik, `cd api &
    yalnız özel API ile üretiliyor.
 4. **Tek nokta.** Aktarım Workers'a bağlı; Workers kesintisi oynatmayı durdurur (iframe yolu
    etkilenmez, o yüzden yedek yol korunmalı).
-5. **Kötüye kullanım yüzeyi.** `/akis/coz` dış kaynağa iki istek yapıyor; orana sınır konmadı.
-   Entegrasyondan önce IP başına sınır (mevcut `oranAsildi` yardımcısı) eklenmeli.
+5. **Kötüye kullanım yüzeyi.** ✅ 03.10: `/akis/coz` için **günlük IP sınırı** var (300 gerçek
+   çözümleme/gün; önbellek vuruşları sayılmaz). Aşılırsa 429 döner ve istemci bunu ayrı anlatıp
+   iframe'e düşer — sessiz gerileme yok. Kalan: istek sayacı ve başarısızlık oranı (gözlemlenebilirlik).
 
 ## Test Worker'ı
 
@@ -120,7 +123,8 @@ dokunmaz.
    (`genesisanime-api`) bu uçlarla yeniden yayınlanmadı; o yayın yapılana kadar site köprüyü
    deneyip iframe'e düşer (`cd api && npm run deploy`, yönetici kararı).
 2. ~~Yeniden çözümleme~~ ✅ 03.10: 403/502'de seçim başına bir kez `?t=` ile taze adres.
-3. **Orana sınır + gözlemlenebilirlik:** `/akis/*` için istek sayacı ve başarısızlık oranı.
+3. ~~Orana sınır~~ ✅ 03.10 (günlük 300, önbellek vuruşu ücretsiz) — kalan: istek sayacı ve
+   başarısızlık oranı (gözlemlenebilirlik).
 4. **Odnoklassniki çözümleyicisi:** manifesti aktarım ucundan servis edip göreli yolları çevirmek.
 5. **Kendi kontrol katmanı:** bugün tarayıcının yerleşik kontrolleri kullanılıyor (bedava gelen
    konum/ses/tam ekran/PiP); markalı çubuk, sprite önizlemesi ve klavye kısayolları sonraki iş.
