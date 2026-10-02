@@ -24,18 +24,22 @@ function tarih(zaman: number): string {
 }
 
 export default function KopruPanel() {
-  /* localStorage sunucuda yok: ilk render boş, ölçüm istemcide okunur. */
+  /*
+   * localStorage sunucuda yok: ilk render ölçümsüz (önsel) yapılır, kanıt
+   * istemcide okunur. Bölüm bu yüzden `null` dönmez — açıklama ve önsel tablo
+   * statik HTML'de de bulunur, sonradan yerleşim kaymaz; ölçüme bağlı alt satır
+   * (`yuklendi`) ancak ne olduğu bilindiğinde gösterilir.
+   */
   const [olcumler, setOlcumler] = useState<Record<string, KopruOlcumu> | null>(null);
+  const yuklendi = olcumler !== null;
 
   useEffect(() => {
     setOlcumler(kopruOlcumleri());
   }, []);
 
-  if (!olcumler) return null;
-
   const satirlar = ADLAR.map((ad) => {
     /* Saat açıkça verilir: `etkinKopru` ölçümün tazeliğini buna göre ölçer. */
-    const etkin = etkinKopru(ad, olcumler[ad] ?? null, Date.now());
+    const etkin = etkinKopru(ad, olcumler?.[ad] ?? null, Date.now());
     const yetenekler = [
       etkin.hazirSinyali ? 'hazır sinyali' : null,
       etkin.telemetri ? 'gerçek konum/süre' : null,
@@ -84,7 +88,7 @@ export default function KopruPanel() {
           </tbody>
         </table>
       </div>
-      {olcumVar ? (
+      {!yuklendi ? null : olcumVar ? (
         <button
           className="dugme dugme-ikincil"
           style={{ marginTop: 14 }}

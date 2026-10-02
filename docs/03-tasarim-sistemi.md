@@ -112,6 +112,11 @@ API'si yayınlayan kaynakta görünür (ölçüm: `docs/04`):
 > Not: panel ilk yazıldığında `.kart` ile sarıldı ve kart sınıfı anime kartı ölçüsü taşıdığı için
 > bölüm 178 px'e sıkıştı (tarayıcıda görüldü, 02.10). Sayfa bölümleri `.kart` kullanmaz.
 
+Bölüm **statik HTML'de de vardır**: açıklama ve önsel tablo derleme çıktısına yazılır, ölçüme bağlı
+satır (gözlem/tarih/sıfırlama düğmesi) hidrasyondan sonra belirir. Alternatif — ölçüm okunana kadar
+`null` dönmek — bölümü JS'siz ziyaretçiden tamamen saklar ve yüklenince sayfayı aşağı kaydırırdı;
+ilk gösterilen veri de yanlış olmaz, çünkü ölçümsüz hâli zaten doğru önsel tablodur.
+
 ## Erişilebilirlik
 
 - `lang="tr"`, "İçeriğe geç" bağlantısı, `aria-label`/`aria-pressed`/`aria-selected` alanları
