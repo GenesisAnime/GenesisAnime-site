@@ -84,8 +84,11 @@ export default async function AnimeSayfasi({ params }: { params: Promise<{ slug:
 
   const iliskiliVar = anime.iliski.some((i) => i.s);
   const puan = puanBicim(anime.puan);
-  // Dekoratif bant: 4K backdrop varsa o, yoksa AniList banner'ı (1900 px tavanı).
-  const bant = anime.banner4k ?? anime.banner;
+  // Dekoratif bant sırası: 4K backdrop → TMDB (HD) → AniList banner'ı (1900 px tavanı).
+  // HD katmanı, hâlâ banner'ı olmayan yapımların bandını da doldurur (bkz. tools/export-data.mjs).
+  const bantTmdb = anime.banner4k ?? anime.bannerTmdb;
+  const bant = bantTmdb ?? anime.banner;
+  const bantGenislik = anime.banner4k ? anime.banner4kGenislik : anime.bannerTmdbGenislik;
 
   // Seri (franchise) ve fansub grup adresleri
   const seri = anime.seri ? serilerOku().seriler.find((s) => s.s === anime.seri) ?? null : null;
@@ -150,9 +153,9 @@ export default async function AnimeSayfasi({ params }: { params: Promise<{ slug:
             // eslint-disable-next-line @next/next/no-img-element
             <img
               className="anime-bant"
-              src={anime.banner4k ? tmdbKucuk(anime.banner4k) : bant}
-              srcSet={anime.banner4k ? backdropSrcSet(anime.banner4k, anime.banner4kGenislik) : undefined}
-              sizes={anime.banner4k ? BANT_BOYUT : undefined}
+              src={bantTmdb ? tmdbKucuk(bantTmdb) : bant}
+              srcSet={bantTmdb ? backdropSrcSet(bantTmdb, bantGenislik) : undefined}
+              sizes={bantTmdb ? BANT_BOYUT : undefined}
               alt=""
               aria-hidden="true"
             />

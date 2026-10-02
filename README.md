@@ -42,7 +42,7 @@ depodadır. Kapalı bileşen, gizli veri işleme veya reklam/izleyici betiği yo
 | Alan | Durum |
 |---|---|
 | Veri | 6.107 anime · 71.694 bölüm · 316.820 kaynak · 961 seri · 363 fansub grubu |
-| 4K banner | 2.060 yapımda ≥3000 px TMDB backdrop (hero 20/24 · ana sayfa kartı 391/540 · anime detay bandı 3,4:1 → kaynağın ~%52'si; TMDB atfı `/kunye/` ve alt bilgide) |
+| Banner görselleri | TMDB kimliği **4.907** yapımda (%80,4) · 4K katmanı **2.403** · HD katmanı **2.094** · anime detay bandı **5.164/6.107** sayfada dolu (hero 20/24 · kart 391/540 · bant 3,4:1 → kaynağın ~%52'si; TMDB atfı `/kunye/` ve alt bilgide) |
 | Site derlemesi | 7.442 sayfa → `out/` 21.049 dosya / 876,8 MB (GitHub Pages uyumlu; CF Pages 20k sınırını aşıyor) |
 | Link sağlığı | kapsam **%58,72** — 173.030 `ok` · 301 `ölü` · 34 `engelli` · 12.861 `belirsiz` (ölçülebilir havuz tükendi) |
 | Otomasyon | günlük link döngüsü zamanlayıcıda (saatlik uyanır, günde bir koşar) · `/yonetim/` panelinden ayar + koşu geçmişi |

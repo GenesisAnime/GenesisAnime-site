@@ -15,6 +15,7 @@
     "veri:anilist": "node --no-warnings tools/enrich-anilist.mjs",
     "tmdb:esle": "node --no-warnings tools/tmdb-esle.mjs",
     "tmdb:zenginlestir": "node --no-warnings tools/tmdb-zenginlestir.mjs",
+    "tmdb:kapsam": "node --no-warnings tools/tmdb-kapsam.mjs",
     "veri:rapor": "node --no-warnings tools/report-data.mjs",
     "test": "node --no-warnings --test \"tools/testler/*.test.mjs\"",
     "dev": "next dev",

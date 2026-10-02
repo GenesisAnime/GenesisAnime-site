@@ -115,7 +115,16 @@ let hata = 0;
 let bulunamayan = 0;
 const genislikler = [];
 const basla = Date.now();
-const dortKsayi = () => genislikler.filter((g) => g >= 3000).length;
+/**
+ * Özet sayaçlar ÖNBELLEĞİN TAMAMINDAN hesaplanır: eskiden yalnızca o koşuda
+ * çekilenleri sayıyordu, bu yüzden `--limit`/kısmi koşudan sonra özet "4K: 343"
+ * gibi koşuya özel ama toplam gibi görünen bir sayı yazıyordu.
+ */
+const onbellekGenislikleri = () =>
+  Object.values(kayitlar)
+    .filter((k) => k && !k.yok && Number(k.genislik) > 0)
+    .map((k) => Number(k.genislik));
+const dortKsayi = () => onbellekGenislikleri().filter((g) => g >= 3000).length;
 
 /**
  * Ara kayıt: uzun koşu yarıda kesilirse (kapatma, ağ kopması) biriken iş kaybolmaz;
@@ -134,9 +143,9 @@ function kaydet() {
         hata,
         bulunamayan,
         dortK: dortKsayi(),
-        en_genis: genislikler.length ? Math.max(...genislikler) : 0,
-        ortalama_genislik: genislikler.length
-          ? Math.round(genislikler.reduce((t, g) => t + g, 0) / genislikler.length)
+        en_genis: onbellekGenislikleri().length ? Math.max(...onbellekGenislikleri()) : 0,
+        ortalama_genislik: onbellekGenislikleri().length
+          ? Math.round(onbellekGenislikleri().reduce((t, g) => t + g, 0) / onbellekGenislikleri().length)
           : 0,
       },
       kayitlar,
@@ -209,8 +218,10 @@ const cikti = {
     hata,
     bulunamayan,
     dortK,
-    en_genis: genislikler.length ? Math.max(...genislikler) : 0,
-    ortalama_genislik: genislikler.length ? Math.round(genislikler.reduce((t, g) => t + g, 0) / genislikler.length) : 0,
+    en_genis: onbellekGenislikleri().length ? Math.max(...onbellekGenislikleri()) : 0,
+    ortalama_genislik: onbellekGenislikleri().length
+      ? Math.round(onbellekGenislikleri().reduce((t, g) => t + g, 0) / onbellekGenislikleri().length)
+      : 0,
   },
   kayitlar,
 };

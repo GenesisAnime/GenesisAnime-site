@@ -64,9 +64,10 @@ Kontrol edilen küme neredeyse tamamen One Piece bölümlerine ait (kaynak: `Kon
 5. **Ana sayfa satırları** — hero (banner + yıl ≥ 2010 + puan ≥ 70, puan sırası, 24 kayıt; her
    kart `fr` alanında fragman bilgisini de taşır) ve 18 satır (popüler, yeni, sezon, filmler,
    klasikler, kısa seriler + 10 tür satırı).
-6. **4K banner (TMDB backdrop)** — `tools/cache/tmdb-backdrop.json` okunur; yalnızca `yeterli` +
-   `genislik ≥ 3000` kayıtlar animeye `banner4k`, ana sayfa kartına `ban4k` + `bw` (kaynağın gerçek
-   genişliği, `srcSet` adayı) olarak yazılır. Önbellek yoksa alanlar `null` kalır.
+6. **4K banner (TMDB backdrop)** — `tools/cache/tmdb-backdrop.json` okunur; `genislik ≥ 3000`
+   kayıtlar animeye `banner4k`, ana sayfa kartına `ban4k` + `bw` (kaynağın gerçek genişliği,
+   `srcSet` adayı) olarak yazılır. 4K'nın altındaki kayıtlar, AniList banner'ı yoksa ya da AniList
+   tavanını (1900 px) geçiyorsa `bannerTmdb` alanına düşer. Önbellek yoksa alanlar `null` kalır.
 7. **Seri (franchise) grupları** — ilişki grafiği union-find ile birleştirilir; her anime
    dosyasına `seri` alanı, `seriler.json`'a grup listesi yazılır (aşağıda).
 8. **Fansub slug'ları** — grup adı `araAnahtari` + tire ile slug'lanır (`TAÇE` → `tace`);
@@ -109,10 +110,11 @@ Toplam koşu süresi: **8,6–11,1 sn**.
 
 ```jsonc
 {
-  "slug": "naruto", "ad": "Naruto", "adEn": null,
+  "slug": "naruto", "anilist": 20, "ad": "Naruto", "adEn": null,
   "yil": 2002, "puan": 80, "format": "TV", "durum": "FINISHED", "sezon": "FALL", "sure": 23,
   "poster": "https://cdn.myanimelist.net/...", "banner": "https://s4.anilist.co/...",
   "banner4k": "https://image.tmdb.org/t/p/original/...", "banner4kGenislik": 3840,
+  "bannerTmdb": "https://image.tmdb.org/t/p/original/...", "bannerTmdbGenislik": 1920,
   "ozet": "Naruto Uzumaki, a hyperactive...", "turler": ["Aksiyon", "Macera", "..."],
   "iliski": [{ "t": "SEQUEL", "s": "naruto-shippuuden", "ad": "...", "p": "...", "f": "TV" }],
   "seri": "naruto",
@@ -130,8 +132,23 @@ Toplam koşu süresi: **8,6–11,1 sn**.
 `src` dizisindeki 4. eleman (`"ok"`) yalnızca çalıştığı doğrulanmış kaynaklarda bulunur.
 `seri` alanı 2+ üyeli ilişki ağı yoksa `null` kalır.
 
-`banner4k`, **yalnızca gerçekten geniş (≥3000 px) bir TMDB backdrop'u bulunan** yapımlarda dolar
-(`banner4kGenislik` kaynağın gerçek genişliğidir ve detay bandının `srcSet` adayını bildirir)
+`anilist`, kaydın zenginleştirildiği AniList kimliğidir. **Provenans olduğu kadar anahtar da**: TMDB
+eşlemesi (`tools/tmdb-esle.mjs`) AniList kimliği → Fribb `anime-list` üzerinden TMDB kimliği bulur.
+Bu alan gelmeden önce kimlik yalnızca banner URL'inden çıkarılabiliyordu, yani **banner'ı olmayan
+1.775 yapım eşlemeye hiç giremiyordu** (bkz. docs/05 · H-29).
+
+Banner görseli üç katmanlıdır ve sıra `src` seçiminde bellidir:
+
+| Katman | Alan | Eşik | Nerede kullanılır |
+|---|---|---|---|
+| 4K | `banner4k` | TMDB backdrop ≥3000 px | Hero + detay bandı |
+| TMDB (HD) | `bannerTmdb` | <3000 px, ama AniList banner'ı yoksa (boş bandı doldurur) ya da genişlik ≥1900 px (AniList tavanını geçer) | Detay bandı |
+| AniList | `banner` | 1900 px tavanı | Yedek (her yerde)| `banner4kGenislik` / `bannerTmdbGenislik` kaynağın gerçek genişliğidir ve `srcSet` adayını bildirir
+
+Ölçüm (02.10.2026): TMDB kimliği **4.907** yapımda (%80,4), 4K katmanı **2.403**, HD katmanı
+**2.094**; anime sayfası bandı **5.164** sayfada (%84,6) dolu, 943 sayfada boş (Fribb eşlemesinde
+karşılığı olmayan yapımlar — arama tabanlı eşleme bekliyor). Bu huni `npm run tmdb:kapsam` ile
+her zaman yeniden üretilebilir (ağ yok; `tools/rapor/tmdb-kapsam.json`).
 (ölçüm: **2.060 yapım**). Gerekçe: AniList banner CDN'i 1900 px'de tavanlanıyor (ölçüldü) ve hero
 74vh yüksekliğinde 3840 px'e kadar ekranlarda bulanık kalıyordu. Eşleme (`npm run tmdb:esle`) ve
 backdrop çekimi (`npm run tmdb:zenginlestir`) TMDB anahtarı gerektirir; önbellek yoksa alan `null`

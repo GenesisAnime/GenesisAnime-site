@@ -132,6 +132,7 @@ function tamTarama() {
   let bolum = 0;
   let rozetli = 0;
   let dortK = 0;
+  let hd = 0;
 
   for (const dosya of dosyalar) {
     const slug = dosya.slice(0, -'.json'.length);
@@ -164,6 +165,35 @@ function tamTarama() {
         ekle(hatalar.banner4k, `${slug}: banner4k genişliği ${veri.banner4kGenislik} (≥3000 bekleniyor)`);
       }
     }
+
+    // İkinci katman (HD, <3000 px): yalnızca AniList banner'ı yokken (boş bandı
+    // doldurur) ya da AniList tavanını (1900 px) geçtiğinde yazılır. 4K varken
+    // yazılmaz — bant tek kaynak kullanır, iki alanın çelişmesi istenmez.
+    if (veri.bannerTmdb === null || veri.bannerTmdb === undefined) {
+      if (veri.bannerTmdb === undefined) ekle(hatalar.banner4k, `${slug}: bannerTmdb alanı yok`);
+      if (veri.bannerTmdbGenislik !== null && veri.bannerTmdbGenislik !== undefined) {
+        ekle(hatalar.banner4k, `${slug}: bannerTmdb yok ama genişlik ${veri.bannerTmdbGenislik}`);
+      }
+    } else if (typeof veri.bannerTmdb !== 'string' || !veri.bannerTmdb.startsWith(TMDB_ORIJINAL)) {
+      ekle(hatalar.banner4k, `${slug}: bannerTmdb TMDB original adresi değil`);
+    } else {
+      hd++;
+      if (veri.banner4k) ekle(hatalar.banner4k, `${slug}: banner4k varken bannerTmdb de yazılmış`);
+      // Eşik banner durumuna bağlıdır (export-data'daki kuralın aynısı):
+      //   AniList banner'ı VARSA → HD katmanı yalnızca ondan büyükse anlamlı (≥1900)
+      //   AniList banner'ı YOKSA → boş bandı doldurur, tek şart bant için yeterli
+      //   olması (≥1280; TMDB'nin en küçük kullandığı genişlik)
+      const esik = veri.banner ? 1900 : 1280;
+      if (!(veri.bannerTmdbGenislik >= esik)) {
+        ekle(
+          hatalar.banner4k,
+          `${slug}: bannerTmdb genişliği ${veri.bannerTmdbGenislik} (<${esik}${veri.banner ? ', AniList banner\u0131 var' : ', banner yok'})`
+        );
+      }
+    }
+
+    // Provenans alanı: eşleme araçları AniList kimliğini buradan okur.
+    if (veri.anilist === undefined) ekle(hatalar.banner4k, `${slug}: anilist alanı yok`);
 
     let dosyaKaynak = 0;
     veri.bolumler.forEach((b, i) => {
@@ -221,7 +251,7 @@ function tamTarama() {
     bolum += veri.bolumler.length;
   }
 
-  _tarama = { hatalar, dosyaSayisi: dosyalar.length, kaynak, bolum, rozetli, dortK, tekil, fansubAdlari };
+  _tarama = { hatalar, dosyaSayisi: dosyalar.length, kaynak, bolum, rozetli, dortK, hd, tekil, fansubAdlari };
   return _tarama;
 }
 
@@ -324,8 +354,12 @@ test('ölü/engelli URL sızıntısı yok (sızıntı = bayat veri)', () => {
 
 test('banner4k: yalnızca TMDB original adresi taşınır, genişliği bildirilir ve kunye sayısı birebir', () => {
   const s = tamTarama();
-  sifirOlmali(s.hatalar.banner4k, '4K banner alanı');
+  sifirOlmali(s.hatalar.banner4k, 'TMDB banner katmanları');
   assert.equal(kunye().banner4k, s.dortK, 'kunye.banner4k ≠ 4K banner taşıyan anime sayısı');
+  assert.equal(kunye().bannerTmdb, s.hd, 'kunye.bannerTmdb ≠ HD katmanı taşıyan anime sayısı');
+  // İki katman ayrık olmalı: aynı yapım hem 4K hem HD sayılırsa sayaçlar şişer ve
+  // bant hangi kaynağı kullanacağını bilemez (kural export-data'da tek yerde).
+  assert.ok(s.hd + s.dortK <= s.dosyaSayisi, 'katman toplamı arşivi aşamaz');
 });
 
 test('ana sayfa kartları: ban4k ve bw birlikte anlamlı', () => {

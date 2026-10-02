@@ -35,7 +35,7 @@ Gövde zemini iki radyal gradyan taşır (sol üstte mor, sağ üstte magenta pa
 | `.satir`, `.satir-kaydirma`, `.satir-ok` | Yatay kaydırma satırı; oklar yalnızca hover'da görünür |
 | `.kart`, `.kart-gorsel`, `.kart-rozet`, `.kart-ilerleme` | Anime kartı; hover'da yükselir ve görsel %6 büyür |
 | `.izgara`, `.liste-gorunum`, `.liste-satir` | Katalog görünümleri |
-| `.anime-bant` | Anime detay sayfasındaki dekoratif geniş bant (`height: clamp(190px, 21vw, 320px)`, `object-position: center 30%`); 4K TMDB backdrop'u varsa onu, yoksa AniList banner'ını gösterir |
+| `.anime-bant` | Anime detay sayfasındaki dekoratif geniş bant (`height: clamp(190px, 21vw, 320px)`, `object-position: center 30%`); görsel sırası **4K TMDB → TMDB (HD) → AniList banner'ı** |
 | `.rozet`, `.istatistik` | Künye kutuları |
 | `.bolum`, `.bolum-no`, `.bolum-liste` | Bölüm satırı ve kaydırmalı liste |
 | `.oynatici-izgara`, `.oynatici-kutu` | Oynatıcı düzeni (16:9 kilitli, 1fr + 350 px) |

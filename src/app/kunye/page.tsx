@@ -179,6 +179,7 @@ export default function KunyeSayfasi() {
           <span className="etiket">Tür: {sayiBicim(kunye.tur)}</span>
           <span className="etiket">Player: {sayiBicim(kunye.player)}</span>
           <span className="etiket">4K banner: {sayiBicim(kunye.banner4k)}</span>
+          <span className="etiket">TMDB (HD) banner: {sayiBicim(kunye.bannerTmdb)}</span>
           <span className="etiket">Bölüm kaydı olmayan yapım: {sayiBicim(kunye.bölümsüzAnime)}</span>
           <span className="etiket">Çalışan kaynağı kalmayan yapım: {sayiBicim(kunye.kaynaksizAnime)}</span>
         </div>

@@ -61,18 +61,30 @@ const kendiSaglik = saglikOku([YOLLAR.linkDurum]);
 const anilist = okuJson(YOLLAR.anilistCache, {});
 const anilistVar = Object.keys(anilist).length > 0;
 
-// TMDB backdrop'ları (4K banner): `npm run tmdb:zenginlestir` üretir, anahtar
-// gerektirir ve depoda tutulmaz. Yoksa site AniList banner'ında kalır — eksik
-// dosya bir hata değil, "4K yok" demektir.
+// TMDB backdrop'ları: `npm run tmdb:zenginlestir` üretir, anahtar gerektirir ve
+// depoda tutulmaz. Yoksa site AniList banner'ında kalır — eksik dosya bir hata
+// değil, "TMDB görseli yok" demektir. İki katman vardır:
+//   `banner4k`   : ≥3000 px → hero ve bant (AniList tavanı 1900 px)
+//   `bannerTmdb` : 4K'nın altında ama AniList banner'ı yoksa (bant bugün hiç
+//                  görsel göstermiyordu) ya da AniList tavanını geçiyorsa kullanılır
 const tmdbOnbellek = okuJson(path.join(ROOT, 'tools', 'cache', 'tmdb-backdrop.json'), {});
-const tmdbDortK = new Map();
+const tmdbTum = new Map();
 for (const [slug, k] of Object.entries(tmdbOnbellek.kayitlar || {})) {
-  if (k && k.yeterli && k.url && k.genislik > 0) tmdbDortK.set(slug, k);
+  if (k && k.url && k.genislik > 0) tmdbTum.set(slug, k);
 }
 
 log(`   link sağlık kaydı : ${saglik.size}`);
 log(`   AniList önbelleği : ${anilistVar ? `${Object.keys(anilist).length} anime` : 'YOK (zenginleştirme atlanacak)'}`);
-log(`   TMDB 4K backdrop  : ${tmdbDortK.size ? `${tmdbDortK.size} anime (≥3000 px)` : 'YOK (banner geliştirmesi atlanacak)'}`);
+// Katmanlar önbelleğin kayıtlarından sayılır; önbelleğin `ozet` bloğu son koşuya
+// ait olabilir, oradan okumak yanıltıcı sayı yazdırıyordu.
+const tmdbDortK = [...tmdbTum.values()].filter((k) => k.yeterli).length;
+log(
+  `   TMDB backdrop     : ${
+    tmdbTum.size
+      ? `${tmdbTum.size} anime (4K ${tmdbDortK} · HD ${tmdbTum.size - tmdbDortK})`
+      : 'YOK (banner geliştirmesi atlanacak)'
+  }`
+);
 
 const db = new DatabaseSync(YOLLAR.db, { readOnly: true });
 
@@ -221,6 +233,7 @@ const sayac = {
   tekilKaynak: new Set(),
   dogrulanmisKaynak: 0,
   banner4k: 0,
+  bannerTmdb: 0,
   bölümsüzAnime: 0,
   kaynaksizAnime: 0,
   zenginlestirilmis: 0,
@@ -458,11 +471,17 @@ for (const a of animeSatirlari) {
   const banner = an?.ban || null;
   // 4K banner yalnızca gerçekten geniş bir TMDB backdrop'u varsa yazılır: eşit
   // veya daha küçük bir görsel için kaynak değiştirmenin anlamı yok.
-  const dortK = tmdbDortK.get(a.slug) || null;
+  const tmdb = tmdbTum.get(a.slug) || null;
+  const dortK = tmdb && tmdb.yeterli ? tmdb : null;
   const banner4k = dortK ? dortK.url : null;
   // Genişlik `srcSet` adayını doğru bildirmek için taşınır (detay bandı ve hero).
   const banner4kGenislik = dortK ? dortK.genislik : null;
+  // İkinci katman (HD): 4K değil, ama (a) AniList banner'ı yoksa boş bandı doldurur,
+  // (b) varsa AniList tavanını (1900 px) geçtiği için ondan daha iyidir.
+  const bannerTmdb = !banner4k && tmdb && (!banner || tmdb.genislik >= 1900) ? tmdb.url : null;
+  const bannerTmdbGenislik = bannerTmdb ? tmdb.genislik : null;
   if (banner4k) sayac.banner4k++;
+  if (bannerTmdb) sayac.bannerTmdb++;
   const yil = meta?.year || null;
   // DİKKAT: arşivdeki `score` kolonu 0–10 ölçeğinde saklanıyor (ör. 5.59 = 56).
   // AniList averageScore ise 0–100. İkisini tek ölçekte (0–100) birleştiriyoruz.
@@ -516,6 +535,10 @@ for (const a of animeSatirlari) {
 
   const animeKaydi = {
     slug: a.slug,
+    // Provenans: bu kaydın zenginleştirildiği AniList kimliği. Eşleme araçları
+    // (tmdb-esle) kimliği buradan okur; eskiden banner URL'inden çıkarılıyordu,
+    // bu yüzden banner'ı olmayan yapımlar eşlemeye hiç giremiyordu.
+    anilist: meta?.anilist_id ? Number(meta.anilist_id) : null,
     ad: a.baslik,
     adEn: meta?.english_title || an?.adEn || null,
     yil,
@@ -528,6 +551,8 @@ for (const a of animeSatirlari) {
     banner,
     banner4k,
     banner4kGenislik,
+    bannerTmdb,
+    bannerTmdbGenislik,
     ozet,
     turler,
     iliski,
@@ -784,6 +809,7 @@ const kunye = {
   bolum: bolumById.size,
   kaynak: sayac.tutulanKaynak,
   banner4k: sayac.banner4k,
+  bannerTmdb: sayac.bannerTmdb,
   tekilKaynak: sayac.tekilKaynak.size,
   dogrulanmisKaynak: sayac.dogrulanmisKaynak,
   fansubGrubu: taksonomi.fansublar.length,
@@ -831,6 +857,7 @@ const rapor = {
     heroKaydi: hero.length,
     hero4k: hero.filter((x) => x.ban4k).length,
     banner4kAnime: sayac.banner4k,
+    bannerTmdbAnime: sayac.bannerTmdb,
     dosyaBoyutlari: {
       katalog: kb(boyutlar.katalog),
       anaSayfa: kb(boyutlar.anaSayfa),

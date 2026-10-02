@@ -232,7 +232,8 @@ kaydıyla (`tools/cache/link-durum.jsonl` + arşiv geçmişi) karşılaştırır
 | Kaynak girdisi | Her `src` girdisi `[player, fansub, url(, "ok")]` biçiminde; URL `new URL()` ile ayrıştırılabilir http(s) olmalı |
 | Ölü/engelli sızıntısı | Hiçbir dosyada `olu`/`engelli` URL yok — çıkarsa üretilmiş veri sağlık kaydından geri kalmıştır; çözümü `npm run veri` |
 | Künye toplamları | `kunye.json` (kaynak/tekil/rozetli/bölüm/seriGrubu/`banner4k`) gerçek dosyalarla birebir |
-| 4K banner alanı | `banner4k` yalnızca TMDB `original` (≥3000 px) adresi taşır ve genişliğini bildirir (`banner4kGenislik`) — küçük bir varyant ya da eksik genişlik yazılırsa alan adı yalan söyler; adres yokken genişlik de olmamalı, ana sayfa kartlarında `ban4k`/`bw` ikilisi yarım dolu olamaz (tarayıcı yanlış `srcSet` adayı seçer) |
+| TMDB banner katmanları | `banner4k` yalnızca ≥3000 px TMDB `original` adresi ve genişliği (`banner4kGenislik`); `bannerTmdb` (HD) ise AniList banner'ı yokken ≥1280, varken ≥1900 olmalı ve **4K varken yazılamaz**. Adres yokken genişlik de olmamalı; ana sayfa kartlarında `ban4k`/`bw` yarım dolu olamaz (tarayıcı yanlış `srcSet` adayı seçer) |
+| `anilist` alanı | Her anime dosyasında bulunmalı (sayı ya da `null`) — eşleme araçları kimliği buradan okur, eksikse 4K kapsamı sessizce düşer |
 | Seri grupları | `seriler.json`: geçerli slug, en az 2 üye, her üye katalogda, hiçbir yapım iki grupta; `anime.seri` alanı gruplarla **simetrik** |
 | Fansub grupları | `fansublar.json`: tekil slug/ad, `taksonomi.fansublar` ile aynı slug kümesi, kaynaklarda geçen her grup adı dizinde var |
 
@@ -472,6 +473,34 @@ yerel bileşenleri kullandığını doğruluyor ve UTC günü ayrıştığında 
 **eşitsizliği** sınıyor. Kanıt: aynı dosya `TZ=UTC node --test …` altında 8/8, tam kapı
 `TZ=UTC npm test` ile 123/123 geçiyor. Ders: yerele/saat dilimine bağlı beklenti yalnızca yazıldığı
 makinede doğrudur; CI'ı yerelde taklit etmenin en ucuz yolu `TZ=UTC npm test`.
+
+### H-29 · TMDB eşlemesi kimliği yalnızca banner URL'inden çıkarıyordu (kapsamın üçte biri dışarıda)
+
+4K banner hattının ilk sürümü (01.10) AniList kimliğini **banner URL'inden** çıkarıyordu ve kapsamı
+“banner'lı 4.075 animenin %91,4'ü” diye raporluyordu. Cümle doğruydu ama yanıltıcıydı: arşivde
+**2.032 yapımın banner'ı yok** ve o sayfalar eşlemeye hiç girmiyordu (bantları da boş kalıyordu).
+Yeni ölçüm aracı (`npm run tmdb:kapsam`) gerçek tabloyu gösterdi: 6.107 yapımın **5.850'sinde
+AniList kimliği var** (arşiv DB'si `anime_meta.anilist_id`), ama yalnızca 4.075'inde banner var — yani
+kimliğin ölçütü banner değil, veridir.
+
+Düzeltme iki parçalı: (1) `anilist` kimliği artık anime JSON'una yazılıyor (provenans), eşleme onu
+okuyor, banner URL'inden çıkarma yalnızca geriye dönük yedek kalıyor; (2) 3000 px eşiğinin altındaki
+TMDB backdrop'ları için **HD katmanı** (`bannerTmdb`) açıldı — AniList banner'ı yoksa boş bandı
+doldurur, varsa yalnızca AniList tavanını (1900 px) geçtiğinde tercih edilir.
+
+Ölçüm (öncesi → sonrası):
+
+| Ölçüt | Önce | Sonra |
+|---|---|---|
+| TMDB kimliği | 3.724 (%61,0) | **4.907 (%80,4)** |
+| Backdrop kaydı | 3.689 | **4.779** |
+| 4K katmanı (≥3000 px) | 2.060 (%33,7) | **2.403 (%39,3)** |
+| Bandı dolu anime sayfası | 4.075 (%66,7) | **5.164 (%84,6)** |
+| Bandı boş anime | 2.032 | **943** |
+
+Kalan 943 yapımın Fribb eşlemesinde karşılığı yok (257'sinin AniList kimliği de yok); onlar için arama
+tabanlı eşleme (TMDB `/search`) gerekiyor. Ders: paydası yazılmayan bir kapsam oranı yanıltır —
+“%91,4” hangi kümenin içinde ölçüldüğü söylenmeden bir başarı gibi okunuyordu.
 
 **`api-dokumani.test.mjs`** (3) yayınlanan API belgesinin koddan kopmadığını sınar (ağ yok):
 `src/app/api-dokumani/page.tsx` içindeki her `YÖNTEM /yol` satırı gerçekten yönlendiriliyor mu

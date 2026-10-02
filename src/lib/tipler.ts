@@ -49,6 +49,8 @@ export interface Fragman {
 
 export interface Anime {
   slug: string;
+  /** Bu kaydın zenginleştirildiği AniList kimliği (yoksa null) */
+  anilist: number | null;
   ad: string;
   adEn: string | null;
   yil: number | null;
@@ -63,6 +65,12 @@ export interface Anime {
   banner4k: string | null;
   /** `banner4k` kaynağının gerçek genişliği — `srcSet` adayını doğru bildirmek için */
   banner4kGenislik: number | null;
+  /**
+   * TMDB backdropsu, 4K'nın altında (<3000 px) ama AniList banner'ı yokken ya da
+   * AniList tavanını (1900 px) geçtiğinde kullanılan ikinci katman; yoksa null.
+   */
+  bannerTmdb: string | null;
+  bannerTmdbGenislik: number | null;
   ozet: string | null;
   turler: string[];
   iliski: Iliski[];
@@ -183,6 +191,8 @@ export interface Kunye {
   kaynak: number;
   /** 4K (≥3000 px) TMDB backdrop'u olan yapım sayısı */
   banner4k: number;
+  /** 4K'nın altındaki TMDB backdropsu kullanılan (HD katmanı) yapım sayısı */
+  bannerTmdb: number;
   tekilKaynak: number;
   dogrulanmisKaynak: number;
   fansubGrubu: number;
