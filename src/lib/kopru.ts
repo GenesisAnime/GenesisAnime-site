@@ -142,8 +142,15 @@ export function kopruBul(adres: string): KopruAdi | null {
   return null;
 }
 
-/** Eşleme + ölçüm birleşimi: oynatıcının tek çağrıda ihtiyacı olan şey. */
-export function kopruCoz(adres: string, olcum: KopruOlcumu | null, simdi = 0): EtkinKopru | null {
+/**
+ * Eşleme + ölçüm birleşimi: oynatıcının tek çağrıda ihtiyacı olan şey.
+ *
+ * `simdi` **zorunlu**: varsayılan 0 verilirse "yaş negatif" çıkar ve ölçüm
+ * bayat sayılırdı — yani okuyan her çağrı sessizce önsele düşerdi (02.10'da
+ * tarayıcı doğrulamasında tam bu yaşandı: kayıt yazılıyordu ama görünmüyordu).
+ * Tip sistemi artık saat unutmayı derleme hatasına çevirir.
+ */
+export function kopruCoz(adres: string, olcum: KopruOlcumu | null, simdi: number): EtkinKopru | null {
   const ad = kopruBul(adres);
   return ad ? etkinKopru(ad, olcum, simdi) : null;
 }
@@ -347,7 +354,8 @@ export interface EtkinKopru extends Kopru {
   olcum: KopruOlcumu | null;
 }
 
-export function yeniOlcum(ad: KopruAdi, simdi = 0): KopruOlcumu {
+/** Boş kayıt. Zaman alanları 0'dır; "hiç görülmedi" demektir. */
+export function yeniOlcum(ad: KopruAdi): KopruOlcumu {
   return {
     ad,
     hazirSinyali: false,
@@ -361,8 +369,11 @@ export function yeniOlcum(ad: KopruAdi, simdi = 0): KopruOlcumu {
   };
 }
 
-/** Kayıt taze ve aynı şemada mı? */
-export function olcumGecerliMi(olcum: KopruOlcumu | null, simdi = 0): boolean {
+/**
+ * Kayıt taze ve aynı şemada mı? `simdi` zorunlu — 0 ile çağırmak her kaydı
+ * bayat gösterirdi (bkz. `kopruCoz` başındaki not).
+ */
+export function olcumGecerliMi(olcum: KopruOlcumu | null, simdi: number): boolean {
   if (!olcum) return false;
   if (olcum.surum !== OLCUM_SURUMU) return false;
   if (!olcum.sonGorulme) return false;
@@ -378,9 +389,9 @@ export function olcumGuncelle(
   onceki: KopruOlcumu | null,
   ad: KopruAdi,
   olay: KopruOlayi,
-  simdi = 0
+  simdi: number
 ): KopruOlcumu {
-  const temel = onceki && onceki.surum === OLCUM_SURUMU ? { ...onceki } : yeniOlcum(ad, simdi);
+  const temel = onceki && onceki.surum === OLCUM_SURUMU ? { ...onceki } : yeniOlcum(ad);
   if (olay.tur === 'yok') return temel;
 
   /* Yeni oturum mu: uzun bir sessizlikten sonra gelen olay sayacı artırır. */
@@ -397,8 +408,8 @@ export function olcumGuncelle(
 }
 
 /** Komut kanıtı kaydeder (başarılı sınama veya kullanıcı komutunun onayı). */
-export function olcumKomutOnayla(onceki: KopruOlcumu | null, ad: KopruAdi, simdi = 0): KopruOlcumu {
-  const temel = onceki && onceki.surum === OLCUM_SURUMU ? { ...onceki } : yeniOlcum(ad, simdi);
+export function olcumKomutOnayla(onceki: KopruOlcumu | null, ad: KopruAdi, simdi: number): KopruOlcumu {
+  const temel = onceki && onceki.surum === OLCUM_SURUMU ? { ...onceki } : yeniOlcum(ad);
   temel.komut = true;
   temel.basarisizSina = 0;
   temel.sonSina = simdi;
@@ -407,8 +418,8 @@ export function olcumKomutOnayla(onceki: KopruOlcumu | null, ad: KopruAdi, simdi
 }
 
 /** Sınama denendi ama kanıt gelmedi. */
-export function olcumSinaBasarisiz(onceki: KopruOlcumu | null, ad: KopruAdi, simdi = 0): KopruOlcumu {
-  const temel = onceki && onceki.surum === OLCUM_SURUMU ? { ...onceki } : yeniOlcum(ad, simdi);
+export function olcumSinaBasarisiz(onceki: KopruOlcumu | null, ad: KopruAdi, simdi: number): KopruOlcumu {
+  const temel = onceki && onceki.surum === OLCUM_SURUMU ? { ...onceki } : yeniOlcum(ad);
   temel.basarisizSina += 1;
   temel.sonSina = simdi;
   /* Başarısız sınama da host'la **taze temastır**: kayıt "bugün baktım" sayılır,
@@ -423,7 +434,7 @@ export function olcumSinaBasarisiz(onceki: KopruOlcumu | null, ad: KopruAdi, sim
  *   · Yetenek eklerken: ikisinden biri yeter (pozitif kanıt birikir).
  *   · Yeteneği kaldırırken: yalnız **ardışık başarısız sınama** önseli geçersiz kılar.
  */
-export function etkinKopru(ad: KopruAdi, olcum: KopruOlcumu | null, simdi = 0): EtkinKopru {
+export function etkinKopru(ad: KopruAdi, olcum: KopruOlcumu | null, simdi: number): EtkinKopru {
   const onsel = KOPRU_ONOLERI[ad];
   const gecerli = olcumGecerliMi(olcum, simdi) ? olcum : null;
   if (!gecerli) return { ...onsel, kaynak: 'onsel', olcum: null };
@@ -460,7 +471,7 @@ export function sinaOnaylandi(olay: KopruOlayi): boolean {
 export function komutSinamasi(
   kopru: Kopru,
   olcum: KopruOlcumu | null,
-  simdi = 0
+  simdi: number
 ): { sina: boolean; sebep: 'sina' | 'zaten-kanitli' | 'olay-yok' | 'konum-yok' | 'yeni-denendi' } {
   if (kopru.komut) return { sina: false, sebep: 'zaten-kanitli' };
   if (!kopru.hazirSinyali) return { sina: false, sebep: 'olay-yok' };

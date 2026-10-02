@@ -34,7 +34,8 @@ export default function KopruPanel() {
   if (!olcumler) return null;
 
   const satirlar = ADLAR.map((ad) => {
-    const etkin = etkinKopru(ad, olcumler[ad] ?? null);
+    /* Saat açıkça verilir: `etkinKopru` ölçümün tazeliğini buna göre ölçer. */
+    const etkin = etkinKopru(ad, olcumler[ad] ?? null, Date.now());
     const yetenekler = [
       etkin.hazirSinyali ? 'hazır sinyali' : null,
       etkin.telemetri ? 'gerçek konum/süre' : null,
@@ -46,9 +47,11 @@ export default function KopruPanel() {
   const olcumVar = satirlar.some((s) => s.etkin.kaynak === 'olcum');
 
   return (
-    <section className="kart" style={{ marginTop: 18 }}>
-      <h2 style={{ marginTop: 0 }}>Oynatıcı köprüsü — bu cihazda ölçülen yetenekler</h2>
-      <p style={{ color: 'var(--tx3)', marginTop: 4 }}>
+    <section style={{ marginTop: 46 }}>
+      <h2 className="satir-baslik" style={{ fontSize: 19, marginBottom: 14 }}>
+        Oynatıcı köprüsü — bu cihazda ölçülen yetenekler
+      </h2>
+      <p style={{ color: 'var(--tx3)', fontSize: 13, marginBottom: 12 }}>
         Gömülü oynatıcıların hangi komutlara cevap verdiği koda gömülü bir tablodan değil, senin
         tarayıcında biriken kanıttan geliyor. Kaynak yanıt vermeye başlarsa site bunu kendiliğinden
         fark eder: bir kaynak konum bildiriyorsa, bulunduğu saniyeye görünmez bir “sar” isteği
@@ -83,8 +86,8 @@ export default function KopruPanel() {
       </div>
       {olcumVar ? (
         <button
-          className="dugme dugme-sade"
-          style={{ marginTop: 12 }}
+          className="dugme dugme-ikincil"
+          style={{ marginTop: 14 }}
           onClick={() => {
             kopruOlcumleriniSil();
             setOlcumler({});

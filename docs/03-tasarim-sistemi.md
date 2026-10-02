@@ -107,7 +107,10 @@ API'si yayınlayan kaynakta görünür (ölçüm: `docs/04`):
   burada düğme var?" sorusunu görünmez bir varsayıma değil kanıta bağlar.
 - `.oynatici-kopru-kesif` — sınama ya da kullanıcı komutu bir yeteneği **ilk kez** açtığında bir
   kerelik duyuru (`role="status"`); 8 sn sonra kaybolur. Ölçümün tamamı ve sıfırlama `/kunye`
-  sayfasındaki "Oynatıcı köprüsü" panelinde görünür (`.kart` + `.tablo` yeniden kullanılır).
+  sayfasındaki "Oynatıcı köprüsü" bölümünde görünür (sayfanın kendi dili: `.satir-baslik` + `.tablo`).
+
+> Not: panel ilk yazıldığında `.kart` ile sarıldı ve kart sınıfı anime kartı ölçüsü taşıdığı için
+> bölüm 178 px'e sıkıştı (tarayıcıda görüldü, 02.10). Sayfa bölümleri `.kart` kullanmaz.
 
 ## Erişilebilirlik
 

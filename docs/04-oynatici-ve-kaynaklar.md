@@ -194,7 +194,9 @@ susan kaynak ertesi gün konuşabilir ve koda gömülü tablo bunu **asla fark e
 | Demote | Yetenek kapatmak ayrı kanıt ister: **iki ardışık başarısız sınama** önseli geçersiz kılar. Başarısız sınama da kaydı tazeler (“bugün baktım” bilgisi kaybolmaz), yoksa bayat sayılıp önsele dönülür ve demote hiç uygulanmazdı. |
 
 Sonuç: bir host konuşmaya başlarsa (örneğin sessiz kaynak konum bildirmeye başlarsa) site bunu
-kendiliğinden görür ve düğmeleri açar; tersi de kanıtla olur, tek bir şüpheli günle değil.
+kendiliğinden görür ve düğmeleri açar; tersi de kanıtla olur, tek bir şüpheli günle değil. Ölçüm
+fonksiyonlarında saat (`simdi`) **zorunlu** parametredir; tarayıcı doğrulamasında varsayılan 0'ın
+taze kaydı bayat gösterdiği görüldü (bkz. H-32).
 
 Kullanıcı ne görür: şeritte `.oynatici-kopru-olcum` “ölçüldü” rozeti (ipucu: gözlem sayısı, son
 görülme tarihi) ve yetenek ilk kez açıldığında bir kerelik `.oynatici-kopru-kesif` duyurusu. Ne

@@ -161,12 +161,12 @@ test('olcumKomutOnayla / olcumSinaBasarisiz: kanıt ve karşı-kanıt sayaçlar�
 });
 
 test('olcumGecerliMi: taze ve aynı şemadaki kayıt geçerlidir', { skip: atla }, () => {
-  const taze = { ...kopru.yeniOlcum('ok', SIMDI), sonGorulme: SIMDI };
+  const taze = { ...kopru.yeniOlcum('ok'), sonGorulme: SIMDI };
   assert.equal(kopru.olcumGecerliMi(taze, SIMDI + 1000), true);
   assert.equal(kopru.olcumGecerliMi(taze, SIMDI + kopru.OLCUM_TTL_MS + 1), false, 'TTL aşıldı');
   assert.equal(kopru.olcumGecerliMi({ ...taze, surum: 99 }, SIMDI), false, 'şema sürümü farklı');
   assert.equal(kopru.olcumGecerliMi(null, SIMDI), false);
-  assert.equal(kopru.olcumGecerliMi(kopru.yeniOlcum('ok', SIMDI), SIMDI), false, 'hiç gözlem yok');
+  assert.equal(kopru.olcumGecerliMi(kopru.yeniOlcum('ok'), SIMDI), false, 'hiç gözlem yok');
 });
 
 test('etkinKopru: ölçüm önseli geçebilir — host konuşmaya başlarsa yetenek açılır', { skip: atla }, () => {
@@ -225,7 +225,7 @@ test('komutSinamasi: görünmez sınama yalnız konum biliniyorken ve seyrek yap
   const konumlu = { ...onselMail, telemetri: true };
   assert.equal(kopru.komutSinamasi(konumlu, null, SIMDI).sina, true);
 
-  const sinanmis = { ...kopru.yeniOlcum('mail', SIMDI), sonSina: SIMDI };
+  const sinanmis = { ...kopru.yeniOlcum('mail'), sonSina: SIMDI };
   assert.equal(kopru.komutSinamasi(konumlu, sinanmis, SIMDI + 1000).sebep, 'yeni-denendi');
   assert.equal(kopru.komutSinamasi(konumlu, sinanmis, SIMDI + kopru.SINA_ARASI_MS + 1).sina, true);
 
@@ -234,7 +234,7 @@ test('komutSinamasi: görünmez sınama yalnız konum biliniyorken ve seyrek yap
 });
 
 test('kopruCoz: eşleme + ölçüm birleşimini tek çağrıda verir', { skip: atla }, () => {
-  assert.equal(kopru.kopruCoz(GERCEK_SIBNET, null), null);
+  assert.equal(kopru.kopruCoz(GERCEK_SIBNET, null, SIMDI), null);
   const ogrenilmis = kopru.olcumKomutOnayla(kopru.olcumGuncelle(null, 'mail', olay('hazir'), SIMDI), 'mail', SIMDI);
   assert.equal(kopru.kopruCoz(GERCEK_MAIL, ogrenilmis, SIMDI + 1000).komut, true);
 });

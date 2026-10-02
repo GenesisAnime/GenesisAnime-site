@@ -544,6 +544,29 @@ bayraklarını sabitler: yalnız VK'da `komut: true`. Bir bayrağı kanıtsız t
 döndürür. Ayrıca ölçüm sayfaları (`tools/kopru-test.html`, `tools/kopru-komut-test.html`) repoda
 kalır — host davranışı değişirse yeniden ölçmek tek komutluk iştir.
 
+### H-32 · Ölçüm yazılıyordu ama okunmuyordu: okuma yolunun varsayılan saati 0'dı
+
+Çalışma anı ölçümü birim testlerden ve `tsc`'den temiz geçti; tarayıcıda `localStorage` kaydı
+doluyordu ama şeritte "ölçüldü" rozeti çıkmıyor, `/kunye` paneli hep "önsel" gösteriyordu. Sebep
+tek satırdı: `etkinKopru(…, simdi = 0)` varsayılanı ve çağıranın (arayüzün) saati hiç vermemesi.
+`olcumGecerliMi` yaşı `simdi - sonGorulme` ile hesaplıyor; `simdi = 0` iken yaş **negatif** çıkıyor,
+taze kayıt "bayat" sayılıp önsele düşülüyordu. Yani ölçüm yazılıyordu, **okunmuyordu**.
+
+Düzeltme hatayı derleme zamanına taşıdı: `simdi` artık `olcumGecerliMi`, `etkinKopru`, `kopruCoz`,
+`komutSinamasi`, `olcumGuncelle`, `olcumKomutOnayla` ve `olcumSinaBasarisiz` için **zorunlu**
+parametredir (varsayılan yok). Saati unutmak artık `tsc` hatasıdır. `yeniOlcum`'un hiç
+kullanılmayan `simdi` parametresi de kaldırıldı — "çağırıyorum ama etkisi yok" sessiz parametre
+tuzağıdır.
+
+Ölçüm (tarayıcı, yerel önizleme): yalnızca VK kaynağı seçildiğinde şerit canlı saat (`6:05 / 24:11`)
+ve düğmeleri gösteriyor; `genesisanime:v1:kopru-yetenek` kaydı `vk{gozlem:1, telemetri:true}`;
+`/kunye` paneli satırı "ölçüldü" oluyor ve sıfırlama düğmesi çıkıyor. Aynı sayfada Mail.ru kaynağı
+(hazır sinyali var, konum yok) doğru şekilde "kontrol yok" notuyla kalıyor.
+
+Ders: **varlık kanıtı, görünürlük kanıtı değildir.** Saati dışarıdan alan saf fonksiyonlarda
+varsayılan değer, okuyan tarafı sessizce öldürebilir; bu tür parametreler varsayılansız bırakılmalı
+ki unutulmaları derleyiciye yakalansın.
+
 ### H-30 · Veri kümesinde karşılığı olmayan yapımlar için aramanın riski ölçülmeden kullanılamazdı
 
 Fribb `anime-list` 943 yapımı kapsamıyor (çoğu OVA/ONA/özel bölüm). Onlar için TMDB arama ucu

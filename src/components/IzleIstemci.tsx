@@ -238,7 +238,8 @@ export default function IzleIstemci() {
 
   const olcum = kopruAdi ? olcumler[kopruAdi] ?? null : null;
   const kopru = useMemo(
-    () => (aktifKaynak ? kopruCoz(aktifKaynak[2], olcum) : null),
+    /* Saat açıkça verilir: varsayılana güvenmek ölçümü bayat sayıp önsele düşürürdü. */
+    () => (aktifKaynak ? kopruCoz(aktifKaynak[2], olcum, Date.now()) : null),
     [aktifKaynak, olcum]
   );
 
