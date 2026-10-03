@@ -1,0 +1,82 @@
+# GenesisAnime — GitLab CI doğrulama hattı
+# ==================================================================
+# Her push'ta ve merge request'te kalite kapısını koşturur:
+#
+#   1. tip-denetimi   → `npm run typecheck` (hızlı geri bildirim)
+#   2. derle-ve-test  → veri denetimi + `npm run build` + `npm run yayin:hazirla`
+#                        + `npm test` (birim, veri ve derlenmiş çıktı denetimleri)
+#
+# Neden derleme ve test AYNI işte? `tools/testler/cikti.test.mjs` doğrudan
+# `out/` ağacını denetler. `out/` yüzlerce MB olduğu için artefakt olarak
+# taşınmaz (GitLab artefakt sınırını aşar); bu yüzden test, derleme bittikten
+# sonra aynı çalışma dizininde koşar — GitHub Pages iş akışındaki
+# (.github/workflows/yayinla.yml) sıralamanın aynısı.
+#
+# Veri hattı (`npm run veri`) arşiv SQLite dosyasını gerektirir ve bu dosya
+# depoda tutulmaz; bu yüzden üretilmiş `public/data/` içeriği depoya commit
+# edilir (bkz. docs/kararlar/ADR-0004-veri-dizini.md) ve CI yalnızca derleme
+# + test yapar.
+#
+# BASE_PATH boş bırakılır: derleme kök dizin için üretilir. Alt dizin gerekirse
+# GitLab'da Settings → CI/CD → Variables altına BASE_PATH eklenmesi yeterlidir.
+# ==================================================================
+
+workflow:
+  rules:
+    # Merge request'ler için bir kez koş (push + MR çift çalışmasın)
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+
+stages:
+  - dogrula
+  - derle
+
+variables:
+  # npm önbelleğini proje içinde tut (aşağıdaki cache yolu buna bağlıdır)
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+  npm_config_audit: "false"
+  npm_config_fund: "false"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+default:
+  image: node:22
+  interruptible: true
+  # package-lock.json değişmedikçe aynı önbellek kullanılır
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+
+tip-denetimi:
+  stage: dogrula
+  timeout: 15m
+  script:
+    - npm ci --prefer-offline --no-audit --no-fund
+    - npm run typecheck
+
+derle-ve-test:
+  stage: derle
+  timeout: 1h
+  script:
+    - npm ci --prefer-offline --no-audit --no-fund
+    - |
+      if [ ! -f public/data/katalog.json ]; then
+        echo "public/data eksik — önce 'npm run veri' çalıştırıp commit edin"
+        exit 1
+      fi
+    # Üretim derlemesi: tamamen statik çıktı `out/` altına yazılır
+    - npm run build
+    # .nojekyll + 404.html + yayın raporu (boyut ve host limitleri)
+    - npm run yayin:hazirla
+    # Birim + veri bütünlüğü + derlenmiş çıktı denetimleri
+    - npm test
+  artifacts:
+    when: always
+    expire_in: 1 week
+    name: "yayin-raporu-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - tools/rapor/
