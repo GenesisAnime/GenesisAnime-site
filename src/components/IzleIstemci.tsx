@@ -95,14 +95,13 @@ export default function IzleIstemci() {
 
   const [bolumSira, setBolumSira] = useState(1);
   const [kaynakSira, setKaynakSira] = useState(0);
-  const [saniye, setSaniye] = useState(0);
+  const [oynaticiSuzgeci, setOynaticiSuzgeci] = useState<string | null>(null);
+  const saniyeRef = useRef(0);
   const [tamEkran, setTamEkran] = useState(false);
   const [bildirildi, setBildirildi] = useState(false);
 
   const kutuRef = useRef<HTMLDivElement>(null);
-  const saniyeRef = useRef(0);
   const izlendiRef = useRef(false);
-  saniyeRef.current = saniye;
 
   /* ------------------------- veri indirme ------------------------- */
 
@@ -172,6 +171,7 @@ export default function IzleIstemci() {
   // bölüm değişince kaynak seçimini başa al
   useEffect(() => {
     setKaynakSira(0);
+    setOynaticiSuzgeci(null);
     setBildirildi(false);
   }, [bolumSira]);
 
@@ -227,13 +227,23 @@ export default function IzleIstemci() {
     [seciliFansublar, epkGruplari]
   );
 
-  const gosterilenKaynaklar = useMemo(
-    () => (gecerliSecim.length ? kaynaklar.filter((k) => gecerliSecim.includes(kaynakGrubu(k))) : kaynaklar),
-    [kaynaklar, gecerliSecim]
-  );
+  const oynaticiSecenekleri = useMemo(() => {
+    const sayilar = new Map<string, number>();
+    for (const kaynak of kaynaklar) {
+      if (gecerliSecim.length && !gecerliSecim.includes(kaynakGrubu(kaynak))) continue;
+      sayilar.set(kaynak[0], (sayilar.get(kaynak[0]) ?? 0) + 1);
+    }
+    return [...sayilar].map(([ad, sayi]) => ({ ad, sayi })).sort((a, b) => b.sayi - a.sayi || playerAd(a.ad).localeCompare(playerAd(b.ad), 'tr'));
+  }, [kaynaklar, gecerliSecim]);
 
-  // Süzgeç değişince seçili kaynak başa döner (aksi hâlde kaynak "kaybolmuş" görünür).
-  useEffect(() => setKaynakSira(0), [gecerliSecim]);
+  const gosterilenKaynaklar = useMemo(() => {
+    const ekipSuzulmus = gecerliSecim.length ? kaynaklar.filter((k) => gecerliSecim.includes(kaynakGrubu(k))) : kaynaklar;
+    const seciliPlayerVar = oynaticiSuzgeci && oynaticiSecenekleri.some((p) => p.ad === oynaticiSuzgeci);
+    return seciliPlayerVar ? ekipSuzulmus.filter((k) => k[0] === oynaticiSuzgeci) : ekipSuzulmus;
+  }, [kaynaklar, gecerliSecim, oynaticiSuzgeci, oynaticiSecenekleri]);
+
+  useEffect(() => setKaynakSira(0), [gecerliSecim, oynaticiSuzgeci]);
+  useEffect(() => setOynaticiSuzgeci(null), [gecerliSecim]);
 
   const aktifKaynak =
     gosterilenKaynaklar[Math.min(kaynakSira, Math.max(0, gosterilenKaynaklar.length - 1))] ?? null;
@@ -572,7 +582,9 @@ export default function IzleIstemci() {
 
   useEffect(() => {
     if (!anime || !bolum) return;
-    const zamanlayici = setInterval(() => setSaniye((s) => s + 1), 1000);
+    const zamanlayici = setInterval(() => {
+      saniyeRef.current += 1;
+    }, 1000);
     return () => clearInterval(zamanlayici);
   }, [anime, bolum]);
 
@@ -1052,6 +1064,31 @@ export default function IzleIstemci() {
               </div>
             ) : null}
 
+            {oynaticiSecenekleri.length > 1 ? (
+              <div className="oynatici-secici" aria-label="Oynatıcıya göre kaynakları süz">
+                <div className="oynatici-secici-basi">2 · Oynatıcı seç</div>
+                <div className="oynatici-secici-dugmeleri">
+                  <button
+                    className={`oynatici-secici-dugme${oynaticiSuzgeci === null ? ' etkin' : ''}`}
+                    aria-pressed={oynaticiSuzgeci === null}
+                    onClick={() => setOynaticiSuzgeci(null)}
+                  >
+                    Tümü <span>{oynaticiSecenekleri.reduce((toplam, p) => toplam + p.sayi, 0)}</span>
+                  </button>
+                  {oynaticiSecenekleri.map((p) => (
+                    <button
+                      key={p.ad}
+                      className={`oynatici-secici-dugme${oynaticiSuzgeci === p.ad ? ' etkin' : ''}`}
+                      aria-pressed={oynaticiSuzgeci === p.ad}
+                      onClick={() => setOynaticiSuzgeci(p.ad)}
+                    >
+                      {playerAd(p.ad)} <span>{p.sayi}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             {gosterilenKaynaklar.length === 0 ? (
               <div className="uyari-kutu uyari">
                 <span aria-hidden="true">⚠️</span>
@@ -1104,7 +1141,11 @@ export default function IzleIstemci() {
                             ) : (
                               <OynatIkon boyut={11} />
                             )}
-                            {k[1] && k[1] !== k[0] ? <span className="fansub">{k[1]}</span> : null}
+                            {gecerliSecim.length > 0 || oynaticiSuzgeci ? (
+                              <span className="oynatici-cip-etiket">{playerAd(k[0])}</span>
+                            ) : k[1] && k[1] !== k[0] ? (
+                              <span className="fansub">{k[1]}</span>
+                            ) : null}
                             <span>#{i + 1}</span>
                             {durum ? <span className="cip-durum">{durum.etiket}</span> : null}
                           </button>

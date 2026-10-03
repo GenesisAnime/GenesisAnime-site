@@ -226,6 +226,7 @@ indirebilir veya hesabını ve sunucudaki kopyasını geri döndürülemez biçi
 - [docs/11-hesaplar-uygulama.md](docs/11-hesaplar-uygulama.md) — hesaplar, senkron, bildirim hattı
 - [docs/12-akis-koprusu.md](docs/12-akis-koprusu.md) — kendi `<video>` oynatıcısının temeli: akış çözümleyici + aktarım ucu
 - [docs/13-openani-oynatici-analizi.md](docs/13-openani-oynatici-analizi.md) — rakip oynatıcı analizi: kanıtlar, lisanslar, alınabilir/alınamaz ayrımı
+- [docs/14-js-rust-performans-benchmarki.md](docs/14-js-rust-performans-benchmarki.md)
 - [docs/gunluk/](docs/gunluk/) — kronolojik çalışma günlüğü
 - [docs/kararlar/](docs/kararlar/) — mimari karar kayıtları (ADR)
 - [AGENTS.md](AGENTS.md) — çalışma kuralları ve kalite kontrolleri

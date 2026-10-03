@@ -212,13 +212,13 @@ export type AkisNotu =
   | 'akis-tazelendi';
 
 const NOTLAR: Record<AkisNotu, string> = {
-  cozulemedi: 'Akış çözümlenemedi; kaynak kendi oynatıcısıyla açıldı.',
-  'akis-yogun': 'Akış servisi şu an yoğun (günlük istek sınırı); kaynak kendi oynatıcısıyla açıldı.',
+  cozulemedi: 'Akış çözümlenemedi; kaynağın playerını kullanabilir veya başka bir kaynak deneyebilirsin.',
+  'akis-yogun': 'Akış servisi şu an yoğun (günlük istek sınırı); kaynağın playerını kullanabilir veya daha sonra yeniden deneyebilirsin.',
   'tur-desteklenmiyor':
     'Kaynak mp4 dışı bir biçimde (HLS/DASH) sunuluyor; kendi oynatıcımız şimdilik yalnız mp4 oynatıyor.',
-  'akis-durdu': 'Akış oynatılamadı; kaynak kendi oynatıcısıyla açıldı.',
-  'akis-erisilemedi': 'Aktarım ucuna ulaşılamadı; kaynak kendi oynatıcısıyla açıldı.',
-  'medya-desteklemiyor': 'Bu yayın kendi oynatıcımızda çözülemedi; kaynak kendi oynatıcısıyla açıldı.',
+  'akis-durdu': 'Akış oynatılamadı; kaynağın playerını kullanabilir veya başka bir kaynak deneyebilirsin.',
+  'akis-erisilemedi': 'Aktarım ucuna ulaşılamadı; kaynağın playerını kullanabilir veya daha sonra yeniden deneyebilirsin.',
+  'medya-desteklemiyor': 'Bu yayın kendi oynatıcımızda çözülemedi; kaynağın playerına geçebilir veya başka bir kaynak deneyebilirsin.',
   'akis-tazelendi': 'Akış bağlantısı tazelendi; kaldığın yerden devam ediliyor.',
 };
 
