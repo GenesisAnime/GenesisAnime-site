@@ -22,8 +22,13 @@
 /** MyAnimeList poster kökü: `/images/anime/...` (ölçekleme bu kökün önüne girer). */
 const MAL_ONEK = 'https://cdn.myanimelist.net/images/';
 
-/** Kartların CSS genişlikleri (globals.css: .kart 178px, ≤860px 142px). */
-const KART_GENISLIKLERI = '142px, 178px';
+/**
+ * Kart görselinin `sizes` bildirimi. Medya koşulu **şart**: çıplak uzunluk
+ * listesi (`"142px, 178px"`) geçersiz sayılır ve tarayıcı son değeri (178px)
+ * uygular — mobilde büyük varyant inerdi (canlı sayfada ölçüldü: 340×481).
+ * Koşullu biçimde mobil 142px'i (globals.css @media 860px), üstü 178px'i alır.
+ */
+export const POSTER_SIZES = '(max-width: 860px) 142px, 178px';
 
 /**
  * MyAnimeList posterini istenen ölçüye çevirir. `/images/...` biçimindeki
@@ -43,9 +48,6 @@ export function posterSrcSet(poster: string | null): string | null {
   if (!poster || !poster.startsWith(MAL_ONEK)) return null;
   return `${malOlcek(poster, 178, 254)} 178w, ${malOlcek(poster, 356, 508)} 356w, ${poster} 225w`;
 }
-
-/** Kart görselinin `sizes` bildirimi (CSS ile aynı olmalı). */
-export const POSTER_SIZES = KART_GENISLIKLERI;
 
 /** TMDB `original` adresinin 1280 px varyantı (ölçek adayı). */
 export function tmdbKucuk(url: string): string {

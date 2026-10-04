@@ -114,16 +114,22 @@ test('kart görseli srcSet + sizes bildirir (tarayıcı küçük varyantı seçe
   assert.match(kart, /decoding="async"/, 'Kart: kod çözme ana iş parçacığını bloklamamalı');
 });
 
-test('bildirilen sizes CSS kart genişlikleriyle uyumlu', () => {
+test('bildirilen sizes CSS kart genişlikleriyle uyumlu ve medya koşullu', () => {
   const masaustu = kural('.kart').match(/width:\s*(\d+)px/);
   assert.ok(masaustu, '.kart: genişlik okunamadı');
-  const mobil = CSS.match(/@media \(max-width: 860px\)[\s\S]{0,4000}?\.kart\s*\{[^}]*width:\s*(\d+)px/);
-  assert.ok(mobil, '@media (max-width: 860px) içinde .kart genişliği bulunamadı');
+  const mobilEslesme = CSS.match(/@media \(max-width: 860px\)[\s\S]{0,4000}?\.kart\s*\{[^}]*width:\s*(\d+)px/);
+  assert.ok(mobilEslesme, '@media (max-width: 860px) içinde .kart genişliği bulunamadı');
   const sizes = oku('src', 'lib', 'gorsel.ts');
   assert.match(
     sizes,
-    new RegExp(`${mobil[1]}px, ${masaustu[1]}px`),
-    `sizes bildirimi CSS ile aynı olmalı (mobil ${mobil[1]}px, masaüstü ${masaustu[1]}px)`
+    new RegExp(`\\(max-width: 860px\\) ${mobilEslesme[1]}px, ${masaustu[1]}px`),
+    `sizes medya koşullu olmalı (mobil ${mobilEslesme[1]}px, masaüstü ${masaustu[1]}px)`
+  );
+  // Çıplak uzunluk listesi geçersizdir: tarayıcı son değeri uygular, mobil
+  // büyük varyantı indirir (canlı ölçüm: 340×481). Koşul şart.
+  assert.ok(
+    !/POSTER_SIZES\s*=\s*'\d+px/.test(sizes),
+    'sizes çıplak uzunlukla bildirilmiş — medya koşulu olmadan tarayıcı yok sayar'
   );
 });
 
