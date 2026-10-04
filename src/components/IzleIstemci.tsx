@@ -544,6 +544,11 @@ export default function IzleIstemci() {
     setAkisDurum('cozuluyor');
     setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { durum: 'bekliyor' } }));
     setAkisSorun('');
+    /* Çözümleme gerçekten başladı: kaynak bu zincir turunda denenmiş sayılır.
+       Tercih ya da elle seçimle gelen ilk kaynak da buradan geçer; zincir onu
+       ikinci kez seçemez (canlı testte bir kaynak iki kez denenmiş, bir hak
+       boşa gitmişti). */
+    zincirDenenenRef.current.add(kaynak[2]);
     akisCoz(sarmalayiciCoz(kaynak[2])).then((sonuc) => {
       if (akisSurumRef.current !== surum) return;
       if (!sonuc.ok) {

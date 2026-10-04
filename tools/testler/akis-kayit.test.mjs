@@ -140,4 +140,5 @@ test('yapısal: oynatıcı cihaz hafızasını ve telemetriyi gerçekten kullan�
   assert.match(izle, /tercihiUygula\(\);\n\s+\}\}/, 'mod düğmesi kanıtlı sırayı senkron uygular (ilk deneme kanıtlı host)');
   assert.match(izle, /tercihiKapat\(\)/, 'elle seçim otomatik tercihi kapatır');
   assert.match(izle, /zincirDenenenRef\.current\.has/, 'aynı kaynak zincirde iki kez seçilmez (yarış koruması)');
+  assert.match(izle, /zincirDenenenRef\.current\.add\(kaynak\[2\]\)/, 'çözümleme başlayan kaynak denenmiş sayılır');
 });
