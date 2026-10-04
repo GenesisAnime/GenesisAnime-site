@@ -105,6 +105,10 @@ test('site playerı kaynak sınıflarını API ve gerçek çözümleme durumuna 
   assert.equal(akis.akisKaynakSinifla('https://my.mail.ru/embed', { ...temel, apiVar: false, sonuc: { durum: 'calisiyor' } }), 'calisiyor');
   assert.match(akis.akisSorunAciklamasi('durum-503'), /HTTP 503/, 'HTTP durumları sayısal regex ile açıklanmalı');
   assert.match(akis.akisSorunAciklamasi('tur-desteklenmiyor:hls'), /MP4\/WebM/);
+  /* Robot doğrulaması "akış yok"tan ayrı anlatılmalı: eylem farklı (ifade
+     doğrulama / başka kaynak), ölçüm kaynağı: 11eyes 1. bölüm uqload ekranı. */
+  assert.match(akis.akisSorunAciklamasi('captcha'), /robot doğrulaması/i);
+  assert.notEqual(akis.akisSorunAciklamasi('captcha'), akis.akisSorunAciklamasi('akis-bulunamadi'));
 });
 
 
@@ -274,4 +278,20 @@ test('oynatıcı: kendi <video> ve iframe yedeği yan yana durur', { skip: bicim
   assert.doesNotMatch(kaynak, /akisAdayi\(/, 'clientte yalnız Mail.ru kısıtı kalmamalı');
   assert.match(kaynak, /'cok-fazla-istek' \? 'akis-yogun'/, 'sunucu sınırı (429) kullanıcıya ayrı anlatılmalı');
   assert.match(kaynak, /konumKaydet\(anime\.slug, bolum\.n, Math\.floor\(videoKonumRef\.current\)\)/, 'gerçek konum cihazda saklanmalı');
+});
+
+test('oynatıcı: iframe modunda köprüden çözülebilen kaynak için captcha’sız oynatma yolu sunulur', { skip: bicim ? false : ATLA }, () => {
+  const kaynak = OKU(IZLE);
+  /* Sağlayıcının kendi sayfası reklam ve bazen robot doğrulaması gösterir;
+     akışı köprüden açtığımızda o sayfa hiç yüklenmez. Ölçüm (04.10): aynı
+     uqload akışı Workers üzerinden HLS olarak akıyor → şerit + tek tık. */
+  assert.match(kaynak, /const kopruCozebilir = Boolean\(/, 'köprü yeteneği moddan bağımsız hesaplanmalı');
+  assert.match(kaynak, /playerModu === 'kaynak' && gomulebilir && kopruCozebilir/, 'şerit yalnız iframe modunda ve çözülebilen kaynakta görünmeli');
+  assert.match(kaynak, /Captcha’sız oynat/, 'tek tıkla captcha’sız oynatma sunulmalı');
+  assert.match(
+    kaynak,
+    /onClick=\{\(\) => \{[\s\S]{0,120}setPlayerModu\('site'\)[\s\S]{0,300}Captcha’sız oynat/,
+    'düğme site player moduna geçirmeli (aynı kaynağı köprüden açar)'
+  );
+  assert.match(kaynak, /Bu kaynağın kendi sayfası reklam gösterir/, 'şerit reklam/captcha olasılığını açıkça söylemeli');
 });

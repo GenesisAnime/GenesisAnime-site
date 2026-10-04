@@ -70,6 +70,7 @@ export function akisSorunAciklamasi(hata: string): string {
     case 'embed-alinamadi': return 'Sağlayıcı sayfasına sunucu erişemedi; iframe playerı yine çalışabilir.';
     case 'kimlik-bulunamadi': return 'Player içinden video kimliği çıkarılamadı.';
     case 'akis-bulunamadi': return 'Açık ve güvenli MP4/WebM akışı bulunamadı; player JavaScript/API veya HLS kullanıyor olabilir.';
+    case 'captcha': return 'Kaynak robot doğrulaması (captcha) istiyor; iframe playerında doğrulamayı sen çözmelisin. Başka bir kaynak dene ya da kaynağın kendi sayfasında doğrulamayı geç.';
     case 'hedef-izinli-degil':
     case 'host-izinli-degil': return 'Bulunan medya sunucusu güvenli aktarım listesinde değil.';
     case 'tur-desteklenmiyor': return 'Kaynak MP4/WebM dışında bir biçim döndürdü.';

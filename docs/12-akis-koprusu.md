@@ -397,3 +397,48 @@ Mekanik:
 kaydırdıkça 270 → 450 → 540; her grup yalnız gözcü sınıra yaklaşınca eklendi.
 Sayfa yüksekliği 9.540 → 9.565 px (iskelet satırı gerçek satırdan birkaç piksel
 kısa; kaydırma zıplamıyor).
+
+## 04.10 · Captcha duvarı: sınıflandırma + captcha'sız oynatma yolu
+
+**Gözlem (kullanıcı ekran görüntüsü):** 11eyes 1. bölüm, uqload kaynağı, "Kaynağın
+playerı" modu. iframe'de sağlayıcının kendi sayfası açılıyor ve video yerine
+reCAPTCHA ekranı geliyor: *"ROBOT DEĞİLSENİZ DÜĞMEYE TIKLAYIN · Robot değilim"*
+(sayfa başlığı: `TR -11-3y32-01 By Oto Uploader`, sağ üstte uqload logosu).
+
+**Ölçüm (04.10, bu makineden ve Workers'tan):**
+
+| adım | sonuç |
+|---|---|
+| `GET https://uqload.com/embed-ayu2mtmevw4s.html` (tarayıcı UA) | HTTP 200 → `uqload.vc` (301 mirror), 14,3 KB, **captcha izi yok** (packer + jwplayer var) |
+| `/akis/coz?kaynak=…` (canlı Worker) | HTTP 200 · `{ tur: "hls" }` · 690 ms |
+| `/akis/aktar` master listesi | 200 · 1 varyant (640×360, 395 kbps) |
+| ilk parça (`Range: bytes=0-200000`) | **206 · 195 KB · 196 ms** |
+
+Sonuç: duvar **sağlayıcının sayfasının** özelliği, akışın değil. Akışı kendi
+`<video>` elemanımıza köprüden aldığımızda uqload'ın sayfası hiç yüklenmez →
+captcha da, reklam katmanı da gelmez. Aynı bölümün aynı kaynağı site playerında
+sorunsuz oynuyor. Duvar yalnızca iframe yolunda görünür.
+
+**Kod (iki katman):**
+
+1. `api/src/akis.mjs · captchaDuvarı(html)` — embed sayfası robot doğrulama
+   duvarı mı? İşaretler: `grecaptcha`, `google.com/recaptcha`, `hcaptcha`,
+   `cf-chl`/`challenge-platform`, "robot değilseniz/robot değilim", `data-sitekey`.
+   **Yanlış pozitif koruması:** sayfada gerçek oynatıcı varsa (packer,
+   `jwplayer(`, `hls.js`, `sources: [`, `.m3u8`) sayfa captcha sayılmaz — canlı
+   ölçümde normal uqload sayfası `false`, duvar örneği `true` döndü.
+   Duvar görülürse `/akis/coz` artık genel `akis-bulunamadi` yerine
+   `hata: "captcha"` + `neden: "saglayici-robot-dogrulamasi"` döner; istemci
+   metni (`src/lib/akis.ts`) bunu "kaynak robot doğrulaması istiyor" diye açıklar
+   (eylem farklı: iframe'de doğrulamayı geçmek ya da başka kaynak).
+2. `IzleIstemci.tsx` — iframe modunda, **köprünün çözebildiği** kaynaklarda
+   (yeni `kopruCozebilir` bayrağı; `kendiVideoAdayi` ile aynı kaynak kapsamı ama
+   köprü yokken `false`) tek satırlık şerit + "Captcha'sız oynat (Sitenin playerı)"
+   düğmesi: aynı kaynağı site playerında açar. Şerit reklamı da söyler, çünkü
+   iframe yolu her hâlükârda sağlayıcının reklam katmanını yükler.
+
+**Sınır (dürüstçe):** sağlayıcı duvarı bir gün **bizim çıkışımıza** da çevirirse
+(veri merkezi IP'si + captcha) köprü çözemez; o kaynak yalnız iframe'de kalır ve
+kullanıcı doğrulamayı kendisi geçer. Captcha programatik olarak çözülmez —
+bu yüzden asıl çözüm duvarı aşmak değil, akışı sağlayıcının sayfasından
+bağımsız olarak (köprüden) oynatmak.

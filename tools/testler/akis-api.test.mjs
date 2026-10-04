@@ -390,6 +390,30 @@ test('akisCoz: desteklenen fakat statik akışı olmayan provider anlaşılır h
   assert.equal(agHatasi.durum, 0);
 });
 
+test('captchaDuvarı: robot doğrulama ekranı "akış yok"tan ayrılır, oynatıcılı sayfa yanlış etiketlenmez', async () => {
+  /* Ölçüm (04.10): uqload embed sayfası iframe'de açıldığında reCAPTCHA ekranı
+     gösteriyor ("ROBOT DEĞİLSENİZ DÜĞMEYE TIKLAYIN"). Duvar çözümleyiciye de
+     gelirse kullanıcıya doğru mesaj verilmeli. */
+  const duvar = `<!DOCTYPE html><html><head><title>TR -11-3y32-01 By Oto Uploader</title>
+    <script src="https://www.google.com/recaptcha/api.js"></script></head>
+    <body><div class="g-recaptcha" data-sitekey="6LcOrnek"></div>
+    <div>ROBOT DEĞİLSENİZ DÜĞMEYE TIKLAYIN</div><button>Robot değilim</button></body></html>`;
+  assert.equal(akis.captchaDuvarı(duvar), true);
+  assert.equal(akis.captchaDuvarı('<html><body>hcaptcha challenge</body></html>'), true);
+  assert.equal(akis.captchaDuvarı('<html><body>I am not a robot</body></html>'), true);
+  /* Akış veren sayfa duvar sayılmaz (yanlış pozitif koruması). */
+  assert.equal(akis.captchaDuvarı(UQLOAD_PAGE), false);
+  assert.equal(akis.captchaDuvarı('<html>player JavaScript/API ile yükleniyor</html>'), false);
+  assert.equal(akis.captchaDuvarı(''), false);
+  assert.equal(akis.captchaDuvarı(null), false);
+
+  /* Uçtan uca: duvar gelirse hata kodu `captcha` (genel "akış yok" değil). */
+  const sonuc = await akis.akisCoz('https://uqload.com/embed-robot.html', { fetchImpl: sahteFetch([{ govde: duvar }]) });
+  assert.equal(sonuc.ok, false);
+  assert.equal(sonuc.hata, 'captcha');
+  assert.equal(sonuc.neden, 'saglayici-robot-dogrulamasi');
+});
+
 /* ------------------------------- aktarım ucu ------------------------------- */
 
 const IMZALI = 'https://cdn62.my.mail.ru/v/46642779.mp4?video_key=abc&expire_at=1790985600';

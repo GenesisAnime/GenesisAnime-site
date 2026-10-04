@@ -378,6 +378,21 @@ export default function IzleIstemci() {
       (!akisVarMi() || zorlaCoz || kapsamdaMi(akisKapsam, sarmalayiciCoz(aktifKaynak[2])))
   );
 
+  /**
+   * Köprü bu kaynağı **gerçekten** çözebiliyor mu? (moddan bağımsız)
+   *
+   * "Kaynağın playerı" modunda da işe yarar: kaynağın kendi sayfası reklam ve
+   * bazen robot doğrulaması (captcha) gösterir; akışı Workers üzerinden biz
+   * açtığımızda o sayfa hiç yüklenmez. Ölçüm (04.10): 11eyes 1. bölüm uqload
+   * kaynağı iframe'de captcha duvarı gösterirken köprü aynı akışı HLS olarak
+   * 206 ile akıtıyor — yani duvar sağlayıcının sayfasının özelliği, akışın değil.
+   * `kendiVideoAdayi`den farkı: köprü yoksa (`!akisVarMi()`) bu bayrak false kalır
+   * (o hâlde tıklanacak bir oynatıcı da yoktur).
+   */
+  const kopruCozebilir = Boolean(
+    aktifKaynak && akisVarMi() && (zorlaCoz || kapsamdaMi(akisKapsam, sarmalayiciCoz(aktifKaynak[2])))
+  );
+
   /* ------------------------- otomatik kaynak zinciri ------------------------- */
   /* Sıradaki kaynak, mevcut sıradan başlayarak seçilir; kapsam içi host'lar öne
      alınır, bilinen başarısızlar atlanır. Tüm değerler ref üzerinden okunur:
@@ -1290,6 +1305,32 @@ export default function IzleIstemci() {
               </div>
             ) : null}
           </div>
+
+          {/* Captcha/reklam şeridi: kaynağın kendi sayfası iframe'de açıldığında
+              uqload benzeri sağlayıcılar robot doğrulaması gösterebiliyor. Akışı
+              köprüden açtığımızda sağlayıcının sayfası hiç yüklenmez: duvar da
+              gelmez. Şerit yalnız köprünün çözebildiği kaynakta ve yalnız iframe
+              modunda görünür — tıklama, aynı kaynağı site playerında başlatır. */}
+          {playerModu === 'kaynak' && gomulebilir && kopruCozebilir ? (
+            <div className="uyari-kutu bilgi" style={{ marginTop: 10 }} role="status">
+              <span aria-hidden="true">🛡️</span>
+              <span>
+                Bu kaynağın kendi sayfası reklam gösterir; bazı sağlayıcılar robot doğrulaması (captcha) çıkarır.
+                <button
+                  type="button"
+                  className="dugme dugme-sade"
+                  style={{ marginLeft: 10 }}
+                  onClick={() => {
+                    setPlayerModu('site');
+                    setZorlaCoz(false);
+                    tercihiUygula();
+                  }}
+                >
+                  Captcha’sız oynat (Sitenin playerı)
+                </button>
+              </span>
+            </div>
+          ) : null}
 
           {/* Kendi oynatıcı şeridi: video bizim elemanımızda, baytlar aktarım ucundan. */}
           {akis ? (

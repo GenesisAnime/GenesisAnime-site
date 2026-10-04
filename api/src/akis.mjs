@@ -317,6 +317,40 @@ function turBul(yol) {
 }
 
 /**
+ * Embed sayfası bir **robot doğrulama duvarı** mı gösteriyor?
+ *
+ * Neden ayrı bir sınıflandırma: uqload benzeri sağlayıcılar kendi sayfalarını
+ * gömülü (iframe) açan tarayıcılara ya da veri merkezi adreslerine reCAPTCHA
+ * ekranı gösterebiliyor ("ROBOT DEĞİLSENİZ DÜĞMEYE TIKLAYIN"). Duvar çözümleyiciye
+ * geldiğinde akış bulunamaz; kullanıcıya "akış yok" demek yanıltıcı olurdu, doğru
+ * mesaj "kaynak robot doğrulaması istiyor". Ölçüm (04.10): katalogda 7.181 uqload
+ * kaynağı var ve sağlayıcı sayfası normal koşulda işareti **taşımıyor**; bu yüzden
+ * işaret görülürse sınıflandırma güvenli.
+ *
+ * Yanlış pozitif koruması: sayfada gerçek bir oynatıcı/paket (`jwplayer`, packer,
+ * `.m3u8`/`.mp4`) varsa sayfa captcha sayılmaz — duvar sayfaları oynatıcı
+ * taşımaz. Bu kural, "sayfa captcha'dan söz ediyor ama video veriyor" hâlini de
+ * dışarıda bırakır.
+ */
+export function captchaDuvarı(html) {
+  const s = String(html ?? '');
+  if (!s) return false;
+  const oynaticiVar =
+    /eval\(function\(p,a,c,k,e,d\)/i.test(s) ||
+    /jwplayer\(|jwplayer\.js|hls\.js|videojs\(|sources\s*:\s*\[|\.m3u8/i.test(s);
+  if (oynaticiVar) return false;
+  const isaretler = [
+    /grecaptcha/i,
+    /google\.com\/recaptcha/i,
+    /hcaptcha/i,
+    /challenge-platform|cf-chl|__cf_chl/i,
+    /robot\s*de[ğg]ilseniz|robot\s*de[ğg]ilim|not\s+a\s+robot/i,
+    /data-sitekey=/i,
+  ];
+  return isaretler.some((desen) => desen.test(s));
+}
+
+/**
  * Statik HTML içinde beyan edilen ve güvenli aktarılabilir MP4/WebM/HLS akışlarını
  * bulur. Oynatıcı adresi paketlenmişse (`packer`) paket de çözülüp taranır:
  * uqload/luluvdo adresi yalnız paketin içinde durur.
@@ -531,7 +565,12 @@ export async function akisCoz(embedAdresi, { fetchImpl = fetch, siteOrigin = '' 
   }
 
   const aday = akisAdaylari(embed.govde, embedAdresi)[0];
-  if (!aday) return { ok: false, hata: 'akis-bulunamadi' };
+  if (!aday) {
+    /* Duvar ayrımı kullanıcı metnine ve telemetriye geçer: "akış yok" ile
+       "kaynak robot doğrulaması istiyor" farklı eylemler gerektirir. */
+    if (captchaDuvarı(embed.govde)) return { ok: false, hata: 'captcha', neden: 'saglayici-robot-dogrulamasi' };
+    return { ok: false, hata: 'akis-bulunamadi' };
+  }
   const expire = aday.url.match(/[?&](?:expire_at|expires)=(\d{9,})/i);
   return { ok: true, kaynakAdi: tur, tur: aday.tur, url: aday.url, imzaBitis: expire ? Number(expire[1]) * 1000 : null };
 }
