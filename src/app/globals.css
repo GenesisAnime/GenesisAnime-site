@@ -2308,6 +2308,13 @@ a.etiket:hover {
   background: var(--card3);
 }
 
+/* Mobilde alt menü (z-index 60) sabit duruyor: çubuk onun üstüne çıkmalı. */
+@media (max-width: 860px) {
+  .surum-cubugu {
+    bottom: calc(70px + env(safe-area-inset-bottom));
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .surum-cubugu {
     animation: surum-gir 260ms ease-out;
