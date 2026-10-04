@@ -6,11 +6,12 @@
 #   2. derle-ve-test  → veri denetimi + `npm run build` + `npm run yayin:hazirla`
 #                        + `npm test` (birim, veri ve derlenmiş çıktı denetimleri)
 #
+# İşler her push'ta çalışır; merge request ve elle başlatılan pipeline'larda da çalışır.
+#
 # Neden derleme ve test AYNI işte? `tools/testler/cikti.test.mjs` doğrudan
 # `out/` ağacını denetler. `out/` yüzlerce MB olduğu için artefakt olarak
 # taşınmaz (GitLab artefakt sınırını aşar); bu yüzden test, derleme bittikten
-# sonra aynı çalışma dizininde koşar — GitHub Pages iş akışındaki
-# (.github/workflows/yayinla.yml) sıralamanın aynısı.
+# sonra aynı çalışma dizininde koşar; böylece büyük çıktı artefaktı aktarılmaz.
 #
 # Veri hattı (`npm run veri`) arşiv SQLite dosyasını gerektirir ve bu dosya
 # depoda tutulmaz; bu yüzden üretilmiş `public/data/` içeriği depoya commit
@@ -20,14 +21,6 @@
 # BASE_PATH boş bırakılır: derleme kök dizin için üretilir. Alt dizin gerekirse
 # GitLab'da Settings → CI/CD → Variables altına BASE_PATH eklenmesi yeterlidir.
 # ==================================================================
-
-workflow:
-  rules:
-    # Merge request'ler için bir kez koş (push + MR çift çalışmasın)
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
-      when: never
-    - if: $CI_COMMIT_BRANCH
 
 stages:
   - dogrula

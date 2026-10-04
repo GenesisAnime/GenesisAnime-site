@@ -1,6 +1,15 @@
 # 06 · Yayın ve Dağıtım
 
-> Son güncelleme: 2026-10-01
+> Son güncelleme: 2026-10-04
+>
+> ## Güncel yayın kararı
+>
+> Site **GitHub Pages**'te yayınlanır: depo `GenesisAnime/GenesisAnime-site`, adres
+> **https://genesisanime.github.io/GenesisAnime-site/** (`BASE_PATH=/GenesisAnime-site`).
+> `.github/workflows/yayinla.yml` `main` push'unda derler, test eder ve dağıtır; Pages kaynağı
+> **GitHub Actions** olmalıdır. API Worker'ın CORS listesi (`SITE_ORIGIN`) site kaynağıdır:
+> `https://genesisanime.github.io`.
+> Windows'ta yerel çalıştırma için `siteyi-baslat.cmd` / `siteyi-durdur.cmd` yan yoldur.
 
 ## Çıktı ölçümü (gerçek koşu)
 
@@ -66,7 +75,7 @@ Dosya türü dağılımı: `.html` 7.444 · `.txt` 7.443 (RSC) · `.json` 6.114 
 | D1 veritabanı | `genesisanime` · `abde0636-74dd-4d0e-b9c6-12704d3b1f10` (bölge WEUR, AMS) |
 | workers.dev alt alan adı | `genesisanime` (panelden değiştirilebilir — Worker adresi de değişir) |
 | Secret'lar | `JWT_SECRET`, `ADMIN_TOKEN`, `IP_TUZ` (rastgele üretildi; yalnızca Worker'da tutulur) |
-| Değişken | `SITE_ORIGIN=https://nutaliaxd.github.io` — CORS **yalnızca** buraya açık |
+| Değişken | `SITE_ORIGIN=https://genesisanime.github.io` — CORS **yalnızca** buraya açık |
 | Şema | `migrations/0001.sql` uzak D1'e uygulandı (5 tablo) |
 
 Kurulum sırası (tek seferlik):
@@ -96,8 +105,8 @@ Yeni hesaplarda çıkan iki engel (ikisi de panelde çözülür):
 Site derlemesi (dağıtım sonrası):
 
 ```bash
-BASE_PATH=/GenesisAnime \
-NEXT_PUBLIC_SITE_URL=https://nutaliaxd.github.io/GenesisAnime \
+BASE_PATH=/GenesisAnime-site \
+NEXT_PUBLIC_SITE_URL=https://genesisanime.github.io/GenesisAnime-site \
 NEXT_PUBLIC_API=https://genesisanime-api.genesisanime.workers.dev \
 NEXT_PUBLIC_BILDIRIM_API=https://genesisanime-api.genesisanime.workers.dev \
 npm run build && npm run yayin:hazirla
@@ -108,7 +117,7 @@ Uzak doğrulama:
 ```bash
 GENESIS_API_URL=https://genesisanime-api.genesisanime.workers.dev \
 GENESIS_ADMIN_TOKEN=<ADMIN_TOKEN> \
-npm run api:test -- --origin=https://nutaliaxd.github.io
+npm run api:test -- --origin=https://genesisanime.github.io
 ```
 
 `--origin` uzakta **zorunludur**: e2e'nin bir adımı `--origin` kaynağının CORS'ta izinli olmasını
@@ -166,8 +175,8 @@ sayısı bildirilir (yerel koşuda tam doğrulama yapılır).
 GitHub Pages proje siteleri `https://<kullanıcı>.github.io/<depo>/` altında yayınlanır:
 
 ```bash
-BASE_PATH=/GenesisAnime \
-NEXT_PUBLIC_SITE_URL=https://nutaliaxd.github.io/GenesisAnime \
+BASE_PATH=/GenesisAnime-site \
+NEXT_PUBLIC_SITE_URL=https://genesisanime.github.io/GenesisAnime-site \
 npm run build
 ```
 
@@ -183,13 +192,13 @@ npm run build
 
 ## İlk push (kurulum, 01.10.2026)
 
-Depo: **https://github.com/Nutaliaxd/GenesisAnime** (public). İlk commit yerelde hazır
+Depo: **https://github.com/GenesisAnime/GenesisAnime-site** (public). İlk commit yerelde hazır
 (`783dca6`, 6.236 dosya). `out/` ve `.next/` gitignore'da olduğu için push edilen ağaç ~55 MB
 (kaynak + `public/data/` 64 MB'ın izlenen kısmı + 49,9 MB'lık `tools/cache/link-durum.jsonl` kanıt
 kaydı).
 
 ```bash
-git remote add origin https://github.com/Nutaliaxd/GenesisAnime.git   # yapıldı
+git remote add origin https://github.com/GenesisAnime/GenesisAnime-site.git   # yapıldı
 git push -u origin main                                               # yayını başlatır
 ```
 

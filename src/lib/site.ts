@@ -7,9 +7,9 @@ export const SITE = {
   aciklama:
     'Türkçe anime izleme arşivi: binlerce anime, bölüm bazlı fansub ve çevirmen bilgisi, ' +
     'kaynak çipleriyle hızlı oynatıcı, izleme listesi ve izlemeye devam et desteği.',
-  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://nutaliaxd.github.io/GenesisAnime',
+  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://genesisanime.github.io/GenesisAnime-site',
   dil: 'tr',
-  iletisim: 'https://github.com/Nutaliaxd',
-  depo: 'https://github.com/Nutaliaxd/GenesisAnime',
-  wiki: 'https://github.com/Nutaliaxd/GenesisAnime/wiki',
+  iletisim: 'https://github.com/tatsunalia',
+  depo: 'https://github.com/GenesisAnime/GenesisAnime-site',
+  wiki: 'https://github.com/GenesisAnime/GenesisAnime-site/wiki',
 } as const;

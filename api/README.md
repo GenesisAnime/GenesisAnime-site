@@ -13,7 +13,7 @@ kullanıcı bildirimleri için gerekir.
 ## Hızlı komutlar (üretim)
 
 Canlı servis (01.10.2026): **https://genesisanime-api.genesisanime.workers.dev** · D1 `genesisanime`
-(`abde0636-74dd-4d0e-b9c6-12704d3b1f10`, bölge WEUR) · CORS yalnızca `https://nutaliaxd.github.io`.
+(`abde0636-74dd-4d0e-b9c6-12704d3b1f10`, bölge WEUR) · CORS yalnızca `https://genesisanime.github.io`.
 
 ```bash
 npm install
@@ -35,20 +35,27 @@ Uzak duman testi (CORS yalnızca sitenin kaynağına açık olduğu için `--ori
 cd ..                                  # site kökü
 GENESIS_API_URL=https://genesisanime-api.genesisanime.workers.dev \
 GENESIS_ADMIN_TOKEN=<ADMIN_TOKEN> \
-npm run api:test -- --origin=https://nutaliaxd.github.io
+npm run api:test -- --origin=https://genesisanime.github.io
 ```
 
 ## Yerel geliştirme + uçtan uca test
 
+Site playerı için API adresi **Next.js başlatılmadan önce** `NEXT_PUBLIC_API` ile verilmelidir;
+bu public değişken build/dev istemci koduna derleme anında gömülür. Yerel başlatıcı
+`siteyi-baslat.cmd` bu iki servisi otomatik kurup açar. Elle çalıştırmak için iki terminal:
+
 ```bash
+# Terminal 1: API (site kökünden)
 cd api
-npm install                           # wrangler ^4 (3.x uyumluluk tarihini düşürüyor)
+npm ci
 npm run db:yerel                      # şemayı yerel D1'e uygula (.wrangler/state; gitignore'da)
 printf 'JWT_SECRET=<rastgele>\nADMIN_TOKEN=<rastgele>\nIP_TUZ=<rastgele>\n' > .dev.vars
-npx wrangler dev --port 8789 --var CORS_EXTRA:http://127.0.0.1:8000,http://localhost:3000
+npm run dev -- --ip 127.0.0.1 --port 8789 --var CORS_EXTRA:http://127.0.0.1:3000
 
-# başka terminalde (site kökünden):
-cd ..
+# Terminal 2: site kökünden
+NEXT_PUBLIC_API=http://127.0.0.1:8789 npm run dev -- --hostname 127.0.0.1 --port 3000
+
+# Uçtan uca API testi (başka terminal, site kökünden):
 GENESIS_API_URL=http://127.0.0.1:8789 GENESIS_ADMIN_TOKEN=<ADMIN_TOKEN> npm run api:test
 ```
 

@@ -62,18 +62,51 @@ test('köprü adresi tanımlıysa çözümleme adresi ve taze ek üretilir', { s
   assert.match(akis.cozAdresi('https://my.mail.ru/x', true, 1_790_985_600_000), /&t=1790985600000$/);
 });
 
-/* --------------------------- aday seçimi --------------------------- */
+/* --------------------------- kapsam seçimi --------------------------- */
 
-test('akisAdayi: yalnız Mail.ru damgalı ve my.mail.ru adresli kaynak köprüye alınır', { skip: akis ? false : ATLA }, () => {
-  assert.equal(akis.akisAdayi('MAIL', 'https://my.mail.ru/video/embed/1'), true);
-  assert.equal(akis.akisAdayi('MAIL', 'https://videoapi.my.mail.ru/videos/embed/a/b/1.html'), true);
-  assert.equal(akis.akisAdayi('MAIL', 'https://cdn62.my.mail.ru/v/1.mp4'), true);
-  /* Yanlış damga boşa sunucu isteği yapmasın (uç zaten `desteklenmiyor` derdi). */
-  assert.equal(akis.akisAdayi('SIBNET', 'https://my.mail.ru/video/embed/1'), false);
-  assert.equal(akis.akisAdayi('MAIL', 'https://ok.ru/videoembed/1'), false);
-  assert.equal(akis.akisAdayi('MAIL', 'https://my.mail.ru.kotu.example/x'), false);
-  assert.equal(akis.akisAdayi('MAIL', 'bu adres değil'), false);
+test('akisKapsami: desteklenen host listesi okunur ve 10 dakika önbelleklenir', { skip: akis ? false : ATLA }, async () => {
+  process.env.NEXT_PUBLIC_API = 'https://ornek-api.workers.dev';
+  const hostlar = ['my.mail.ru', 'mp4upload.com'];
+  let cagri = 0;
+  const fetchImpl = async () => {
+    cagri += 1;
+    return new Response(JSON.stringify({ ok: true, surum: 1, hostlar }), { status: 200 });
+  };
+  const ilk = await akis.akisKapsami({ fetchImpl, zorla: true, simdi: 1_000_000 });
+  assert.deepEqual(ilk, { hostlar, surum: 1, kaynak: 'sunucu' });
+  const ikinci = await akis.akisKapsami({ fetchImpl, simdi: 1_000_000 + 60_000 });
+  assert.deepEqual(ikinci.hostlar, hostlar);
+  assert.equal(cagri, 1);
+  await akis.akisKapsami({ fetchImpl, simdi: 1_000_000 + akis.AKIS_KAPSAM_OMRU_MS + 1 });
+  assert.equal(cagri, 2, 'önbellek süresi bitince kapsam yenilenmeli');
 });
+
+test('akisKapsami: bozuk/eski API ve ağ hatası açıkça varsayılana düşer', { skip: akis ? false : ATLA }, async () => {
+  process.env.NEXT_PUBLIC_API = 'https://ornek-api.workers.dev';
+  const fetchImpl = async () => new Response(JSON.stringify({ ok: true, hostlar: [123] }), { status: 200 });
+  assert.equal((await akis.akisKapsami({ fetchImpl, zorla: true })).hata, 'govde-gecersiz');
+  assert.equal((await akis.akisKapsami({ fetchImpl: async () => { throw new Error('offline'); }, zorla: true })).hata, 'ag-hatasi');
+  assert.equal(akis.kapsamdaMi(null, 'https://my.mail.ru/video/embed/1'), true, 'eski Workerda Mail.ru geriye uyumlu');
+  assert.equal(akis.kapsamdaMi([], 'https://my.mail.ru/video/embed/1'), false, 'boş kapsam sunucunun kararına uyulur');
+  assert.equal(akis.kapsamdaMi(['ok.ru'], 'https://ok.ru/videoembed/1'), true);
+  assert.equal(akis.kapsamdaMi(['my.mail.ru'], 'https://my.mail.ru.kotu.example/x'), false);
+});
+
+test('site playerı kaynak sınıflarını API ve gerçek çözümleme durumuna göre ayırır', { skip: akis ? false : ATLA }, () => {
+  const temel = { embed: true, apiVar: true, kapsam: ['my.mail.ru'] };
+  assert.equal(akis.akisKaynakSinifla('https://my.mail.ru/video/embed/1', temel), 'denenmedi');
+  assert.equal(akis.akisKaynakSinifla('https://my.mail.ru/video/embed/1', { ...temel, sonuc: { durum: 'bekliyor' } }), 'cozuluyor');
+  assert.equal(akis.akisKaynakSinifla('https://my.mail.ru/video/embed/1', { ...temel, sonuc: { durum: 'calisiyor' } }), 'calisiyor');
+  assert.equal(akis.akisKaynakSinifla('https://my.mail.ru/video/embed/1', { ...temel, sonuc: { durum: 'basarisiz' } }), 'calismiyor');
+  assert.equal(akis.akisKaynakSinifla('https://ok.ru/embed', { ...temel, kapsam: ['my.mail.ru'] }), 'kapsam-disi');
+  assert.equal(akis.akisKaynakSinifla('https://drive.google.com/file/1', { ...temel, embed: false }), 'gumulmez');
+  assert.equal(akis.akisKaynakSinifla('https://my.mail.ru/embed', { ...temel, apiVar: false }), 'api-yok');
+  assert.equal(akis.akisKaynakSinifla('https://my.mail.ru/embed', { ...temel, apiVar: false, sonuc: { durum: 'basarisiz' } }), 'calismiyor', 'önceki gerçek deneme API kapalı olsa da başarısız kalmalı');
+  assert.equal(akis.akisKaynakSinifla('https://my.mail.ru/embed', { ...temel, apiVar: false, sonuc: { durum: 'calisiyor' } }), 'calisiyor');
+  assert.match(akis.akisSorunAciklamasi('durum-503'), /HTTP 503/, 'HTTP durumları sayısal regex ile açıklanmalı');
+  assert.match(akis.akisSorunAciklamasi('tur-desteklenmiyor:hls'), /MP4\/WebM/);
+});
+
 
 /* ------------------------ çözümleme akışı ------------------------ */
 
@@ -200,8 +233,9 @@ test('taze çözümleme yalnız 403/502’de denenir; medya hatası ayrıca sın
   assert.equal(akis.medyaHatasiTazeGerektirir(undefined), false);
 });
 
-test('oynatılabilir biçim yalnız mp4; her durum notunun metni var', { skip: akis ? false : ATLA }, () => {
+test('native oynatılabilir biçimler MP4/WebM; her durum notunun metni var', { skip: akis ? false : ATLA }, () => {
   assert.equal(akis.akisOynatilirMi('mp4'), true);
+  assert.equal(akis.akisOynatilirMi('webm'), true);
   assert.equal(akis.akisOynatilirMi('hls'), false);
   assert.equal(akis.akisOynatilirMi('dash'), false);
   for (const not of [
@@ -227,7 +261,16 @@ test('oynatıcı: kendi <video> ve iframe yedeği yan yana durur', { skip: bicim
   assert.match(kaynak, /taze: true/, '403/502 yolunda bir kez taze çözümleme denenmeli');
   assert.match(kaynak, /aktarimDurumu\(/, 'video hatasında gerçek neden yoklanmalı');
   assert.match(kaynak, /<iframe/, 'çözülemeyen kaynak bugünkü iframe yolunda kalmak zorunda');
-  assert.match(kaynak, /akisAdayi\(aktifKaynak\[0\]/, 'kapsam dar tutulmalı: yalnız Mail.ru');
+  assert.match(kaynak, /kapsamdaMi\(akisKapsam,/, 'resolver kapsamı sunucudan okunmalı');
+  assert.match(kaynak, /playerModu === 'site'/, 'site player modu ayrı seçilebilmeli');
+  assert.match(kaynak, /onCanPlay=\{\(\) => \{[\s\S]*durum: 'calisiyor'/, 'kaynak yalnız video oynatılabilir olunca çalışan sayılmalı');
+  assert.match(kaynak, /kendiPlayeriApiBekleyenler/, 'API yokken durum başarısız değil beklemede olmalı');
+  assert.match(kaynak, /if \(!akisVarMi\(\)\)[\s\S]*setAkisSorun\('kopru-yok'\)/, 'zorla deneme API yokluğunu başarı/deneme gibi göstermemeli');
+  assert.match(kaynak, /akisKaynakSinifla\(/, 'çalışan/başarısız/bilinmeyen kaynaklar ayrılmalı');
+  assert.match(kaynak, /Sitenin playerında çalışmayan/, 'başarısız kaynaklar ayrı panelde listelenmeli');
+  assert.match(kaynak, /Kaynağın playerına geç/, 'site akışı başarısızsa iframe moduna dönülebilmeli');
+  assert.match(kaynak, /akisKapsami\(\)/, 'kapsam servisten alınmalı');
+  assert.doesNotMatch(kaynak, /akisAdayi\(/, 'clientte yalnız Mail.ru kısıtı kalmamalı');
   assert.match(kaynak, /'cok-fazla-istek' \? 'akis-yogun'/, 'sunucu sınırı (429) kullanıcıya ayrı anlatılmalı');
   assert.match(kaynak, /konumKaydet\(anime\.slug, bolum\.n, Math\.floor\(videoKonumRef\.current\)\)/, 'gerçek konum cihazda saklanmalı');
 });

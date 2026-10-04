@@ -1177,16 +1177,65 @@ a.etiket:hover {
   margin-bottom: 12px;
 }
 
-.oynatici-secici {
+.player-modu {
   display: grid;
-  gap: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
   margin: 10px 0 14px;
-  padding: 10px;
+  padding: 4px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 11px;
   background: var(--bg2);
 }
 
+.player-modu-dugme {
+  min-height: 40px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--tx2);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.player-modu-dugme.etkin {
+  border-color: var(--line2);
+  background: linear-gradient(120deg, rgba(168, 85, 247, 0.24), rgba(236, 72, 153, 0.2));
+  color: var(--tx);
+}
+
+.site-player-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.site-player-panel > .ipucu {
+  margin-bottom: 0;
+  font-size: 12px;
+  color: var(--tx3);
+}
+
+.site-player-sorun,
+.site-player-bos {
+  color: var(--tx3);
+  font-size: 12px;
+}
+
+.site-player-sorun {
+  padding: 9px 10px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: 9px;
+  background: rgba(251, 191, 36, 0.07);
+  color: var(--uyari);
+}
+
+.site-player-grup {
+  display: grid;
+  gap: 7px;
+}
+
+.site-player-grup h4,
 .oynatici-secici-basi {
   color: var(--tx3);
   font-size: 11px;
@@ -1229,14 +1278,24 @@ a.etiket:hover {
   color: var(--tx);
 }
 
-.oynatici-cip-etiket {
-  color: var(--tx3);
-  font-size: 11px;
-  font-weight: 650;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.site-player-basarisiz {
+  border-color: rgba(251, 113, 133, 0.26);
+  color: var(--bad);
+}
+
+.oynatici-secici {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0 14px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg2);
+}
+
+.oynatici-secici-dugme.etkin span {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
 }
 
 /* Fansub süzgeci: 16 kaynaklık listeyi kullanıcının seçtiği gruplara indirir. */
@@ -1434,6 +1493,16 @@ a.etiket:hover {
   color: var(--tx3);
   font-weight: 500;
   max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cip .oynatici-cip-etiket {
+  color: var(--tx3);
+  font-size: 11px;
+  font-weight: 650;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

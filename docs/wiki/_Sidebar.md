@@ -9,6 +9,6 @@
 
 **Bağlantılar**
 
-- [Site](https://nutaliaxd.github.io/GenesisAnime/)
-- [API belgesi](https://nutaliaxd.github.io/GenesisAnime/api-dokumani/)
-- [Kaynak kodu](https://github.com/Nutaliaxd/GenesisAnime)
+- [Site](https://genesisanime.github.io/GenesisAnime-site/)
+- [API belgesi](https://genesisanime.github.io/GenesisAnime-site/api-dokumani/)
+- [Kaynak kodu](https://github.com/GenesisAnime/GenesisAnime-site)

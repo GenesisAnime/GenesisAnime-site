@@ -35,6 +35,7 @@ export const GIRIS_SAATLIK_SINIR = 20; // IP başına
    normal kullanımın çok üstünde (bölüm başına 1-2, kaynak değişiminde birkaç),
    otomatik kötüye kullanıma karşı ise dar. */
 export const AKIS_GUNLUK_SINIR = 300; // IP başına
+export const AKIS_KAPSAM_SURUMU = 1;
 export const GOVDE_SINIRI = 65_536; // 64 KB (genel uçlar)
 // /me/durum taşıma sınırı: iç içe JSON dizesi, tırnak kaçışıyla gövdeyi ~2 katına
 // şişirebilir; bu yüzden blob sınırının iki katı + pay bırakılır. Blob'un kendisi
@@ -155,8 +156,9 @@ export function yolCoz(yol, yontem) {
   if (y === '/me/veri' && m === 'GET') return { islem: 'me-veri' };
   if (y === '/me' && m === 'DELETE') return { islem: 'me-sil' };
 
-  // Akış çözümleyici + aktarım (bkz. src/akis.mjs, docs/12).
+  // Akış çözümleyici + aktarım + kapsam (bkz. src/akis.mjs, docs/12).
   if (y === '/akis/coz' && m === 'GET') return { islem: 'akis-coz' };
+  if (y === '/akis/kapsam' && m === 'GET') return { islem: 'akis-kapsam' };
   if ((y === '/akis/aktar' || y === '/akis/akis') && (m === 'GET' || m === 'HEAD')) return { islem: 'akis-aktar' };
 
   // Link tarama döngüsü (hepsi yönetici jetonu ister).
@@ -170,6 +172,7 @@ export function yolCoz(yol, yontem) {
   const bilinen = [
     '/saglik',
     '/akis/coz',
+    '/akis/kapsam',
     '/akis/aktar',
     '/bildirim',
     '/auth/kayit',

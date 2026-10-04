@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 
-// GitHub Pages alt dizinde yayınlanıyorsa BASE_PATH verilir (ör. /GenesisAnime).
-// Cloudflare Pages / Netlify kök dizinde yayınlanıyorsa boş bırakılır.
+// Kök dizinde yerel geliştirme için boş bırakılır. İleride alt dizin dağıtımı seçilirse BASE_PATH verilir.
 const basePath = process.env.BASE_PATH || '';
 
 const nextConfig = {

@@ -37,7 +37,7 @@ const arg = (ad, varsayilan) => {
 };
 const HEDEF_HOST = arg('host', null);
 const LIMIT = Number(arg('limit', '2'));
-const SITE = 'https://nutaliaxd.github.io';
+const SITE = 'https://genesisanime.github.io';
 
 /* ------------------------- akış adayı çıkarma ------------------------- */
 

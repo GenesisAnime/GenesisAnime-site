@@ -5,13 +5,13 @@
 **Türkçe anime arşivi — %100 açık kaynak, tamamen statik, sunucusuz.**
 
 [![Lisans: MIT](https://img.shields.io/badge/lisans-MIT-green)](LICENSE)
-[![Testler: 202/202](https://img.shields.io/badge/testler-202%2F202-success)](docs/05-kalite-ve-testler.md)
+[![Testler: 212 geçti](https://img.shields.io/badge/testler-212%20ge%C3%A7ti-success)](docs/05-kalite-ve-testler.md)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
 [![Cloudflare Workers + D1](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-f38020)](docs/11-hesaplar-uygulama.md)
 
 6.107 anime · 71.694 bölüm · 316.820 kaynak · 961 seri (franchise) grubu · 363 fansub grubu
 
-Site: **https://nutaliaxd.github.io/GenesisAnime/** · API: **https://genesisanime-api.genesisanime.workers.dev**
+Yerel site: **http://127.0.0.1:3000/** · API: **https://genesisanime-api.genesisanime.workers.dev** (isteğe bağlı)
 
 PWA kurulabilir · çevrimdışı iskelet · hesap açmadan tam çalışır (isteğe bağlı senkron)
 
@@ -22,12 +22,13 @@ PWA kurulabilir · çevrimdışı iskelet · hesap açmadan tam çalışır (ist
 ## Nedir?
 
 GenesisAnime, kapanan bir anime arşivinin kurtarılan veritabanı üzerine kurulu bir izleme
-sitesidir. Site sunucu barındırmaz: tüm sayfalar derleme sırasında üretilir ve GitHub Pages'te
-yayınlanır. Oynatma, üçüncü taraf video platformlarının gömülü (embed) sayfaları üzerinden
-yapılır; **sitede hiçbir video dosyası barındırılmaz.**
+sitesidir. Site statik üretilir, GitHub Pages'te yayınlanır
+(https://genesisanime.github.io/GenesisAnime-site/) ve Windows'ta tek tıkla yerel geliştirme
+sunucusunda açılır. Oynatma, üçüncü taraf video platformlarının gömülü (embed)
+sayfaları üzerinden yapılır; **sitede hiçbir video dosyası barındırılmaz.**
 
 Hesap, senkron ve kullanıcı bildirimleri ayrı ve yine açık kaynak bir Cloudflare Workers + D1
-servisidir (`api/`). Site bu servis olmadan da eksiksiz çalışır — servis yalnızca cihazlar arası
+servisidir (`api/`).Site bu servis olmadan da eksiksiz çalışır — servis yalnızca cihazlar arası
 eşitleme ve "kaynak çalışmıyor" bildirimi için gerekir.
 
 **%100 açık kaynak:** veri hattı, site, API, testler, belgeler ve mimari kararların tamamı bu
@@ -43,19 +44,41 @@ depodadır. Kapalı bileşen, gizli veri işleme veya reklam/izleyici betiği yo
 |---|---|
 | Veri | 6.107 anime · 71.694 bölüm · 316.820 kaynak · 961 seri · 363 fansub grubu |
 | Banner görselleri | TMDB kimliği **5.266** yapımda (%86,2; Fribb 4.907 + arama 359) · 4K katmanı **2.495** · HD katmanı **2.269** · anime detay bandı **5.306/6.107** sayfada dolu (hero 20/24 · kart 391/540 · bant 3,4:1 → kaynağın ~%52'si; TMDB atfı `/kunye/` ve alt bilgide) |
-| Site derlemesi | 7.448 sayfa → `out/` 21.047 dosya / 880,5 MB (GitHub Pages uyumlu; CF Pages 20k sınırını aşıyor) |
+| Site derlemesi | 7.448 sayfa → `out/` 21.049 dosya / 873,51 MB; yayın hedefi yok, Windows'ta yerel sunucuyla açılır |
 | Link sağlığı | kapsam **%58,72** — 173.030 `ok` · 301 `ölü` · 34 `engelli` · 12.861 `belirsiz` (ölçülebilir havuz tükendi) |
 | Otomasyon | günlük link döngüsü zamanlayıcıda (saatlik uyanır, günde bir koşar) · `/yonetim/` panelinden ayar + koşu geçmişi |
-| Testler | `npm test` **202/202** (ağsız) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
-| API | Cloudflare Worker + D1 yayında (bölge WEUR; akış köprüsü uçları 03.10'dan beri üretimde) · CORS yalnızca site kaynağına açık |
-| Son güncelleme | 3 Ekim 2026 |
-| Sıradaki işler | analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · Odnoklassniki çözümleyicisi · akış köprüsünde gözlemlenebilirlik (istek sayacı/oran) · markalı kontrol çubuğu ([docs/12](docs/12-akis-koprusu.md) · [docs/10](docs/10-yol-haritasi.md)) |
+| Testler | `npm test` **212 geçti / 1 koşullu atlandı** (ağsız; 0 hata) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
+| Site playerı | “Kaynağın playerı / Sitenin playerı” seçimi + çalışan/başarısız/denenmeyen ayrı listeler ve genişletilmiş statik çözümleyici **yerelde** doğrulandı (yerel Worker 8789 + site 3000 üzerinden Mail.ru akışı kendi `<video>`'muzda oynadı); **henüz dağıtılmadı** |
+| API | Cloudflare Worker + D1 yayında (bölge WEUR; Mail.ru akış köprüsü uçları 03.10'dan beri üretimde). Kapsam ucu (`/akis/kapsam`) ve genel statik resolver yerel değişiklikte; üretim Worker güncellenince etkinleşir · CORS yalnızca site kaynağına açık |
+| Son güncelleme | 4 Ekim 2026 |
+| Sıradaki işler | **yeni site playerı + genişletilmiş resolver'ı üretime alma** (Worker deploy + site build) · canlı kaynak doğrulaması (hangi host gerçekten oynuyor) · analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · Odnoklassniki çözümleyicisi · akış köprüsünde gözlemlenebilirlik (istek sayacı/oran) · markalı kontrol çubuğu ([docs/12](docs/12-akis-koprusu.md) · [docs/10](docs/10-yol-haritasi.md)) |
 
-## Hızlı başlangıç
+## Hızlı başlangıç (Windows)
+
+İlk kullanımda proje klasöründen **`siteyi-baslat.cmd`** dosyasına çift tıkla. Gerekli site ve
+Worker npm paketlerini kurar, yerel D1 şemasını uygular, akış API'sini (`127.0.0.1:8789`) ve
+siteyi (`127.0.0.1:3000`) başlatır. Kapatmak için **`siteyi-durdur.cmd`** dosyasına çift tıkla;
+sunucu penceresini elle kapatmak da mümkündür. İlk kurulum internet erişimi ve Wrangler paketleri
+için indirme gerektirir.
+
+Gereksinim: Node.js 20 veya üzeri. Komut satırından çalıştırmak istersen:
 
 ```bash
-npm install            # bağımlılıklar (Next.js 15 + React 19 + TypeScript)
+npm ci
+npm run dev           # http://127.0.0.1:3000 — API köprüsü olmadan
 
+# Site playerı + kaynak çözücü için API'yi ayrıca çalıştır:
+cd api && npm ci && npm run db:yerel
+npm run dev -- --ip 127.0.0.1 --port 8789 --var CORS_EXTRA:http://127.0.0.1:3000
+
+# Sonra yeni terminalde, proje kökünden API adresi derlemeye gömülerek:
+NEXT_PUBLIC_API=http://127.0.0.1:8789 npm run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+Sitenin veri dosyaları (`public/data/`) repoda hazırdır. Arşiv SQLite'ı olmadan da geliştirme
+sunucusu çalışır; yalnızca arşivden veriyi tekrar üretmek için gerekir.
+
+```bash
 # Veri hattı — arşiv SQLite dosyası GEREKİR (varsayılan yol aşağıda)
 npm run veri           # katalog, anime dosyaları, taksonomi, ana sayfa satırları (~9 sn)
 npm run veri:anilist   # AniList zenginleştirmesi: banner/özet/tür/ilişki (~4 dk, önbellekli)
@@ -67,7 +90,6 @@ npm run link:bildirim  # API'deki bildirimleri tools/cache/bildirim.jsonl'e akta
 npm run link:test      # tarama kurallarını canlı URL'lerle sına
 
 npm run simge:uret     # OG kartı + PWA ikonlarını yeniden üret (bağımlılıksız PNG)
-npm run dev            # geliştirme sunucusu → http://localhost:3000
 npm run build          # statik dışa aktarım → out/
 npm run yayin:hazirla  # .nojekyll + yayın ölçüm raporu
 
@@ -102,7 +124,7 @@ AniList GraphQL (önbellekli)┘            │                                 
                                                      Next.js 15 (App Router) · output: 'export'
                                                                              │
                                                                              ▼
-                                                          out/  → GitHub Pages
+                                                          out/  → yerel statik çıktı (şu anda yayın hedefi yok)
                                                                              ▲
    Hesap/senkron/bildirim ◄── src/lib/depo/api.ts ◄── api/ (Workers + D1) ───┘
 ```
@@ -152,6 +174,8 @@ AniList GraphQL (önbellekli)┘            │                                 
 | `npm run dongu:gunluk` | Günlük otomatik döngü: tarama dilimi → site verisi → derleme → yayın hazırlığı (`--yayinla` commit, `--push` yayın; `--deneme` plan) |
 | `npm run api:test` | Çalışan API'ye 45 adımlık uçtan uca duman testi (`--api=`, `--origin=`, `--token=`, `--oran`) |
 | `npm run simge:uret` | OG kartı + PWA ikonlarını üretir (`tools/simge-uret.mjs`) |
+| `siteyi-baslat.cmd` | Windows: bağımlılıkları gerekirse kurar, `127.0.0.1:3000`'de siteyi başlatır ve tarayıcıda açar |
+| `siteyi-durdur.cmd` | Windows: yerel site sunucusunu kapatır |
 | `npm run dev` | Geliştirme sunucusu |
 | `npm run build` | Statik dışa aktarım (`out/`) |
 | `npm run typecheck` | `tsc --noEmit` |
@@ -179,12 +203,12 @@ AniList GraphQL (önbellekli)┘            │                                 
 - Gizlilik: ham IP hiçbir yerde tutulmaz (yalnızca tuzlu özet), parolalar PBKDF2-HMAC-SHA256 ile
   özetlenir, jetonlar D1'de SHA-256 özetli saklanır; çerez kullanılmaz.
 
-## Yayın
+## Yerel çalışma ve CI
 
-`.github/workflows/yayinla.yml` her `main` push'unda derleyip GitHub Pages'e dağıtır
-(`npm ci` → typecheck → build → `yayin:hazirla` → `npm test` → artefakt → deploy).
-Alt dizinde yayın için `BASE_PATH` (ör. `/GenesisAnime`) ve API adresleri iş akışında verilir;
-kök alan adı için `BASE_PATH` boş bırakılır. Ayrıntı, host limitleri ve ilk yayın kontrol listesi:
+`main`'e her push GitHub Pages yayınını başlatır (`.github/workflows/yayinla.yml` → tip denetimi,
+statik üretim, yayın çıktısı kontrolü, testler, dağıtım). Siteyi yerelde `siteyi-baslat.cmd` ile
+açıp `siteyi-durdur.cmd` ile kapat. Aynı kapı `.gitlab-ci.yml` ile GitLab tarafında da tanımlıdır.
+Yayın adresi, ortam değişkenleri ve host ölçümleri:
 [docs/06-yayin-ve-deploy.md](docs/06-yayin-ve-deploy.md).
 
 ## Katkı
@@ -194,7 +218,7 @@ Katkıya açıktır — **issue** açabilir, veri düzeltmesi, fansub eklemesi v
 1. Depoyu **fork**'la ve kendi fork'unda bir **branch** aç (`main` korumalı; doğrudan push yerine
    **pull request** aç).
 2. Pull request'i göndermeden önce bu kontrolleri çalıştır — CI'da da aynıları koşar:
-   `npm run typecheck` → `npm test` (186/186) → `npm run build` → `npm run yayin:hazirla`.
+   `npm run typecheck` → `npm test` → `npm run build` → `npm run yayin:hazirla`.
 3. API'ye dokunduysan ayrıca `cd api && npm run dev` + ikinci terminalde `npm run api:test`.
 4. Davranış/karar değişikliği belge gerektirir: ilgili `docs/` dosyası, gerekiyorsa yeni bir ADR
    ([docs/kararlar](docs/kararlar/)) ve `docs/gunluk/kayit.jsonl` satırı.

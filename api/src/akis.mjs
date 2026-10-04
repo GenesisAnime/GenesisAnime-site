@@ -60,7 +60,7 @@ export function metaKimligi(html) {
  */
 export function metaAkisi(govde) {
   const metin = typeof govde === 'string' ? metniCoz(govde) : JSON.stringify(govde ?? {});
-  const m = metin.match(/"(?:url|src|file)"\s*:\s*"([^"]*?\.(?:mp4|m3u8|mpd)[^"]*)"/i);
+  const m = metin.match(/"(?:url|src|file)"\s*:\s*"([^"]*?\.(?:mp4|webm|m3u8|mpd)[^"]*)"/i);
   if (!m) return null;
   let adres = m[1].split('\\/').join('/');
   if (adres.startsWith('//')) adres = `https:${adres}`;
@@ -68,15 +68,51 @@ export function metaAkisi(govde) {
   const expire = adres.match(/[?&]expire_at=(\d{6,})/) || adres.match(/[?&]expires=(\d{9,})/);
   return {
     url: adres,
-    tur: /\.m3u8/i.test(adres) ? 'hls' : /\.mpd/i.test(adres) ? 'dash' : 'mp4',
+    tur: /\.m3u8/i.test(adres) ? 'hls' : /\.mpd/i.test(adres) ? 'dash' : /\.webm/i.test(adres) ? 'webm' : 'mp4',
     imzaBitis: expire ? Number(expire[1]) * 1000 : null,
   };
 }
 
-/** Desteklenen kaynak host'ları → çözümleyici adı. */
+/**
+ * Desteklenen kaynak host'ları → çözümleyici adı.
+ *
+ * Kapsam sunucu tarafında tanımlanır ve istemciye `/akis/kapsam` ile duyurulur.
+ * Yeni sağlayıcı eklendiğinde istemci güncellemesi gerekmez.
+ */
 const KAYNAKLAR = [
-  { desen: /(^|\.)(?:videoapi\.)?my\.mail\.ru$/i, ad: 'mail' },
+  { ad: 'mail', hostlar: ['my.mail.ru', 'videoapi.my.mail.ru'] },
+  { ad: 'mp4upload', hostlar: ['mp4upload.com'] },
+  { ad: 'uqload', hostlar: ['uqload.com', 'uqload.co', 'uqload.vc'] },
+  { ad: 'voe', hostlar: ['voe.sx'] },
+  { ad: 'sibnet', hostlar: ['video.sibnet.ru'] },
+  { ad: 'vk', hostlar: ['vk.com', 'myvi.tv'] },
+  { ad: 'odnoklassniki', hostlar: ['ok.ru', 'odnoklassniki.ru'] },
+  { ad: 'dailymotion', hostlar: ['dailymotion.com'] },
+  { ad: 'gdrive', hostlar: ['drive.google.com', 'docs.google.com'] },
+  { ad: 'mega', hostlar: ['mega.nz', 'mega.co.nz'] },
+  { ad: 'videa', hostlar: ['videa.hu'] },
+  { ad: 'yadisk', hostlar: ['yadi.sk', 'www.yadi.sk', 'disk.yandex.com.tr', 'disk.yandex.com', 'disk.yandex.ru', 'disk.yandex.net'] },
+  { ad: 'hdvid', hostlar: ['hdvid.tv'] },
+  { ad: 'doodstream', hostlar: ['dood.watch', 'doodstream.com'] },
+  { ad: 'cyberfile', hostlar: ['cyberfile.me'] },
+  { ad: 'streamwish', hostlar: ['ghbrisk.com'] },
+  { ad: 'byse', hostlar: ['byse.sx'] },
+  { ad: 'pixeldrain', hostlar: ['turkanime.tv'] },
+  { ad: 'luluvdo', hostlar: ['luluvdo.com', 'luluvdoo.com'] },
+  { ad: 'cda', hostlar: ['ebd.cda.pl'] },
 ];
+
+/** Alt alan adlarını etiket sınırıyla eşleştir; benzer alan adları eşleşmez. */
+export function hostEslesir(host, taban) {
+  const h = String(host || '').toLowerCase();
+  const t = String(taban || '').toLowerCase();
+  return Boolean(h) && Boolean(t) && (h === t || h.endsWith(`.${t}`));
+}
+
+/** Kapsam endpoint'i için desteklenen kaynak host'ları. */
+export function desteklenenHostlar() {
+  return [...new Set(KAYNAKLAR.flatMap((kaynak) => kaynak.hostlar))];
+}
 
 /** Kaynak adresi çözümlenebilir mi? */
 export function kaynakTuru(embedAdresi) {
@@ -86,7 +122,7 @@ export function kaynakTuru(embedAdresi) {
   } catch {
     return null;
   }
-  const bulunan = KAYNAKLAR.find((k) => k.desen.test(host));
+  const bulunan = KAYNAKLAR.find((k) => k.hostlar.some((taban) => hostEslesir(host, taban)));
   return bulunan ? bulunan.ad : null;
 }
 
@@ -100,7 +136,36 @@ export const MEDYA_HOSTLARI = [
   /(^|\.)cloud\.mail\.ru$/i,
   /(^|\.)imgsmail\.ru$/i,
   /(^|\.)okcdn\.ru$/i,
+  /(^|\.)mp4upload\.com$/i,
+  /(^|\.)hdvid\.tv$/i,
+  /(^|\.)cyberfile\.me$/i,
+  /(^|\.)disk\.yandex\.(?:ru|net|com)(?:\.[a-z]{2})?$/i,
 ];
+
+/** Statik HTML içinde beyan edilen ve güvenli aktarılabilir MP4/WebM akışlarını bulur. */
+export function akisAdaylari(html, embedAdresi) {
+  const temiz = metniCoz(String(html ?? '')).replace(/\\u0026/gi, '&').replace(/&amp;/gi, '&').replace(/\\\//g, '/');
+  const kaliplar = [
+    /(?:file|src|source|url|video_url|videoUrl)["']?\s*[:=]\s*["']([^"'<>\s]{8,4096})["']/gi,
+    /<source[^>]+src=["']([^"']{8,4096})["']/gi,
+    /https?:\/\/[^\s"'<>\\]+?\.(?:mp4|webm)(?:\?[^\s"'<>\\]*)?/gi,
+  ];
+  const adaylar = new Map();
+  for (const kalip of kaliplar) {
+    for (const eslesme of temiz.matchAll(kalip)) {
+      const ham = (eslesme[1] ?? eslesme[0]).trim().replace(/[),;\]}]+$/, '');
+      try {
+        const url = new URL(ham, embedAdresi);
+        const tur = /\.webm$/i.test(url.pathname) ? 'webm' : /\.mp4$/i.test(url.pathname) ? 'mp4' : null;
+        if (!tur || url.protocol !== 'https:' || !aktarimIzni(url.href).ok) continue;
+        adaylar.set(url.href, { url: url.href, tur });
+      } catch {
+        /* Bozuk adres, yanlış şema veya imzasız kaynak oynatıcıya verilmez. */
+      }
+    }
+  }
+  return [...adaylar.values()];
+}
 
 /**
  * İstemci **taze çözümleme** istedi mi? (`?t=<rastgele>`)
@@ -114,9 +179,28 @@ export function onbellekAtlaMi(aramaParametreleri) {
   return Boolean(aramaParametreleri && typeof aramaParametreleri.has === 'function' && aramaParametreleri.has('t'));
 }
 
-/** Adreste imza parametresi var mı (yalnız imzalı adresler aktarılır). */
+/** Adreste imza parametresi veya sağlayıcıya özgü imzalı yol biçimi var mı? */
 export function imzaliMi(adres) {
-  return /[?&](?:video_key|sig|sign|tkn|token|signature|expires|expire_at|hdnts)=/i.test(String(adres));
+  let u;
+  try {
+    u = new URL(String(adres));
+  } catch {
+    return false;
+  }
+  for (const anahtar of ['video_key', 'sig', 'sign', 'tkn', 'token', 'signature', 'expires', 'expire_at', 'hdnts', 'download_token']) {
+    if (u.searchParams.has(anahtar)) return true;
+  }
+  const parcalar = u.pathname.split('/');
+  if (hostEslesir(u.hostname, 'mp4upload.com')) {
+    return parcalar.length === 4 && parcalar[1] === 'd' && /^[a-z0-9_-]{40,}$/i.test(parcalar[2]) && parcalar[3] === 'video.mp4';
+  }
+  if (hostEslesir(u.hostname, 'hdvid.tv')) {
+    return parcalar.length === 3 && /^[a-z0-9_-]{40,}$/i.test(parcalar[1]) && parcalar[2] === 'v.mp4';
+  }
+  if (['disk.yandex.net', 'disk.yandex.com.tr', 'disk.yandex.com', 'disk.yandex.ru'].some((host) => hostEslesir(u.hostname, host))) {
+    return parcalar.length >= 5 && parcalar[1] === 'preview' && /^[a-f0-9]{64}$/i.test(parcalar[2]) && /^[a-f0-9]{8}$/i.test(parcalar[3]);
+  }
+  return false;
 }
 
 /**
@@ -159,10 +243,8 @@ async function cek(adres, { fetchImpl = fetch, basliklar = {}, yontem = 'GET' } 
 }
 
 /**
- * Kaynak embed adresini doğrudan akışa çevirir.
- * Bugün desteklenen: Mail.ru (embed → metadataUrl → meta JSON → imzalı mp4).
- * Diğer host'lar `{ ok: false, hata: 'desteklenmiyor' }` döner; çağıran taraf
- * iframe'e düşer.
+ * Embed sayfasını çözümle. Mail.ru için ölçülmüş metadata API'si; diğer katalog
+ * player'larında açıkça beyan edilmiş statik MP4/WebM aranır. Uzak JS çalıştırılmaz.
  */
 export async function akisCoz(embedAdresi, { fetchImpl = fetch, siteOrigin = '' } = {}) {
   const tur = kaynakTuru(embedAdresi);
@@ -171,26 +253,24 @@ export async function akisCoz(embedAdresi, { fetchImpl = fetch, siteOrigin = '' 
   const embed = await cek(embedAdresi, { fetchImpl, basliklar: siteOrigin ? { Referer: siteOrigin } : {} });
   if (!embed.ok) return { ok: false, hata: 'embed-alinamadi', durum: embed.durum };
 
-  const kimlik = metaKimligi(embed.govde);
-  if (!kimlik) return { ok: false, hata: 'kimlik-bulunamadi' };
+  if (tur === 'mail') {
+    const kimlik = metaKimligi(embed.govde);
+    if (!kimlik) return { ok: false, hata: 'kimlik-bulunamadi' };
+    const meta = await cek(`https://my.mail.ru/+/video/meta/${kimlik}`, {
+      fetchImpl,
+      basliklar: { Referer: 'https://my.mail.ru/' },
+    });
+    if (!meta.ok) return { ok: false, hata: 'meta-alinamadi', durum: meta.durum };
+    const akis = metaAkisi(meta.govde);
+    if (!akis) return { ok: false, hata: 'akis-bulunamadi' };
+    if (!aktarimIzni(akis.url).ok) return { ok: false, hata: 'hedef-izinli-degil' };
+    return { ok: true, kaynakAdi: tur, kimlik, tur: akis.tur, url: akis.url, imzaBitis: akis.imzaBitis };
+  }
 
-  const meta = await cek(`https://my.mail.ru/+/video/meta/${kimlik}`, {
-    fetchImpl,
-    basliklar: { Referer: 'https://my.mail.ru/' },
-  });
-  if (!meta.ok) return { ok: false, hata: 'meta-alinamadi', durum: meta.durum };
-
-  const akis = metaAkisi(meta.govde);
-  if (!akis) return { ok: false, hata: 'akis-bulunamadi' };
-
-  return {
-    ok: true,
-    kaynakAdi: tur,
-    kimlik,
-    tur: akis.tur,
-    url: akis.url,
-    imzaBitis: akis.imzaBitis,
-  };
+  const aday = akisAdaylari(embed.govde, embedAdresi)[0];
+  if (!aday) return { ok: false, hata: 'akis-bulunamadi' };
+  const expire = aday.url.match(/[?&](?:expire_at|expires)=(\d{9,})/i);
+  return { ok: true, kaynakAdi: tur, tur: aday.tur, url: aday.url, imzaBitis: expire ? Number(expire[1]) * 1000 : null };
 }
 
 /* ================================================================ */

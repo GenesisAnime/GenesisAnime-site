@@ -1,6 +1,18 @@
 # 05 · Kalite ve Testler
 
-> Son güncelleme: 2026-10-02
+> Son güncelleme: 2026-10-04
+>
+> Güncel kapı: `npm run typecheck` geçti · `npm test` 212 geçti / 1 koşullu atlandı / 0 hata ·
+> `npm run build` 7.448 statik sayfa · `npm run yayin:hazirla` 21.049 dosya / 873,51 MB.
+> Site playerı (yerel Worker 8789 + site 3000): “Kaynağın playerı / Sitenin playerı” modları,
+> çalışan/başarısız/denenmeyen ayrı listeler ve gerçek `<video>` oynatımı tarayıcıda doğrulandı
+> (Mail.ru kaynağı `/akis/aktar` üzerinden 206 ile aktı; Voe kaynağı başarısız listesine düştü).
+> `cikti.test.mjs` derleme sonrasında çalıştırıldı; atlanan tek test yalnızca isteğe bağlı TMDB
+> önbelleğini (`TMDB_ANAHTAR`) gerektirir.
+>
+> GitLab pipeline YAML'ı yerel YAML ayrıştırması ve CI job şekli kontrollerinden geçer. Önceki
+> GitLab pipeline #2909484748 `yaml invalid` bildirimi verdi. GitLab CI lint API'si yetkisiz
+> (403) olduğundan gerçek GitLab lint/pipeline sonucu bu ortamda yeniden doğrulanamadı.
 
 ## Kontroller (CI ile aynı komutlar)
 
@@ -9,7 +21,7 @@
 | Birim testleri | `npm test` | 186/186 geçer (~16 sn; ağ/DB yok) |
 | Tip denetimi | `npm run typecheck` | 0 hata |
 | Derleme | `npm run build` | `✓ Compiled successfully`, 7.448 statik sayfa |
-| Yayın hazırlığı | `npm run yayin:hazirla` | GitHub Pages < 1 GB uygun; Cloudflare Pages **21.049 dosya ile 20.000 sınırını aşıyor** (asıl hedef GitHub Pages) |
+| Yayın hazırlığı | `npm run yayin:hazirla` | Yerel çıktı: 21.049 dosya / 873,51 MB. GitHub Pages artık kullanılmıyor; yayın host'u seçilmedi. |
 | Veri hattı | `npm run veri` | 6.107 anime dosyası, çıktı sayıları DB ile uyuşur |
 | Tarayıcı duman testi | elle / önizleme paneli | Konsolda hata yok, akış tamamlanır |
 | API uçtan uca | `api && npx wrangler dev` + `npm run api:test` | 45 adım geçer (isteğe bağlı `--oran` ile 46; yerel D1 + gerçek HTTP; yönetici jetonuyla) |
@@ -257,8 +269,7 @@ ve html/txt dosyalarını link sağlık kaydıyla karşılaştırır; `out/` yok
 
 Kısmi harita kuralı: arşiv sağlık dosyası yoksa (ör. CI'da, depo dışında kalır) kaydı bulunamayan
 rozet “yanlış” değil “doğrulanamadı” sayılır ve koşu raporunda sayısı bildirilir; sızıntı, sayaç ve
-küme denetimleri tam çalışır. `npm test` CI'da derlemeden **sonra** koşar
-(`.github/workflows/yayinla.yml`), böylece yayınlanacak artefakt denetlenir.
+küme denetimleri tam çalışır. `npm test` CI'da derlemeden **sonra** koşar (`.gitlab-ci.yml`), böylece `out/` ağacı yerinde denetlenir.
 
 **`bildirim.test.mjs`** (24) bildirim + yönetici hattını sınar: kuyruk süzgeçleri (geçersiz/yaşlı/tekrar),
 URL–host doğrulaması (IP, localhost, `.local` ve tek etiketli adlar reddedilir), host'un URL'den

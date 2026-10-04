@@ -304,15 +304,15 @@ test('ipTuzla: ham IP saklanmaz, tuz değişince özet değişir', async () => {
 /* ================================================================ */
 
 test('kaynakIzinli/corsBasliklari: yalnızca site kaynağına açılır', () => {
-  const env = { SITE_ORIGIN: 'https://nutaliaxd.github.io', CORS_EXTRA: 'http://127.0.0.1:8000' };
-  assert.ok(kaynakIzinli('https://nutaliaxd.github.io', env));
+  const env = { SITE_ORIGIN: 'https://genesisanime.github.io', CORS_EXTRA: 'http://127.0.0.1:8000' };
+  assert.ok(kaynakIzinli('https://genesisanime.github.io', env));
   assert.ok(kaynakIzinli('http://127.0.0.1:8000', env));
-  assert.ok(kaynakIzinli('https://nutaliaxd.github.io/', env));
+  assert.ok(kaynakIzinli('https://genesisanime.github.io/', env));
   assert.ok(!kaynakIzinli('https://kotu-site.example', env));
   assert.ok(!kaynakIzinli(null, env));
 
-  const izinli = corsBasliklari('https://nutaliaxd.github.io', env);
-  assert.equal(izinli['Access-Control-Allow-Origin'], 'https://nutaliaxd.github.io');
+  const izinli = corsBasliklari('https://genesisanime.github.io', env);
+  assert.equal(izinli['Access-Control-Allow-Origin'], 'https://genesisanime.github.io');
   const yabanci = corsBasliklari('https://kotu-site.example', env);
   assert.equal(yabanci['Access-Control-Allow-Origin'], undefined);
   assert.equal(yabanci.Vary, 'Origin');

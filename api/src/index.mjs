@@ -37,6 +37,7 @@
 
 import {
   AKIS_GUNLUK_SINIR,
+  AKIS_KAPSAM_SURUMU,
   BILDIRIM_DURUMLARI,
   BILDIRIM_GUNLUK_SINIR,
   BLOB_GOVDE_SINIRI,
@@ -66,7 +67,7 @@ import {
   TARAMA_KOSU_SINIRI,
   yolCoz,
 } from './yardimci.mjs';
-import { aktar, akisCoz, kaynakTuru, onbellekAtlaMi } from './akis.mjs';
+import { aktar, akisCoz, desteklenenHostlar, kaynakTuru, onbellekAtlaMi } from './akis.mjs';
 
 /* ================================================================ */
 /* 1 · İşleyiciler                                                  */
@@ -480,6 +481,15 @@ async function akisCozUc(istek, env, cors) {
   return json(veri, 200, taze ? { ...cors, 'X-Akis-Onbellek': 'atlandi' } : cors);
 }
 
+/** Sunucunun denemeye açık resolver embed host'larını duyur. */
+function akisKapsamUc(cors) {
+  return json(
+    { ok: true, surum: AKIS_KAPSAM_SURUMU, hostlar: desteklenenHostlar() },
+    200,
+    { ...cors, 'Cache-Control': 'public, max-age=600' }
+  );
+}
+
 /**
  * `GET|HEAD /akis/aktar?u=<imzalı akış adresi>`
  *
@@ -551,6 +561,8 @@ async function istekIsle(istek, env) {
         return await taramaKosu(istek, env, cors);
       case 'tarama-kalp':
         return await taramaKalp(istek, env, cors);
+      case 'akis-kapsam':
+        return akisKapsamUc(cors);
       case 'akis-coz':
         return await akisCozUc(istek, env, cors);
       case 'akis-aktar':

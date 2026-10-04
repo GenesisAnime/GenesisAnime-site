@@ -157,7 +157,7 @@ içindedir.
 | Worker adresi | **https://genesisanime-api.genesisanime.workers.dev** |
 | D1 veritabanı | `genesisanime` · `abde0636-74dd-4d0e-b9c6-12704d3b1f10` · bölge WEUR |
 | Secret'lar | `JWT_SECRET`, `ADMIN_TOKEN`, `IP_TUZ` (panoda tutulmaz; `wrangler secret put` ile yönetilir) |
-| CORS | `SITE_ORIGIN=https://nutaliaxd.github.io` — başka kaynak izinli değil |
+| CORS | `SITE_ORIGIN=https://genesisanime.github.io` — başka kaynak izinli değil |
 
 ```bash
 cd api
@@ -181,7 +181,7 @@ Uzak duman testi:
 ```bash
 GENESIS_API_URL=https://genesisanime-api.genesisanime.workers.dev \
 GENESIS_ADMIN_TOKEN=<ADMIN_TOKEN> \
-npm run api:test -- --origin=https://nutaliaxd.github.io
+npm run api:test -- --origin=https://genesisanime.github.io
 ```
 
 ## Bildirim hattı (uçtan uca)

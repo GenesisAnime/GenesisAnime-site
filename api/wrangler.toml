@@ -22,5 +22,7 @@ database_id = "abde0636-74dd-4d0e-b9c6-12704d3b1f10"
 
 [vars]
 # Statik sitenin kaynağı; CORS yalnızca buraya açılır (virgülle ek adresler CORS_EXTRA'ya).
-SITE_ORIGIN = "https://nutaliaxd.github.io"
+# CORS kaynağı yol içermez: site https://genesisanime.github.io/GenesisAnime-site/ altında yayınlansa da
+# tarayıcı kaynağı yalnızca https://genesisanime.github.io olur.
+SITE_ORIGIN = "https://genesisanime.github.io"
 # CORS_EXTRA = "http://127.0.0.1:8000,http://localhost:8000"

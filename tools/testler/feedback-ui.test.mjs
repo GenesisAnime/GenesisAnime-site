@@ -40,7 +40,14 @@ test('offscreen catalog rows defer rendering and progress timer avoids one-secon
   assert.doesNotMatch(player, /setSaniye/);
 });
 
-test('failed stream resolution does not claim that the source player opened automatically', () => {
+test('player modes separate external embed from site playback and source outcomes', () => {
+  assert.match(player, /Kaynağın playerı/);
+  assert.match(player, /Sitenin playerı/);
+  assert.match(player, /Sitenin playerında çalışan/);
+  assert.match(player, /Sitenin playerında çalışmayan/);
+  assert.match(player, /Henüz denenmeyen/);
+  assert.match(player, /API bekleniyor/);
   assert.doesNotMatch(flow, /kaynak kendi oynatıcısıyla açıldı/);
   assert.match(flow, /kaynağın playerını kullanabilir/);
+  assert.match(player, /embed playerı kullanılıyor; GenesisAnime oynatma konumunu okuyamıyor/);
 });

@@ -6,9 +6,9 @@ bildirimleri ve link tarama paneli ayrı bir Cloudflare Worker ([API](API)) üze
 
 ## Hızlı bağlantılar
 
-- 🌐 **Site:** https://nutaliaxd.github.io/GenesisAnime/
-- 📚 **API belgesi (sitede okunur):** https://nutaliaxd.github.io/GenesisAnime/api-dokumani/
-- 🗂️ **Kaynak kodu:** https://github.com/Nutaliaxd/GenesisAnime
+- 🌐 **Site:** https://genesisanime.github.io/GenesisAnime-site/
+- 📚 **API belgesi (sitede okunur):** https://genesisanime.github.io/GenesisAnime-site/api-dokumani/
+- 🗂️ **Kaynak kodu:** https://github.com/GenesisAnime/GenesisAnime-site
 - 📖 **Ayrıntılı belgeler:** depodaki `docs/` klasörü (`01`–`11` + `kararlar/ADR-*`)
 
 ## Bu wiki ne için?

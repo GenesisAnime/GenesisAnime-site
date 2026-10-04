@@ -2,18 +2,18 @@
 
 ## Site (GitHub Pages)
 
-- **Adres:** https://nutaliaxd.github.io/GenesisAnime/ — proje alt dizini olduğu için `BASE_PATH=/GenesisAnime`.
+- **Adres:** https://genesisanime.github.io/GenesisAnime-site/ — proje alt dizini olduğu için `BASE_PATH=/GenesisAnime-site`.
 - **Kaynak:** GitHub Actions (Settings → Pages → Source: **GitHub Actions**). Pages'in `build_type`
   değeri `workflow` olmalıdır; dal tabanlı yayında iş akışının artefaktı kullanılmaz.
-- **İş akışı:** [`.github/workflows/yayinla.yml`](https://github.com/Nutaliaxd/GenesisAnime/blob/main/.github/workflows/yayinla.yml)
+- **İş akışı:** [`.github/workflows/yayinla.yml`](https://github.com/GenesisAnime/GenesisAnime-site/blob/main/.github/workflows/yayinla.yml)
   — `main`'e her push'ta: bağımlılıklar → `public/data` denetimi → `typecheck` → `build` →
   `yayin:hazirla` → `npm test` → artefakt → `deploy-pages`.
 
 CI derlemesi şu değişkenleri kendisi verir (depoya yazılmaz):
 
 ```
-BASE_PATH=/GenesisAnime
-NEXT_PUBLIC_SITE_URL=https://nutaliaxd.github.io/GenesisAnime
+BASE_PATH=/GenesisAnime-site
+NEXT_PUBLIC_SITE_URL=https://genesisanime.github.io/GenesisAnime-site
 NEXT_PUBLIC_API / NEXT_PUBLIC_BILDIRIM_API = https://genesisanime-api.genesisanime.workers.dev
 ```
 

@@ -3,6 +3,8 @@ node_modules/
 out/
 next-env.d.ts
 *.tsbuildinfo
+.genesisanime-local.pid
+.genesisanime-local-api.pid
 .env*
 !.env.example
 

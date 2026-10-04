@@ -30,7 +30,7 @@
 /** `/akis/coz` yanıtının istemcinin kullandığı alanları. */
 export interface AkisCozumu {
   kaynakAdi: string;
-  /** 'mp4' | 'hls' | 'dash' — bugün yalnız mp4 kendi `<video>`'muzda oynar. */
+  /** Akış türü: mp4, webm, hls veya dash. */
   tur: string;
   /** İmzanın bitiş anı (epoch ms) — bilinmiyorsa null. */
   imzaBitis: number | null;
@@ -39,6 +39,56 @@ export interface AkisCozumu {
 }
 
 export type AkisSonucu = { ok: true; akis: AkisCozumu } | { ok: false; hata: string };
+
+export type AkisKaynakSinifi = 'calisiyor' | 'calismiyor' | 'cozuluyor' | 'denenmedi' | 'kapsam-disi' | 'gumulmez' | 'api-yok';
+
+/** Çalışma durumu yalnız gerçek çözümleme sonucundan türetilir; tahmin rozeti vermez. */
+export function akisKaynakSinifla(
+  adres: string,
+  secenekler: {
+    embed: boolean;
+    apiVar: boolean;
+    kapsam: readonly string[] | null | undefined;
+    hata?: string;
+    sonuc?: { durum: 'bekliyor' | 'basarisiz' | 'calisiyor' };
+  }
+): AkisKaynakSinifi {
+  if (secenekler.sonuc?.durum === 'basarisiz') return 'calismiyor';
+  if (secenekler.sonuc?.durum === 'calisiyor') return 'calisiyor';
+  if (secenekler.sonuc?.durum === 'bekliyor') return 'cozuluyor';
+  if (!secenekler.embed) return 'gumulmez';
+  if (!secenekler.apiVar || secenekler.hata === 'kopru-yok') return 'api-yok';
+  if (secenekler.kapsam != null && !kapsamdaMi(secenekler.kapsam, adres)) return 'kapsam-disi';
+  return 'denenmedi';
+}
+
+/** Çözümleyiciden dönen somut hatayı kullanıcı için okunur hâle getirir. */
+export function akisSorunAciklamasi(hata: string): string {
+  switch (hata) {
+    case 'yol-yok': return 'Akış API’si bu sürümde yok; API dağıtımı güncellenmeli.';
+    case 'desteklenmiyor': return 'Bu sağlayıcı için çözümleyici bulunmuyor; kaynak playerı kullanılabilir.';
+    case 'embed-alinamadi': return 'Sağlayıcı sayfasına sunucu erişemedi; iframe playerı yine çalışabilir.';
+    case 'kimlik-bulunamadi': return 'Player içinden video kimliği çıkarılamadı.';
+    case 'akis-bulunamadi': return 'Açık ve güvenli MP4/WebM akışı bulunamadı; player JavaScript/API veya HLS kullanıyor olabilir.';
+    case 'hedef-izinli-degil':
+    case 'host-izinli-degil': return 'Bulunan medya sunucusu güvenli aktarım listesinde değil.';
+    case 'tur-desteklenmiyor': return 'Kaynak MP4/WebM dışında bir biçim döndürdü.';
+    case 'cok-fazla-istek': return 'Akış çözümleme sınırına ulaşıldı; sonra yeniden deneyin.';
+    case 'ag-hatasi':
+    case 'zaman-asimi': return 'Akış API’sine ulaşılamadı (ağ veya zaman aşımı).';
+    default:
+      if (hata.startsWith('tur-desteklenmiyor:')) return `Kaynak ${hata.slice('tur-desteklenmiyor:'.length).toUpperCase()} biçiminde akış döndürdü; kendi playerımız yalnız MP4/WebM oynatıyor.`;
+      if (/^durum-\d+$/.test(hata)) return `Akış API’si HTTP ${hata.slice('durum-'.length)} döndürdü; API ve CORS ayarlarını kontrol edin.`;
+      return `Akış çözümlenemedi (${hata}); kaynak playerı kullanılabilir.`;
+  }
+}
+
+export function akisKapsamSorunuMetni(hata?: string): string {
+  if (hata === 'kopru-yok') return 'Sitenin bu derlemesinde akış API adresi tanımlı değil; yerel başlatıcı API’yi de çalıştırmalı.';
+  if (hata === 'durum-404') return 'API’de kapsam uç noktası bulunamadı; Mail.ru dışı sağlayıcılar için Worker güncellenmeli.';
+  if (hata === 'ag-hatasi' || hata === 'zaman-asimi') return 'API kapsamı okunamadı; kaynak desteği ilk denemeye göre belli olacak.';
+  return hata ? `Kaynak desteği bilgisi okunamadı (${hata}).` : '';
+}
 
 /**
  * Köprünün tabanı. Derleme anında gömülür (Next `NEXT_PUBLIC_*` değerini metne
@@ -54,31 +104,91 @@ export function akisTabani(): string {
 
 /** Çözümleme isteğinin üst sınırı (ölçüm: edge'de ~2,8 sn). */
 export const AKIS_ZAMAN_ASIMI_MS = 12_000;
-
-/** Kendi `<video>` elemanımıza alınabilecek player'lar (sunucudaki çözümleyiciyle aynı kapsam). */
-export const AKIS_PLAYERLARI = ['MAIL'];
+export const AKIS_VARSAYILAN_KAPSAM = ['my.mail.ru'];
+export const AKIS_KAPSAM_OMRU_MS = 10 * 60 * 1000;
+export const AKIS_KAPSAM_ZAMAN_ASIMI_MS = 8_000;
 
 /** Köprü bu derlemede var mı? */
 export function akisVarMi(): boolean {
   return akisTabani().length > 0;
 }
 
-/** Adres Mail.ru embed'i mi? (sunucudaki `kaynakTuru` ile aynı kapsam) */
-export function mailAdresiMi(adres: string): boolean {
+export function hostEslesir(host: string, taban: string): boolean {
+  const h = String(host || '').toLowerCase();
+  const t = String(taban || '').toLowerCase();
+  return h.length > 0 && t.length > 0 && (h === t || h.endsWith(`.${t}`));
+}
+
+/** Adres sunucunun ilan ettiği host kapsamıyla eşleşiyor mu? */
+export function kapsamdaMi(kapsam: readonly string[] | null | undefined, adres: string): boolean {
+  let host: string;
   try {
-    return /(^|\.)my\.mail\.ru$/i.test(new URL(adres).hostname);
+    host = new URL(adres).hostname;
   } catch {
     return false;
   }
+  return (kapsam ?? AKIS_VARSAYILAN_KAPSAM).some((taban) => hostEslesir(host, taban));
 }
 
-/**
- * Bu kaynak kendi oynatıcımıza alınmalı mı? Karar **dar** tutulur: player damgası
- * MAIL ve adres gerçekten my.mail.ru olmalı; yanlış damgalanmış bir kaynak için
- * boşa sunucu isteği yapılmaz (çözümleme zaten `desteklenmiyor` dönerdi).
- */
-export function akisAdayi(player: string, adres: string): boolean {
-  return AKIS_PLAYERLARI.includes(player) && mailAdresiMi(adres);
+export interface AkisKapsamSonucu {
+  hostlar: string[] | null;
+  surum: number | null;
+  kaynak: 'sunucu' | 'varsayilan';
+  hata?: string;
+}
+
+let kapsamOnbellek: { hostlar: string[]; surum: number | null; zaman: number } | null = null;
+
+/** Kapsamı 10 dakika önbellekle; bozuk/eski API'de eski sürüm geriye uyumlu kalsın. */
+export async function akisKapsami(
+  secenekler: { fetchImpl?: typeof fetch; zamanAsimiMs?: number; simdi?: number; zorla?: boolean } = {}
+): Promise<AkisKapsamSonucu> {
+  const { fetchImpl = fetch, zamanAsimiMs = AKIS_KAPSAM_ZAMAN_ASIMI_MS, simdi = Date.now(), zorla = false } = secenekler;
+  if (!akisVarMi()) return { hostlar: null, surum: null, kaynak: 'varsayilan', hata: 'kopru-yok' };
+  if (!zorla && kapsamOnbellek && simdi - kapsamOnbellek.zaman < AKIS_KAPSAM_OMRU_MS) {
+    return { hostlar: [...kapsamOnbellek.hostlar], surum: kapsamOnbellek.surum, kaynak: 'sunucu' };
+  }
+
+  const denetleyici = new AbortController();
+  const zamanlayici = setTimeout(() => denetleyici.abort(), zamanAsimiMs);
+  try {
+    const yanit = await fetchImpl(`${akisTabani()}/akis/kapsam`, {
+      signal: denetleyici.signal,
+      headers: { Accept: 'application/json' },
+    });
+    let govde: unknown = null;
+    try {
+      govde = await yanit.json();
+    } catch {
+      return { hostlar: null, surum: null, kaynak: 'varsayilan', hata: 'yanit-bozuk' };
+    }
+    const v = (govde ?? null) as Record<string, unknown> | null;
+    if (!yanit.ok || !v || v.ok !== true) {
+      return { hostlar: null, surum: null, kaynak: 'varsayilan', hata: `durum-${yanit.status}` };
+    }
+    if (
+      !Array.isArray(v.hostlar) ||
+      v.hostlar.length > 64 ||
+      !v.hostlar.every(
+        (host) =>
+          typeof host === 'string' &&
+          host.length > 0 &&
+          host.length <= 253 &&
+          /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(host)
+      )
+    ) {
+      return { hostlar: null, surum: null, kaynak: 'varsayilan', hata: 'govde-gecersiz' };
+    }
+    const hostlar = (v.hostlar as string[]).map((host) => host.toLowerCase());
+    const surum = typeof v.surum === 'number' ? v.surum : null;
+    kapsamOnbellek = { hostlar, surum, zaman: simdi };
+    return { hostlar: [...hostlar], surum, kaynak: 'sunucu' };
+  } catch (hata) {
+    const ad = (hata as { name?: string } | null)?.name;
+    return { hostlar: null, surum: null, kaynak: 'varsayilan', hata: ad === 'AbortError' ? 'zaman-asimi' : 'ag-hatasi' };
+  } finally {
+    clearTimeout(zamanlayici);
+  }
 }
 
 /**
@@ -196,9 +306,9 @@ export function aktarimAdresi(akis: AkisCozumu, baslangic = 0): string {
   return `${akis.aktarim.split('#')[0]}${konumEki(baslangic)}`;
 }
 
-/** Kendi `<video>` elemanımızın oynatabildiği biçimler (HLS/DASH ayrı iş). */
+/** Kendi `<video>` elemanımızın native oynatabildiği biçimler (HLS/DASH ayrı iş). */
 export function akisOynatilirMi(tur: string): boolean {
-  return tur === 'mp4';
+  return tur === 'mp4' || tur === 'webm';
 }
 
 /** Kullanıcıya gösterilen durum notları (tek kaynaktan; bileşen metin yazmaz). */
@@ -215,7 +325,7 @@ const NOTLAR: Record<AkisNotu, string> = {
   cozulemedi: 'Akış çözümlenemedi; kaynağın playerını kullanabilir veya başka bir kaynak deneyebilirsin.',
   'akis-yogun': 'Akış servisi şu an yoğun (günlük istek sınırı); kaynağın playerını kullanabilir veya daha sonra yeniden deneyebilirsin.',
   'tur-desteklenmiyor':
-    'Kaynak mp4 dışı bir biçimde (HLS/DASH) sunuluyor; kendi oynatıcımız şimdilik yalnız mp4 oynatıyor.',
+    'Kaynak MP4/WebM dışı bir biçimde (HLS/DASH) sunuluyor; bu biçim kaynak oynatıcısında açılabilir.',
   'akis-durdu': 'Akış oynatılamadı; kaynağın playerını kullanabilir veya başka bir kaynak deneyebilirsin.',
   'akis-erisilemedi': 'Aktarım ucuna ulaşılamadı; kaynağın playerını kullanabilir veya daha sonra yeniden deneyebilirsin.',
   'medya-desteklemiyor': 'Bu yayın kendi oynatıcımızda çözülemedi; kaynağın playerına geçebilir veya başka bir kaynak deneyebilirsin.',

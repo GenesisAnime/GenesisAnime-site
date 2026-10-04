@@ -50,14 +50,18 @@ import {
   type KopruOlcumu,
 } from '@/lib/kopru';
 import {
-  akisAdayi,
   akisCoz,
+  akisKapsami,
+  akisKaynakSinifla,
+  akisKapsamSorunuMetni,
+  akisSorunAciklamasi,
   akisNotuMetni,
   akisOynatilirMi,
   akisVarMi,
   akisYenilenmeliMi,
   aktarimAdresi,
   aktarimDurumu,
+  kapsamdaMi,
   medyaHatasiTazeGerektirir,
   type AkisCozumu,
   type AkisNotu,
@@ -268,27 +272,45 @@ export default function IzleIstemci() {
   /** iframe'e giden adres: sarmalayıcı çözülür, destekli host'ta API açılır. */
   const iframeAdresi = useMemo(() => (aktifKaynak ? kaynakAdresi(aktifKaynak[2]) : ''), [aktifKaynak]);
 
-  /* --------------------- kendi oynatıcı (akış köprüsü) --------------------- */
-  /*
-   * Mail.ru kaynaklarında video artık bizim `<video>` elemanımızda oynar:
-   * embed adresi `/akis/coz` ile imzalı akışa çevrilir, baytlar `/akis/aktar`
-   * üzerinden akar (tarayıcı imzalı CDN'e doğrudan 403 alıyor — ölçüm: docs/12).
-   *
-   * Karar sözleşmesi `@/lib/akis` içinde ve testlerle sabit:
-   *   · kaynak değişiminde konum `#t=<saniye>` ile taşınır
-   *   · 403/502'de kaynak seçimi başına **bir kez** `?t=` ile taze çözümleme
-   *   · çözülemeyen kaynak bugünkü iframe yolunda kalır
-   */
+  /* --------------------- site playerı (akış köprüsü) --------------------- */
+  /* Akış çözümleme kullanıcı isteğiyle birer kaynak denenerek yapılır; iframe
+     player modu varsayılan kalır. Sunucu kapsamı dinamik, başarılı/başarısız
+     kaynaklar ise bu bölümdeki gerçek deneme sonucuna göre listelenir. */
+  const [akisKapsam, setAkisKapsam] = useState<string[] | null>(null);
+  const [akisKapsamHatasi, setAkisKapsamHatasi] = useState<string | undefined>();
+  const [playerModu, setPlayerModu] = useState<'kaynak' | 'site'>('kaynak');
+  const [zorlaCoz, setZorlaCoz] = useState(false);
+  const [akisYenidenDeneme, setAkisYenidenDeneme] = useState(0);
+  const [akisDenenenler, setAkisDenenenler] = useState<
+    Record<string, { hata?: string; durum: 'bekliyor' | 'basarisiz' | 'calisiyor' }>
+  >({});
+
+  useEffect(() => {
+    if (!akisVarMi()) {
+      setAkisKapsamHatasi('kopru-yok');
+      return;
+    }
+    let iptal = false;
+    akisKapsami().then((kapsam) => {
+      if (iptal) return;
+      setAkisKapsam(kapsam.hostlar);
+      setAkisKapsamHatasi(kapsam.hata);
+    });
+    return () => {
+      iptal = true;
+    };
+  }, []);
+
   const kendiVideoAdayi = Boolean(
-    aktifKaynak &&
-      embedUygun(aktifKaynak[2]) &&
-      akisAdayi(aktifKaynak[0], sarmalayiciCoz(aktifKaynak[2])) &&
-      akisVarMi()
+    playerModu === 'site' &&
+      aktifKaynak &&
+      (!akisVarMi() || zorlaCoz || kapsamdaMi(akisKapsam, sarmalayiciCoz(aktifKaynak[2])))
   );
 
   const [akis, setAkis] = useState<{ cozum: AkisCozumu; baslangic: number } | null>(null);
   const [akisDurum, setAkisDurum] = useState<'yok' | 'cozuluyor' | 'yenileniyor' | 'hazir' | 'basarisiz'>('yok');
   const [akisNotu, setAkisNotu] = useState<AkisNotu | null>(null);
+  const [akisSorun, setAkisSorun] = useState('');
   const [videoSaat, setVideoSaat] = useState({ konum: 0, sure: 0 });
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoKonumRef = useRef(0);
@@ -313,6 +335,15 @@ export default function IzleIstemci() {
     if (!kaynak || !anime || !bolum || !kendiVideoAdayi) {
       videoKonumRef.current = 0;
       setAkisDurum('yok');
+      setAkisSorun('');
+      return;
+    }
+
+    if (!akisVarMi()) {
+      const hata = 'kopru-yok';
+      setAkisDurum('basarisiz');
+      setAkisSorun(hata);
+      setAkisNotu('cozulemedi');
       return;
     }
 
@@ -327,25 +358,34 @@ export default function IzleIstemci() {
     const baslangic = Math.max(0, Math.floor(canli > 1 ? canli : konumOku(anime.slug, bolum.n)));
 
     setAkisDurum('cozuluyor');
+    setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { durum: 'bekliyor' } }));
+    setAkisSorun('');
     akisCoz(sarmalayiciCoz(kaynak[2])).then((sonuc) => {
       if (akisSurumRef.current !== surum) return;
       if (!sonuc.ok) {
         setAkisDurum('basarisiz');
+        setAkisSorun(sonuc.hata);
+        setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { hata: sonuc.hata, durum: 'basarisiz' } }));
         /* Sunucudaki günlük sınır (429) ayrı anlatılır: sebep kullanıcıya görünsün. */
         setAkisNotu(sonuc.hata === 'cok-fazla-istek' ? 'akis-yogun' : 'cozulemedi');
         return;
       }
       if (!akisOynatilirMi(sonuc.akis.tur)) {
+        const hata = `tur-desteklenmiyor:${sonuc.akis.tur}`;
         setAkisDurum('basarisiz');
+        setAkisSorun(hata);
+        setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { hata, durum: 'basarisiz' } }));
         setAkisNotu('tur-desteklenmiyor');
         return;
       }
       akisBolumRef.current = anahtar;
       setAkis({ cozum: sonuc.akis, baslangic });
-      setAkisDurum('hazir');
+      setAkisSorun('');
+      setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { durum: 'bekliyor' } }));
+      setAkisDurum('cozuluyor');
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aktifKaynak, bolum, kendiVideoAdayi]);
+  }, [aktifKaynak, bolum, kendiVideoAdayi, akisYenidenDeneme, zorlaCoz, akisKapsam]);
 
   /**
    * Kendi `<video>` hata verdi: önce aktarım ucunu 2 baytla yokla (video elemanı
@@ -364,6 +404,8 @@ export default function IzleIstemci() {
       setAkis(null);
       setAkisDurum('basarisiz');
       setAkisNotu(not);
+      setAkisSorun(not);
+      setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { hata: not, durum: 'basarisiz' } }));
     };
     if (akisTazeRef.current) return dur('akis-durdu');
     if (!medyaHatasiTazeGerektirir(video.error?.code)) return dur('medya-desteklemiyor');
@@ -577,7 +619,7 @@ export default function IzleIstemci() {
   useEffect(() => {
     if (!anime || !bolum) return;
     izlendiRef.current = Boolean(izlenenHaritasi()[`${anime.slug}|${bolum.n}`]);
-    setSaniye(0);
+    saniyeRef.current = 0;
   }, [anime, bolum]);
 
   useEffect(() => {
@@ -614,6 +656,45 @@ export default function IzleIstemci() {
   }, [kaydet]);
 
   /* --------------------------- gezinme --------------------------- */
+
+  const akisKaynakAdi = aktifKaynak ? playerAd(aktifKaynak[0]) : '';
+  const playerKaynaklar = gosterilenKaynaklar.map((kaynak, sira) => {
+    const sonuc = akisDenenenler[kaynak[2]];
+    const hata = sonuc?.hata;
+    const sinif = akisKaynakSinifla(sarmalayiciCoz(kaynak[2]), {
+      embed: embedUygun(kaynak[2]),
+      apiVar: akisVarMi(),
+      kapsam: akisKapsam,
+      hata: akisKapsamHatasi,
+      sonuc,
+    });
+    return { kaynak, sira, sinif, hata };
+  });
+  const kendiPlayeriCalisanlar = playerKaynaklar.filter((x) => x.sinif === 'calisiyor');
+  const kendiPlayeriCalismayanlar = playerKaynaklar.filter((x) => x.sinif === 'calismiyor' || x.sinif === 'gumulmez');
+  const kendiPlayeriApiBekleyenler = playerKaynaklar.filter((x) => x.sinif === 'api-yok');
+  const kendiPlayeriCozulenler = playerKaynaklar.filter((x) => x.sinif === 'cozuluyor');
+  const kendiPlayeriBilinmeyenler = playerKaynaklar.filter((x) => x.sinif === 'denenmedi' || x.sinif === 'kapsam-disi');
+  const kaynakCozumunuDene = (sira: number) => {
+    const kaynak = gosterilenKaynaklar[sira];
+    if (!kaynak) return;
+    setKaynakSira(sira);
+    setPlayerModu('site');
+    if (!akisVarMi()) {
+      setZorlaCoz(false);
+      setAkisDurum('basarisiz');
+      setAkisSorun('kopru-yok');
+      setAkisNotu('cozulemedi');
+      return;
+    }
+    setZorlaCoz(true);
+    setAkisDenenenler((onceki) => {
+      const yeni = { ...onceki };
+      delete yeni[kaynak[2]];
+      return yeni;
+    });
+    setAkisYenidenDeneme((onceki) => onceki + 1);
+  };
 
   const oncekiVar = bolum ? anime?.bolumler.some((b) => b.n === bolum.n - 1) : false;
   const sonrakiVar = bolum ? anime?.bolumler.some((b) => b.n === bolum.n + 1) : false;
@@ -761,7 +842,7 @@ export default function IzleIstemci() {
                 autoPlay
                 playsInline
                 preload="metadata"
-                title={`${anime.ad} ${bolumNumarasi(bolum?.no ?? null, bolumSira)}. bölüm — Mail.ru akışı`}
+                title={`${anime.ad} ${bolumNumarasi(bolum?.no ?? null, bolumSira)}. bölüm — ${akisKaynakAdi} akışı`}
                 onLoadedMetadata={(olay) => {
                   /* Konum ekini (`#t=`) bazı tarayıcılar akış mp4'ünde yok sayıyor;
                      "kaynak değişiminde konum korunur" sözleşmesi burada açıkça kurulur. */
@@ -773,6 +854,12 @@ export default function IzleIstemci() {
                       /* sarma desteklenmiyorsa video baştan oynar */
                     }
                   }
+                }}
+                onCanPlay={() => {
+                  const kaynak = aktifKaynak;
+                  if (!kaynak) return;
+                  setAkisDurum('hazir');
+                  setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { durum: 'calisiyor' } }));
                 }}
                 onTimeUpdate={(olay) => {
                   const v = olay.currentTarget;
@@ -791,9 +878,33 @@ export default function IzleIstemci() {
                 }}
                 onError={videoHatasi}
               />
+            ) : playerModu === 'site' && aktifKaynak ? (
+              <div className="oynatici-bos">
+                <div>
+                  <h3>{akisDurum === 'cozuluyor' ? 'Sitenin playerı akışı çözümlüyor…' : 'Bu kaynak sitenin playerında açılamadı'}</h3>
+                  <p>
+                    {akisDurum === 'cozuluyor'
+                      ? `${playerAd(aktifKaynak[0])} kaynağı deneniyor.`
+                      : akisSorun === 'kopru-yok'
+                        ? akisKapsamSorunuMetni(akisSorun)
+                        : akisSorun
+                          ? akisSorunAciklamasi(akisSorun)
+                          : 'Akışı denemek için sağdaki listeden bir kaynak seç.'}
+                  </p>
+                  <button
+                    className="dugme dugme-birincil"
+                    onClick={() => {
+                      setPlayerModu('kaynak');
+                      setZorlaCoz(false);
+                    }}
+                  >
+                    Kaynağın playerına geç
+                  </button>
+                </div>
+              </div>
             ) : aktifKaynak && gomulebilir ? (
               <iframe
-                key={aktifKaynak[2]}
+                key={`${aktifKaynak[2]}-${playerModu}`}
                 ref={cerceveRef}
                 src={iframeAdresi}
                 title={`${anime.ad} ${bolumNumarasi(bolum?.no ?? null, bolumSira)}. bölüm — ${playerAd(aktifKaynak[0])}`}
@@ -823,7 +934,7 @@ export default function IzleIstemci() {
             {akisDurum === 'cozuluyor' || akisDurum === 'yenileniyor' ? (
               <div className="oynatici-yukleniyor" role="status">
                 <span className="oynatici-donen" aria-hidden="true" />
-                {akisDurum === 'yenileniyor' ? 'Akış tazeleniyor…' : 'Mail.ru akışı hazırlanıyor…'}
+                {akisDurum === 'yenileniyor' ? 'Akış tazeleniyor…' : `${akisKaynakAdi} akışı hazırlanıyor…`}
               </div>
             ) : null}
           </div>
@@ -845,15 +956,22 @@ export default function IzleIstemci() {
                 </span>
               ) : null}
               <span className="oynatici-kopru-not">
-                Mail.ru akışı Workers üzerinden aktarılıyor; oynatma konumu bu sayfada okunuyor.
+                {akisKaynakAdi} akışı Workers üzerinden aktarılıyor; oynatma konumu bu sayfada okunuyor.
               </span>
             </div>
           ) : null}
 
           {akisNotu ? (
-            <div className="uyari-kutu bilgi" style={{ marginTop: 10 }}>
+            <div className="uyari-kutu bilgi" style={{ marginTop: 10 }} role="status">
               <span aria-hidden="true">ℹ️</span>
-              <span>{akisNotuMetni(akisNotu)}</span>
+              <span>
+                {akisSorun ? akisSorunAciklamasi(akisSorun) : akisNotuMetni(akisNotu)}
+                {playerModu === 'site' && aktifKaynak ? (
+                  <button className="dugme dugme-sade" style={{ marginLeft: 10 }} onClick={() => { setPlayerModu('kaynak'); setZorlaCoz(false); }}>
+                    Kaynağın playerına geç
+                  </button>
+                ) : null}
+              </span>
             </div>
           ) : null}
 
@@ -912,7 +1030,7 @@ export default function IzleIstemci() {
                 </span>
               ) : (
                 <span className="oynatici-kopru-not">
-                  Bu kaynak kendi oynatıcısını kullanır; oynatma konumu okunamaz.
+                  {kopru.etiket} embed playerı kullanılıyor; GenesisAnime oynatma konumunu okuyamıyor.
                 </span>
               )}
 
@@ -1022,7 +1140,100 @@ export default function IzleIstemci() {
               {gosterilenKaynaklar.length > 1 ? ' · klavyeden 1-9 ile hızlı seçim' : ''}
             </p>
 
-            {epkGruplari.length > 1 || seciliFansublar.length > 0 ? (
+            <div className="player-modu" role="group" aria-label="Oynatıcı seçimi">
+              <button
+                className={`player-modu-dugme${playerModu === 'kaynak' ? ' etkin' : ''}`}
+                aria-pressed={playerModu === 'kaynak'}
+                onClick={() => {
+                  setPlayerModu('kaynak');
+                  setZorlaCoz(false);
+                }}
+              >
+                Kaynağın playerı
+              </button>
+              <button
+                className={`player-modu-dugme${playerModu === 'site' ? ' etkin' : ''}`}
+                aria-pressed={playerModu === 'site'}
+                onClick={() => {
+                  setPlayerModu('site');
+                  setZorlaCoz(false);
+                }}
+              >
+                Sitenin playerı
+              </button>
+            </div>
+
+            {playerModu === 'site' ? (
+              <div className="site-player-panel" aria-live="polite">
+                <p className="ipucu">
+                  Kaynakları tek tek deneyip MP4/WebM olarak çözülebilenleri kendi playerımızda açarız.
+                  Her host desteklenmez; başarısız olanlar ayrı listelenir.
+                </p>
+                {akisKapsamHatasi ? <p className="site-player-sorun">{akisKapsamSorunuMetni(akisKapsamHatasi)}</p> : null}
+                <section className="site-player-grup">
+                  <h4>Sitenin playerında çalışan ({kendiPlayeriCalisanlar.length})</h4>
+                  {kendiPlayeriCalisanlar.length ? (
+                    <div className="cipler">
+                      {kendiPlayeriCalisanlar.map(({ kaynak, sira }) => (
+                        <button className={`cip${sira === kaynakSira ? ' etkin' : ''}`} key={kaynak[2]} onClick={() => setKaynakSira(sira)}>
+                          ✓ {playerAd(kaynak[0])} · #{sira + 1}
+                        </button>
+                      ))}
+                    </div>
+                  ) : <p className="site-player-bos">Bu bölümde henüz doğrulanmış akış yok.</p>}
+                </section>
+                {kendiPlayeriCozulenler.length ? (
+                  <section className="site-player-grup">
+                    <h4>Şu anda deneniyor ({kendiPlayeriCozulenler.length})</h4>
+                    <div className="cipler">
+                      {kendiPlayeriCozulenler.map(({ kaynak, sira }) => (
+                        <span className="cip" key={kaynak[2]}>
+                          <span className="oynatici-donen" aria-hidden="true" /> {playerAd(kaynak[0])} · #{sira + 1}
+                        </span>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+                {kendiPlayeriApiBekleyenler.length ? (
+                  <section className="site-player-grup">
+                    <h4>API bekleniyor ({kendiPlayeriApiBekleyenler.length})</h4>
+                    <div className="cipler">
+                      {kendiPlayeriApiBekleyenler.map(({ kaynak, sira }) => (
+                        <span className="cip" key={kaynak[2]} title="Bu kaynağı test etmek için akış API’si çalışır olmalı.">
+                          ◷ {playerAd(kaynak[0])} · #{sira + 1} · API bekleniyor
+                        </span>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+                <section className="site-player-grup">
+                  <h4>Henüz denenmeyen ({kendiPlayeriBilinmeyenler.length})</h4>
+                  {kendiPlayeriBilinmeyenler.length ? (
+                    <div className="cipler">
+                      {kendiPlayeriBilinmeyenler.map(({ kaynak, sira }) => (
+                        <button className="cip" key={kaynak[2]} onClick={() => kaynakCozumunuDene(sira)}>
+                          ? {playerAd(kaynak[0])} · #{sira + 1} · Dene
+                        </button>
+                      ))}
+                    </div>
+                  ) : <p className="site-player-bos">Denenmemiş kaynak yok.</p>}
+                </section>
+                <section className="site-player-grup">
+                  <h4>Sitenin playerında çalışmayan ({kendiPlayeriCalismayanlar.length})</h4>
+                  {kendiPlayeriCalismayanlar.length ? (
+                    <div className="cipler">
+                      {kendiPlayeriCalismayanlar.map(({ kaynak, sira, hata }) => (
+                        <button className="cip site-player-basarisiz" key={kaynak[2]} title={hata ? akisSorunAciklamasi(hata) : 'Kaynak MP4/WebM olarak çözülemedi'} onClick={() => kaynakCozumunuDene(sira)}>
+                          × {playerAd(kaynak[0])} · #{sira + 1} · Yine dene
+                        </button>
+                      ))}
+                    </div>
+                  ) : <p className="site-player-bos">Başarısız deneme yok.</p>}
+                </section>
+              </div>
+            ) : null}
+
+            {playerModu === 'kaynak' && (epkGruplari.length > 1 || seciliFansublar.length > 0 ? (
               <div className="fansub-suzgec">
                 <div className="suzgec-basi">
                   <span>Fansub süzgeci</span>
@@ -1062,9 +1273,9 @@ export default function IzleIstemci() {
                   </p>
                 ) : null}
               </div>
-            ) : null}
+            ) : null)}
 
-            {oynaticiSecenekleri.length > 1 ? (
+            {playerModu === 'kaynak' && oynaticiSecenekleri.length > 1 ? (
               <div className="oynatici-secici" aria-label="Oynatıcıya göre kaynakları süz">
                 <div className="oynatici-secici-basi">2 · Oynatıcı seç</div>
                 <div className="oynatici-secici-dugmeleri">
@@ -1089,7 +1300,7 @@ export default function IzleIstemci() {
               </div>
             ) : null}
 
-            {gosterilenKaynaklar.length === 0 ? (
+            {playerModu === 'kaynak' && (gosterilenKaynaklar.length === 0 ? (
               <div className="uyari-kutu uyari">
                 <span aria-hidden="true">⚠️</span>
                 <span>Bu bölüm için kaynak yok.</span>
@@ -1155,16 +1366,16 @@ export default function IzleIstemci() {
                   </div>
                 );
               })
-            )}
+            ))}
 
-            {seciliEkip ? (
+            {playerModu === 'kaynak' && seciliEkip ? (
               <div className="ekip-bilgi">
                 <b>{seciliEkip.g}</b>
                 {seciliEkip.e ? <div style={{ marginTop: 4 }}>{seciliEkip.e}</div> : null}
               </div>
             ) : null}
 
-            {guven && guven.kontrol > 0 ? (
+            {playerModu === 'kaynak' && guven && guven.kontrol > 0 ? (
               <p style={{ fontSize: 11.5, color: 'var(--tx3)', marginTop: 10 }}>
                 {playerAd(seciliK![0])} için bugüne kadar {sayiBicim(guven.kontrol)} kaynak kontrol
                 edildi, {sayiBicim(guven.ok)} tanesi çalışıyor.

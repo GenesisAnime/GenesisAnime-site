@@ -4,8 +4,8 @@ Statik siteye dokunmadan hesapları, senkronu, “kaynak çalışmıyor” bildi
 panelini taşıyan servis. **Cloudflare Workers + D1**, sıfır npm bağımlılığı, WebCrypto kullanır.
 
 - **Adres:** https://genesisanime-api.genesisanime.workers.dev
-- **Kaynak kodu:** [`api/`](https://github.com/Nutaliaxd/GenesisAnime/tree/main/api)
-- **Sitede okunur hâli:** https://nutaliaxd.github.io/GenesisAnime/api-dokumani/
+- **Kaynak kodu:** [`api/`](https://github.com/GenesisAnime/GenesisAnime-site/tree/main/api)
+- **Sitede okunur hâli:** https://genesisanime.github.io/GenesisAnime-site/api-dokumani/
 
 > Belgenin koddan kopmaması otomatik testle garanti edilir
 > (`tools/testler/api-dokumani.test.mjs`): belgedeki her satır gerçekten yönlendiriliyor mu ve uç
@@ -51,7 +51,7 @@ Erişim jetonu **12 saat**, yenileme jetonu **90 gün** geçerlidir.
 
 ## CORS
 
-Üretimde yalnızca **https://nutaliaxd.github.io** kaynağına açıktır (`SITE_ORIGIN`). Başka bir site bu
+Üretimde yalnızca **https://genesisanime.github.io** kaynağına açıktır (`SITE_ORIGIN`). Başka bir site bu
 API’yi ziyaretçinin tarayıcısından çağıramaz; sunucudan sunucuya istekler CORS’a takılmaz.
 
 Yerelde panel/arayüz denemek için geçici izin (`wrangler deploy --var CORS_EXTRA:...`) verilebilir —

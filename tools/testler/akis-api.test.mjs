@@ -17,6 +17,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const akis = await import('../../api/src/akis.mjs');
 const yardimci = await import('../../api/src/yardimci.mjs');
@@ -66,14 +67,43 @@ test('metaAkisi: protokolsüz adres https\'e tamamlanır, çöp yük null döner
   assert.equal(akis.metaAkisi(null), null);
 });
 
-test('kaynakTuru: yalnız desteklenen kaynaklar tanınır', () => {
+test('kaynakTuru: katalogdaki resolver hostları tanınır; benzer host reddedilir', () => {
   assert.equal(akis.kaynakTuru(EMBED), 'mail');
   assert.equal(akis.kaynakTuru('https://my.mail.ru/video/embed/1'), 'mail');
-  assert.equal(akis.kaynakTuru('https://video.sibnet.ru/shell.php?videoid=1'), null);
-  assert.equal(akis.kaynakTuru('https://ok.ru/videoembed/1'), null);
-  assert.equal(akis.kaynakTuru('https://uqload.com/embed-x.html'), null);
+  assert.equal(akis.kaynakTuru('https://video.sibnet.ru/shell.php?videoid=1'), 'sibnet');
+  assert.equal(akis.kaynakTuru('https://ok.ru/videoembed/1'), 'odnoklassniki');
+  assert.equal(akis.kaynakTuru('https://uqload.com/embed-x.html'), 'uqload');
+  assert.equal(akis.kaynakTuru('https://my.mail.ru.kotu.example/x'), null);
   assert.equal(akis.kaynakTuru('bu adres değil'), null);
   assert.equal(akis.kaynakTuru(''), null);
+});
+
+test('kapsam hostları resolver tablosundan türetilir ve katalogdaki tüm player URLlerini kapsar', () => {
+  const hostlar = akis.desteklenenHostlar();
+  assert.equal(new Set(hostlar).size, hostlar.length, 'host kapsamı tekil olmalı');
+  assert.equal(akis.hostEslesir('cdn62.my.mail.ru', 'my.mail.ru'), true);
+  assert.equal(akis.hostEslesir('my.mail.ru.kotu.example', 'my.mail.ru'), false);
+
+  const klasor = new URL('../../public/data/anime/', import.meta.url);
+  const playerlar = new Set();
+  for (const dosya of readdirSync(klasor).filter((ad) => ad.endsWith('.json'))) {
+    const anime = JSON.parse(readFileSync(new URL(dosya, klasor), 'utf8'));
+    for (const bolum of anime.bolumler ?? []) {
+      for (const kaynak of bolum.src ?? []) {
+        const adres = kaynak[2].startsWith('https://href.li/?') ? kaynak[2].slice('https://href.li/?'.length) : kaynak[2];
+        let host;
+        try {
+          host = new URL(adres).hostname;
+        } catch {
+          assert.fail(`${kaynak[0]} URL'si ayrıştırılamıyor: ${kaynak[2]}`);
+        }
+        playerlar.add(kaynak[0]);
+        assert.ok(hostlar.some((taban) => akis.hostEslesir(host, taban)), `katalog host'u kapsamda olmalı: ${kaynak[0]} / ${host}`);
+        assert.ok(akis.kaynakTuru(adres), `katalog player URL'si resolver tarafından tanınmalı: ${kaynak[0]} / ${host}`);
+      }
+    }
+  }
+  assert.equal(playerlar.size, 21, 'katalogdaki tüm player tipleri denetlenmeli');
 });
 
 test('aktarimIzni: açık proxy engeli (host + https + imza)', () => {
@@ -89,6 +119,23 @@ test('aktarimIzni: açık proxy engeli (host + https + imza)', () => {
   /* Alt alan adı kapsanır, ama "benzer" host kandırmaz. */
   assert.equal(akis.aktarimIzni('https://a.b.my.mail.ru.evil.com/v.mp4?sig=1').ok, false);
   assert.equal(akis.aktarimIzni('https://vd196.okcdn.ru/video.m3u8?expires=1&sig=x').ok, true);
+  assert.equal(akis.aktarimIzni('https://a3.mp4upload.com/d/abc/video.mp4').hata, 'imzasiz-adres');
+  assert.equal(akis.aktarimIzni('https://a3.mp4upload.com:183/d/xsxs2p5az3b4quuoz2rrk2yxc7hxjhiwholihg446sbf4verowabzkzn7nxu5emrwa3tsord/video.mp4').ok, true);
+  assert.equal(akis.aktarimIzni('https://s18.hdvid.tv/short/v.mp4').hata, 'imzasiz-adres');
+});
+
+test('akisAdaylari: allowlistli imzalı MP4/WebM bulunur; keyfi, HTTP ve imzasız URL elenir', () => {
+  const imzali = 'https://a3.mp4upload.com:183/d/xsxs2p5az3b4quuoz2rrk2yxc7hxjhiwholihg446sbf4verowabzkzn7nxu5emrwa3tsord/video.mp4';
+  const html = `<video><source src="${imzali}"></video><script>file: "https://evil.example/video.mp4?token=x"</script><script>file: "http://a3.mp4upload.com/plain.mp4?token=x"</script>`;
+  assert.deepEqual(akis.akisAdaylari(html, 'https://www.mp4upload.com/embed-x.html'), [{ url: imzali, tur: 'mp4' }]);
+});
+
+test('akisCoz: genel resolver statik MP4 bulur; uzak JavaScript çalıştırılmaz', async () => {
+  const url = 'https://s18.hdvid.tv/uirole5wwm4swchrln2xpfkapps42vqpm3flauq5uu46zxddfxttol6gqieq/v.mp4';
+  const fetchImpl = sahteFetch([{ govde: `<script>file: "${url}"</script>` }]);
+  const sonuc = await akis.akisCoz('https://hdvid.tv/embed-test.html', { fetchImpl });
+  assert.deepEqual(sonuc, { ok: true, kaynakAdi: 'hdvid', tur: 'mp4', url, imzaBitis: null });
+  assert.equal(fetchImpl.cagrilar.length, 1);
 });
 
 /* ------------------------------ çözümleme akışı ------------------------------ */
@@ -123,11 +170,11 @@ test('akisCoz: embed → meta → imzalı akış (iki adım)', async () => {
   assert.ok(fetchImpl.cagrilar[1].adres.includes('/+/video/meta/3077395774695276545'), fetchImpl.cagrilar[1].adres);
 });
 
-test('akisCoz: her adımda sınıflandırılmış hata döner, fırlatmaz', async () => {
+test('akisCoz: desteklenen fakat statik akışı olmayan provider anlaşılır hata verir', async () => {
   const desteklenmeyen = await akis.akisCoz('https://video.sibnet.ru/shell.php?videoid=1', {
-    fetchImpl: sahteFetch([]),
+    fetchImpl: sahteFetch([{ govde: '<html>player JavaScript/API ile yükleniyor</html>' }]),
   });
-  assert.equal(desteklenmeyen.hata, 'desteklenmiyor');
+  assert.equal(desteklenmeyen.hata, 'akis-bulunamadi');
 
   const embedYok = await akis.akisCoz(EMBED, { fetchImpl: sahteFetch([{ durum: 403 }]) });
   assert.equal(embedYok.hata, 'embed-alinamadi');
@@ -221,7 +268,7 @@ test('taze çözümleme: istemci `?t=` gönderirse önbellek atlanır', () => {
 });
 
 test('CORS: Range başlığı izinli (oynatıcı 2 baytlık yoklama yapabilsin)', () => {
-  const basliklar = yardimci.corsBasliklari('https://nutaliaxd.github.io', { SITE_ORIGIN: 'https://nutaliaxd.github.io' });
+  const basliklar = yardimci.corsBasliklari('https://genesisanime.github.io', { SITE_ORIGIN: 'https://genesisanime.github.io' });
   assert.match(basliklar['Access-Control-Allow-Headers'], /Range/);
 });
 
@@ -256,7 +303,7 @@ test('uç: /akis/coz önbelleği kullanır, `?t=` ile atlar ve sonucu tazeler', 
       },
     };
 
-    const env = { SITE_ORIGIN: 'https://nutaliaxd.github.io' };
+    const env = { SITE_ORIGIN: 'https://genesisanime.github.io' };
     const adres = (taze) =>
       `https://api.test/akis/coz?kaynak=${encodeURIComponent(EMBED)}${taze ? '&t=' + Date.now() : ''}`;
 
@@ -327,7 +374,7 @@ test('uç: /akis/coz günlük IP sınırını uygular, önbellek vuruşu sayılm
       },
     };
 
-    const env = { SITE_ORIGIN: 'https://nutaliaxd.github.io', DB: db, IP_TUZ: 'tuz' };
+    const env = { SITE_ORIGIN: 'https://genesisanime.github.io', DB: db, IP_TUZ: 'tuz' };
     const istek = () =>
       new Request(`https://api.test/akis/coz?kaynak=${encodeURIComponent(EMBED)}&t=${Math.random()}`, {
         headers: { 'CF-Connecting-IP': '203.0.113.7' },
@@ -356,8 +403,28 @@ test('uç: /akis/coz günlük IP sınırını uygular, önbellek vuruşu sayılm
 
 test('yolCoz: köprü uçları yönlendiricide tanımlı', () => {
   assert.deepEqual(yardimci.yolCoz('/akis/coz', 'GET'), { islem: 'akis-coz' });
+  assert.deepEqual(yardimci.yolCoz('/akis/kapsam', 'GET'), { islem: 'akis-kapsam' });
+  assert.deepEqual(yardimci.yolCoz('/akis/kapsam/', 'GET'), { islem: 'akis-kapsam' });
+  assert.deepEqual(yardimci.yolCoz('/akis/kapsam', 'POST'), { islem: 'yontem-yok' });
   assert.deepEqual(yardimci.yolCoz('/akis/aktar', 'GET'), { islem: 'akis-aktar' });
   assert.deepEqual(yardimci.yolCoz('/akis/aktar/', 'HEAD'), { islem: 'akis-aktar' });
   assert.deepEqual(yardimci.yolCoz('/akis/aktar', 'POST'), { islem: 'yontem-yok' });
   assert.deepEqual(yardimci.yolCoz('/akis/yok', 'GET'), { islem: 'yok' });
+});
+
+test('uç: /akis/kapsam resolver hostlarını şema sürümüyle döndürür', async () => {
+  const varsayilan = await import('../../api/src/index.mjs');
+  const yanit = await varsayilan.default.fetch(
+    new Request('https://api.test/akis/kapsam', { headers: { Origin: 'https://genesisanime.github.io' } }),
+    { SITE_ORIGIN: 'https://genesisanime.github.io' },
+    {}
+  );
+  assert.equal(yanit.status, 200);
+  assert.equal(yanit.headers.get('Access-Control-Allow-Origin'), 'https://genesisanime.github.io');
+  assert.match(yanit.headers.get('Cache-Control') ?? '', /max-age=600/);
+  assert.deepEqual(await yanit.json(), {
+    ok: true,
+    surum: yardimci.AKIS_KAPSAM_SURUMU,
+    hostlar: akis.desteklenenHostlar(),
+  });
 });

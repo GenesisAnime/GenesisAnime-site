@@ -91,6 +91,13 @@ Ayrıca tarayıcıda gerçek tıklama testi: ana sayfa → arama → anime detay
 Konsolda hata olmamalı (`document.documentElement.dataset.hata` boş olmalı; sitede her zaman
 kurulu bir erken hata kaydedici vardır).
 
+### Yerel site başlatıcıları (Windows)
+
+Depo kökündeki `siteyi-baslat.cmd` çift tıkla çalışır: ilk seferde `npm ci`, ardından Next geliştirme
+sunucusu `127.0.0.1:3000`'de başlar; hazır olunca tarayıcı açılır. `siteyi-durdur.cmd` yalnızca
+başlatıcının kaydettiği PowerShell sürecini kapatır; port başka bir sürece aitse ona dokunmaz.
+Sunucu konsol penceresindeki Ctrl+C de geçerli bir durdurma yoludur. PID dosyası gitignore'dadır.
+
 ### Otomatik döngü ve yönetici paneli
 
 Günlük link tarama döngüsü (`tools/gunluk-dongu.mjs`) bu makinede zamanlayıcıya bağlıdır; kararı
@@ -113,8 +120,9 @@ uygulanmalıdır (`npm run db:yerel` / `npm run db:uzak`); yeni uçlar `ADMIN_TO
 
 ## 5. Git
 
-- **Depo:** `origin = https://github.com/Nutaliaxd/GenesisAnime.git`, dal `main` (public).
-  İlk commit `783dca6`; `main` push'u GitHub Pages yayınını başlatır (iş akışı `yayinla.yml`).
+- **Depo:** `origin = https://github.com/GenesisAnime/GenesisAnime-site`, dal `main` (public).
+  `main` push'u GitHub Pages yayınını başlatır (`.github/workflows/yayinla.yml`); adres
+  https://genesisanime.github.io/GenesisAnime-site/.
 - Kullanıcı istemedikçe commit/push yapılmaz. (İlk doldurmada tüm ağaç tek commit'tir; sonrasında
   `git add -A` kullanılmaz — yalnızca kendi değiştirdiğin dosyalar eklenir.)
 - `public/data/` bilinçli olarak sürüm kontrolündedir (CI, kaynak DB olmadan derler).

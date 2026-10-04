@@ -1,34 +1,41 @@
 # 12 · Akış Köprüsü (kendi oynatıcının temeli)
 
-Amaç: video yüzeyini kaynağın iframe'i olmaktan çıkarıp **kendi `<video>` elemanımızda** oynatmak.
-Durum 03.10: **istemci bağlandı** — Mail.ru kaynaklarında (kaynakların ~%27,9'u) video artık bizim
-oynatıcımızda oynuyor; çözülemeyen kaynakta bugünkü iframe yolu aynen kalıyor.
-Bunun önündeki ölçülmüş engeller [04](04-oynatici-ve-kaynaklar.md) ve
-[olcum/akis-2026-10-02.json](olcum/akis-2026-10-02.json) içinde; bu dosya o engellerin etrafından
-dolaşan katmanı anlatır. Özet: akış adresi **sunucu tarafında** çıkarılabiliyor ve sunucumuz akışı
-çekebiliyor, ama tarayıcı aynı adrese 403 alıyor → aradan geçen bir aktarım katmanı şart.
+Amaç: kullanıcının seçimine göre kaynağın iframe oynatıcısını veya bizim `<video>` elemanımızı
+kullanmak. Mail.ru çözümleme/aktarım yolu daha önce ölçüldü; diğer katalog playerları için bu
+çalışma güvenli, statik MP4/WebM adaylarını deneyen ek bir resolver yolu getirir. **Katalogda tanınan
+host, oynatılabildiği doğrulanmış kaynak demek değildir.** Çalışan/başarısız kaynak listesi yalnız
+kullanıcının bu bölümdeki gerçek denemesine göre oluşur. Önceki ölçümlerin ayrıntısı
+[04](04-oynatici-ve-kaynaklar.md) ve [olcum/akis-2026-10-02.json](olcum/akis-2026-10-02.json)
+içindedir.
 
 ## Uçlar (`api/src/akis.mjs`)
 
 ```
+GET /akis/kapsam
+    → { ok, surum, hostlar } (denenebilir resolver host kapsamı; uyumluluk garantisi değil)
+
 GET /akis/coz?kaynak=<embed adresi>
     → { ok, kaynakAdi, tur, url, imzaBitis, aktarim }
-    → embed sayfası → metadataUrl → meta ucu → imzalı akış adresi
+    → Mail.ru için metadata ucu; diğer tanımlı sağlayıcılarda embed HTML'indeki açık statik MP4/WebM
     → sonuç imza bitişine kadar (en çok 6 saat) Cache API'de tutulur
 
 GET|HEAD /akis/aktar?u=<imzalı akış adresi>
     → medya baytları, Range ve If-Range KORUNARAK aktarılır
 ```
 
-Bugün çözümlenebilen kaynak: **Mail.ru** (kaynakların ~%27,9'u). Diğer host'lar
-`{ ok:false, hata:'desteklenmiyor' }` döner; çağıran taraf iframe'e düşer. Bu bir gerileme değil,
-çünkü oynatıcı zaten iki yollu tasarlanır: köprü varsa kendi `<video>`, yoksa bugünkü iframe.
+Resolver host tablosu katalogdaki 21 player türünü tanır; bu yalnızca sunucuya **deneme adayı**
+olarak gönderilebilecek hostları bildirir. Mail.ru dışında HTML'de açıkça ilan edilen, HTTPS ve
+izinli medya hostundan gelen imzalı MP4/WebM aranır. Kaynak JS çalıştırılmaz; HLS/DASH manifesti,
+özel API ile üretilen bağlantı, imzasız/genel URL ve izinli olmayan CDN çözülmez. Bu nedenle bazı
+denemeler başarısız veya desteklenmiyor dönecektir. Kaynak iframe'i her zaman ayrı seçenek ve yedek
+yoldur; çözümleme başarısızsa kaynak playerını ayrıca açmak gerekir.
 
 ## İki tasarım kararı
 
 **1. Aktarım ucu açık proxy değildir.** Şartlar birlikte aranır: `https`, izin listesindeki medya
-host'u (`my.mail.ru`, `mycdn.me`, `cloud.mail.ru`, `okcdn.ru`) ve adreste bir **imza parametresi**
-(`video_key`, `sig`, `tkn`, `expires`…). Aksi hâlde bu uç herkesin bedava proxy'si olurdu; hem
+host'u (Mail.ru/OK CDN'leri, MP4Upload, HDvid, Yandex Disk ve izin listesindeki medya CDN'leri)
+ve adreste bir **imza veya sağlayıcıya özgü imzalı yol** (`video_key`, `sig`, `tkn`, `expires`…)
+aranır. Aksi hâlde bu uç herkesin bedava proxy'si olurdu; hem
 kötüye kullanım hem bant maliyeti demek. İzin verilmeyen adres için **hiç ağ isteği yapılmaz**
 (`akis-api.test.mjs` bunu doğrular).
 
@@ -49,26 +56,37 @@ Yani zincir uçtan uca çalışıyor: **GitHub Pages'teki sayfa + Workers'taki a
 Mail.ru CDN'i Cloudflare IP'lerini kabul ediyor; imza tahrif edilirse 403, süresi geçerse 403
 (imza gerçekten denetleniyor).
 
-## İstemci entegrasyonu (03.10)
+## İstemci entegrasyonu
 
-Oynatıcı, Mail.ru kaynağı seçildiğinde köprüyü **kendiliğinden** deniyor (`src/lib/akis.ts` karar
-kuralları + `IzleIstemci.tsx` bileşeni). Video bizim `<video>` elemanımızda, tarayıcının yerleşik
-kontrolleriyle oynar (konum/ses/tam ekran/PiP); çözümleme başarısızsa **hiçbir şey değişmez** ve
-kaynak bugünkü iframe yoluyla açılır.
+Kaynak panelinde “Kaynağın playerı” (varsayılan) ve “Sitenin playerı” modları bulunur. Sitenin
+playerı seçilince, sunucunun bildirdiği kapsamda olan kaynaklar tek tek çözülür; kapsam dışındakiler
+kullanıcı “Dene” dediğinde açıkça zorlanabilir. Her kaynak için aynı anda tek çözümleme yapılır,
+tüm katalog topluca taranmaz. Panel; gerçek `<video>` oynatımı doğrulananları, denenmekte olanları,
+deneme bekleyenleri, başarısız olanları ve API bekleyenleri birbirinden ayırır. Başarısız bir
+çözümleme kaynak iframe'inin de başarısız olduğu anlamına gelmez; mod düğmesiyle iframe'e geçilir.
 
-1. Kaynak seçilir → `GET /akis/coz?kaynak=<embed>` (12 sn üst sınır; `NEXT_PUBLIC_API` tanımsızsa
-   hiç denenmez). Çözümleme sürerken iframe görünür, üstünde "Mail.ru akışı hazırlanıyor…" örtüsü.
-2. Akış gelirse `src = <aktarim>` + **`#t=<saniye>`**: kaynak değişiminde konum taşınır (OpenAnime'in
+1. Kullanıcı “Sitenin playerı”nı seçer; seçili kaynak kapsamdaysa `GET /akis/coz?kaynak=<embed>`
+   (12 sn üst sınır) başlar. Başka kaynaklar topluca taranmaz. Kapsam dışındakiler “Dene” düğmesiyle
+   birer birer zorlanabilir.
+2. `NEXT_PUBLIC_API` derleme anında gömülür. Yerel başlatıcı `127.0.0.1:8789` Workers API'yi ve
+   `127.0.0.1:3000` siteyi beraber çalıştırır; API CORS'u yalnız bu yerel origin'e açılır. Elle
+   çalıştırmada `api/README.md` yerel Worker adımları ve site derlemesine API adresi geçirme
+   gereklidir. API'siz derlemede kaynaklar “API bekleniyor” olarak kalır; başarısız kaynak diye
+   işaretlenmez.
+3. Çözüm MP4/WebM verirse aktarım URL'si `<video>`'ya yüklenir. Yalnız `canplay` olayı gelince
+   “çalışan” listesine alınır. Çözümleme/aktarımı başarısız kaynaklar ayrı gösterilir; kullanıcı
+   isterse kaynak playerına döner.
+4. Akış gelirse `src = <aktarim>` + **`#t=<saniye>`**: kaynak değişiminde konum taşınır (OpenAnime'in
    ölçülen yöntemi, [13](13-openani-oynatici-analizi.md)). Kardeş önlem: bazı tarayıcılar akış
    mp4'ünde konum ekini yok sayabildiği için konum `loadedmetadata` sonrası açıkça da kurulur.
-3. Video hata verirse **2 baytlık yoklama** (`Range: bytes=0-1`, `cache: no-store`) aktarım ucunun
+5. Video hata verirse **2 baytlık yoklama** (`Range: bytes=0-1`, `cache: no-store`) aktarım ucunun
    gerçek durumunu söyler — video elemanı HTTP kodunu göremez. **403/502** ise istemci `?t=` ile
-   **seçim başına bir kez** taze çözümleme yapar (imza gece yarısını geçtiyse tek çare bu); sonuç
-   yine alınamazsa kaynak iframe'e düşer, döngü kurulmaz.
-4. Gerçek konum cihazda saklanır (`konumKaydet`): bölüm yeniden açıldığında kaldığı yerden başlar
+   **seçim başına bir kez** taze çözümleme yapar; sonuç yine alınamazsa site playerı hata verir,
+   kaynak playerına dönüş düğmesi kalır ve döngü kurulmaz.
+6. Gerçek konum cihazda saklanır (`konumKaydet`): bölüm yeniden açıldığında kaldığı yerden başlar
    (iframe yolunda bu bilgi hiç yoktu).
-5. Sunucu günlük sınırı aşarsa (429) istemci bunu ayrı anlatır ("akış servisi şu an yoğun") ve
-   kaynağı iframe'de açar; kullanıcıya sessiz bir hata gösterilmez.
+7. Sunucu günlük sınırı aşarsa (429) istemci bunu ayrı anlatır ("akış servisi şu an yoğun") ve
+   kaynak playerına geçme seçeneği verir.
 
 | Ölçüm (03.10, tarayıcı) | Sonuç |
 |---|---|
@@ -82,9 +100,11 @@ Sunucu tarafında bu tur eklenenler: `/akis/coz` `?t=<rastgele>` görürse **ön
 sonucu yazar (= tazeleme); `/akis/aktar` yanıtları `Access-Control-Expose-Headers` ile aralık
 başlıklarını JS'e açar; CORS izinli başlıklara `Range` eklendi (yoklama ön uçuş ister).
 
-**Üretim notu:** uçlar hâlâ yalnızca test Worker'ında (`genesisanime-akis-test`). Site üretim
-API'sine sorar, 404 görür ve sessizce iframe'e düşer — özellik, `cd api && npm run deploy`
-çalıştırıldığı anda etkinleşir (yönetici kararı).
+**Dağıtım durumu (04.10):** bu turdaki kapsam uç noktası, genel statik resolver ve site-player
+seçim/listeleri yalnız yerel kaynak değişiklikleridir; üretim Worker'ına veya siteye dağıtılmadı.
+Üretimde eski Worker'a bağlanan derlemede `/akis/kapsam` 404 verebilir; Mail.ru dışı kaynakların
+çalıştığı varsayılamaz. `NEXT_PUBLIC_API` adresi olan mevcut sitelerde kullanıcı arayüzü değişikliği
+yeni site build gerektirir; yeni resolver için Worker da güncellenmelidir.
 
 ## Sınırlar ve riskler (dürüst liste)
 
@@ -95,28 +115,21 @@ API'sine sorar, 404 görür ve sessizce iframe'e düşer — özellik, `cd api &
 2. **İmza ömrü.** Adresler `expire_at` ile günlük; önbellek en çok 6 saat. Gece yarısını geçen bir
    önbellek girdisi 403/502'ye düşer → istemci bunu 2 baytlık yoklamayla ayırt edip `?t=` ile bir
    kez tazeliyor; uç `?t=` görünce önbelleği atlıyor (03.10, ölçüm yukarıda).
-3. **Kapsam.** Bugün yalnız Mail.ru. Odnoklassniki (%11,5) manifest'i `srcIp` (isteyenin IP'si) ile
-   imzalı ve varyant yolları **göreli**; onun için aktarım ucunun manifesti çekip içindeki yolları
-   kendi adresine çevirmesi gerekir. Sibnet (%42) sunucu tarafına tamamen kapalı, VK (%7,1) adresi
-   yalnız özel API ile üretiliyor.
+3. **Kapsam.** Host tablosunda tanınmak oynatılabilirlik garantisi değildir. Genel resolver yalnız
+   HTML'de açıkça bulunan güvenli, imzalı statik MP4/WebM'yi alır; JS/API playerları, HLS/DASH,
+   göreli manifest parçaları ve tarayıcı/IP oturumu isteyen akışlar ayrı resolver/manifest desteği
+   ister. Bu kapsamda henüz ölçülmüş başarı oranı yoktur.
 4. **Tek nokta.** Aktarım Workers'a bağlı; Workers kesintisi oynatmayı durdurur (iframe yolu
    etkilenmez, o yüzden yedek yol korunmalı).
 5. **Kötüye kullanım yüzeyi.** ✅ 03.10: `/akis/coz` için **günlük IP sınırı** var (300 gerçek
    çözümleme/gün; önbellek vuruşları sayılmaz). Aşılırsa 429 döner ve istemci bunu ayrı anlatıp
    iframe'e düşer — sessiz gerileme yok. Kalan: istek sayacı ve başarısızlık oranı (gözlemlenebilirlik).
 
-## Üretime alma (03.10)
+## Bu değişikliğin dağıtım sınırı
 
-Üretim Worker'ı (`genesisanime-api`) bu uçlarla **yayınlandı** (sürüm `30a3f4cf`); mevcut uçlara
-dokunulmadı (`/saglik`, `/` ve D1 uçları aynen çalışıyor). Canlıda doğrulandı: izleme sayfasında
-video `genesisanime-api` üzerinden akıyor (`readyState 4` · `854×480` · oynuyor) ve şerit
-"Kendi oynatıcımız" diyor.
-
-Ölçüm için duran `genesisanime-akis-test` Worker'ı artık gerekli değil; silmek için:
-
-```
-cd api && npx wrangler delete --name genesisanime-akis-test
-```
+Bu çalışma üretim servisine dokunmaz. Yerel testler Worker sözleşmesini doğrular; gerçek üçüncü taraf
+kaynak oynatımının her player türü için çalıştığını kanıtlamaz. Canlı doğrulama ve Worker dağıtımı
+ayrı adımdır; bu dosyadaki eski 03.10 ölçümleri yalnız o tarihte test edilen Mail.ru yoluna aittir.
 
 **Paylaşılan önbellek dersi (H-35):** Cache API aynı zone'daki (`*.workers.dev`) worker'lar
 arasında paylaşılıyor — test Worker'ının ölçüm sırasında yazdığı girdiler üretimde servis edildi ve
@@ -125,11 +138,8 @@ sürümlenerek eski girdiler görünmez kılındı. Test Worker'ı silinince yaz
 
 ## Sonraki adımlar
 
-1. ~~İstemci entegrasyonu~~ ✅ 03.10 · ~~üretime alma~~ ✅ 03.10 (sürüm `30a3f4cf`; canlıda kendi
-   oynatıcımız doğrulandı).
-2. ~~Yeniden çözümleme~~ ✅ 03.10: 403/502'de seçim başına bir kez `?t=` ile taze adres.
-3. ~~Orana sınır~~ ✅ 03.10 (günlük 300, önbellek vuruşu ücretsiz) — kalan: istek sayacı ve
-   başarısızlık oranı (gözlemlenebilirlik).
-4. **Odnoklassniki çözümleyicisi:** manifesti aktarım ucundan servis edip göreli yolları çevirmek.
-5. **Kendi kontrol katmanı:** bugün tarayıcının yerleşik kontrolleri kullanılıyor (bedava gelen
-   konum/ses/tam ekran/PiP); markalı çubuk, sprite önizlemesi ve klavye kısayolları sonraki iş.
+1. **Canlı doğrulama:** Worker/site dağıtımından sonra her sağlayıcı türünden örneklerle; başarı ve
+   hata nedenlerini ölç, yalnız doğrulanmış oynatımları desteklenen olarak belgele.
+2. **Özel playerlar:** gerekirse yasal/teknik erişimi olan HLS/DASH ve sağlayıcı API/manifest akışları.
+3. **Gözlemlenebilirlik:** resolver başarı oranı, gecikme ve aktarım hataları (kişisel veri saklamadan).
+4. **Kendi kontrol katmanı:** tarayıcı kontrolleri şu an temel arayüz; markalı çubuk/önizleme sonra.

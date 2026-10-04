@@ -318,7 +318,7 @@ cd api && npx wrangler deploy                                          # izni ge
 
 Geri almayı iki adımda doğrula: `wrangler deploy` çıktısında bağlamalar **yalnızca `env.SITE_ORIGIN`**
 göstermeli, `curl` yanıtlarında ise `Origin: http://127.0.0.1:8010` → `Access-Control-Allow-Origin`
-**yok**, `Origin: https://nutaliaxd.github.io` → **var** olmalı (`Vary: Origin` her iki durumda da
+**yok**, `Origin: https://genesisanime.github.io` → **var** olmalı (`Vary: Origin` her iki durumda da
 kalır). 01.10.2026'da bu yol birebir böyle işledi: geçici sürüm `a7e99689`, izinsiz sürüm
 `7400d597`.
 
