@@ -128,7 +128,7 @@ export default async function AnimeSayfasi({ params }: { params: Promise<{ slug:
           <div className="afis">
             {anime.poster ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={anime.poster} alt={`${anime.ad} afişi`} fetchPriority="high" />
+              <img src={anime.poster} alt={`${anime.ad} afişi`} fetchPriority="high" decoding="async" />
             ) : (
               <div className="kart-yer-tutucu">{anime.ad}</div>
             )}
@@ -158,6 +158,7 @@ export default async function AnimeSayfasi({ params }: { params: Promise<{ slug:
               sizes={bantTmdb ? BANT_BOYUT : undefined}
               alt=""
               aria-hidden="true"
+              decoding="async"
             />
           ) : null}
 

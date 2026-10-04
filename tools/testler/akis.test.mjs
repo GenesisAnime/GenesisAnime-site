@@ -233,10 +233,11 @@ test('taze çözümleme yalnız 403/502’de denenir; medya hatası ayrıca sın
   assert.equal(akis.medyaHatasiTazeGerektirir(undefined), false);
 });
 
-test('native oynatılabilir biçimler MP4/WebM; her durum notunun metni var', { skip: akis ? false : ATLA }, () => {
+test('oynatılabilir biçimler MP4/WebM/HLS (DASH hariç); her durum notunun metni var', { skip: akis ? false : ATLA }, () => {
   assert.equal(akis.akisOynatilirMi('mp4'), true);
   assert.equal(akis.akisOynatilirMi('webm'), true);
-  assert.equal(akis.akisOynatilirMi('hls'), false);
+  /* HLS: Safari yerel oynatır, diğer tarayıcılarda hls.js köprüsü takılır. */
+  assert.equal(akis.akisOynatilirMi('hls'), true);
   assert.equal(akis.akisOynatilirMi('dash'), false);
   for (const not of [
     'cozulemedi',

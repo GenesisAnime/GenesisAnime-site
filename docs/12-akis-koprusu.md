@@ -185,3 +185,52 @@ sürümlenerek eski girdiler görünmez kılındı. Test Worker'ı silinince yaz
 3. **Gözlemlenebilirlik:** ✅ 04.10 hata bildirimi + host bazında panel özeti; kalan: resolver başarı
    oranı, gecikme ve aktarım hatalarının sayacı (kişisel veri saklamadan).
 4. **Kendi kontrol katmanı:** tarayıcı kontrolleri şu an temel arayüz; markalı çubuk/önizleme sonra.
+
+## 04.10 · Sağlayıcı kapsamı canlı ölçümü (kim çözülüyor, kim çözülemiyor)
+
+Canlı telemetri (`/akis/hata`, son 7 gün) hangi host'un çözülemediğini gösterdi: sibnet 16, drive 3,
+ok.ru 3, vk 3, uqload 2, mail 2, videa 1, mp4upload 1. Bu listeye göre çözümleyiciler yazıldı ve
+**dağıtılmış Worker'dan** tek tek doğrulandı (`/akis/coz` → `/akis/aktar` 64 KB aralık isteği):
+
+| Sağlayıcı | Çıkarım | Canlı sonuç |
+|---|---|---|
+| my.mail.ru, videoapi.my.mail.ru | embed → `metadataUrl` → imzalı mp4 | ✅ 206 `video/mp4` |
+| vk.com, myvi.tv | embed içi `"files"` JSON (720p'ye kadar) | ✅ 206 `video/mp4` |
+| ok.ru, odnoklassniki.ru | embed içi `"videos"` JSON (hd→mobile) | ✅ 206 `video/mp4` |
+| drive.google.com, docs.google.com | dosya kimliği → `drive.usercontent.google.com` (`confirm=t`) | ✅ 206 `video/mp4` |
+| yadi.sk, disk.yandex.* | herkese açık API → imzalı `href` | ✅ 206 `video/mp4` |
+| uqload.*, luluvdo.* | paket (Dean Edwards) çözülür → imzalı HLS master | ✅ 200 liste, parçalar aktarımdan |
+| sibnet | — | ⛔ sunucu **tüm** veri merkezi isteklerine 403 (“administrative rules”) |
+| mp4upload | — | ⛔ medya sunucusu çıkışa **kararsız** 403 (aynı URL bir kez 206, sonra 4×403) |
+| dailymotion | metadata API imzalı manifest verir | ⛔ manifest veri merkezi çıkışına 403 |
+| voe / dood / byse / ghbrisk / cda / videa | — | ⛔ oynatıcı adresi yalnız istemci JS'iyle kurulur (videa `player/xml` sunucuya 403) |
+| mega | — | ⛔ uçtan uca şifreli (sunucu çözemez) |
+| hdvid / cyberfile / pixeldrain | — | ⛔ origin 523 / dosya adı kaçışsız `&` / aracı sayfa akış vermiyor |
+
+**Sonuç ve dürüst sınır:** katalogdaki kaynakların çoğu (sibnet ≈ 55 bin kayıt) *sunucudan*
+çözülemiyor — bu bir kod eksiği değil, sağlayıcının IP politikası. Sibnet gibi erişimi kapalı
+host'lar **kendi `<video>` oynatıcımıza alınamaz**; oyuncularda iframe yolu kalır. Buna karşılık
+mail/VK/OK/Drive/Yandex/uqload/luluvdo yolları artık kendi oynatıcımızda oynuyor.
+
+**HLS desteği (yeni):** uqload/luluvdo ailesi akışı HLS master listesi olarak veriyor. `/akis/aktar`
+listeyi **yeniden yazıyor** (düz satırlar + `#…URI="…"` öznitelikleri kendi ucumuza çevrilir, imza
+ve CORS engeli böyle aşılır), istemcide Safari yerel oynatır, diğer tarayıcılarda `hls.js` yalnız
+gerektiğinde dinamik yüklenir.
+
+**Sağlayıcı yeteneği sunucuda (`cozulebilir`):** `/akis/kapsam` artık `hostlar` (denenebilir) ve
+`kapsamDisi` (gerekçesiyle çözülemezler) döner. Zincir, sunucu kapsamı okunduysa **kapsam dışı
+host'ları hiç denemez** — site modunda 900 ms'lik boş turlar ve “takıldı” hissi böyle kalkar.
+Kapsam okunamazsa eleme yapılmaz (bilgi yoksa varsayılmaz).
+
+**Aktarım dürüstlüğü:** yukarı akış ≥400 dönerse artık medya sanılmaz; yanıt 502 `kaynak-reddetti`
++ `ayrinti: upstream-<kod>` olur (boş HLS listesi de 200 diye geçirilmez).
+
+## 04.10 · Sürüm çubuğu ve kanıt penceresi
+
+- **Sürüm çubuğu:** `sw.js` yeni sürümü `skipWaiting()` ile devralınca açık sekme eski chunk'ta
+  kalıyordu. `controllerchange` (sayfa **önceden de** kontrollüyse) alt çubuğu çıkarır:
+  “Yeni sürüm hazır — yenile”. Kayıt 30 dakikada bir ve sekme görünür olduğunda yoklanır.
+  Metin/karar `src/lib/surum.ts` içinde; bileşen metni kendi yazmaz.
+- **Kanıt penceresi:** cihazdaki “bu host oynadı” kanıtı artık **14 gün** sonra düşer (`sonOk`).
+  Ölü URL tekrarları iyi bir host'u hemen demote etmez: hata sayısı başarıların ~3 katını (artı 3
+  taban) geçmedikçe kanıt korunur. Puan her 14 günde yarılanan tazelikle çarpılır.

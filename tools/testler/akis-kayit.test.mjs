@@ -130,6 +130,38 @@ test('kuyruk: ağ hatasında kayıt korunur, 400 kalıcıdır', async () => {
   assert.equal(JSON.parse(depo.get(KUYRUK)).length, 0, '400 kalıcı: kuyrukta tutulmaz');
 });
 
+test('kanıt penceresi: 14 günde oynamayan host kanıtını yitirir, ölü URL tekrarı hemen düşürmez', async () => {
+  delete process.env.NEXT_PUBLIC_API;
+  depoKur();
+  const kayit = await import('../../src/lib/akis-kayit.ts');
+  const simdi = Date.now();
+  const gun = 24 * 60 * 60 * 1000;
+
+  const taze = { ok: 3, hata: 1, son: simdi, sonOk: simdi };
+  assert.equal(kayit.hostKanitli(taze, simdi), true, 'yeni başarı kanıt sayılır');
+
+  const bayat = { ok: 5, hata: 0, son: simdi - 20 * gun, sonOk: simdi - 20 * gun };
+  assert.equal(kayit.hostKanitli(bayat, simdi), false, '14 günden eski başarı kanıtı düşer (oynamayan host kanıtını yitirir)');
+  assert.ok(kayit.hostPuani(bayat, simdi) < kayit.hostPuani(taze, simdi), 'bayat kanıtın puanı düşer');
+
+  const sinirdaOn = { ok: 2, hata: 0, son: simdi, sonOk: simdi - 13 * gun };
+  const sinirdaOtuz = { ok: 2, hata: 0, son: simdi, sonOk: simdi - 15 * gun };
+  assert.equal(kayit.hostKanitli(sinirdaOn, simdi), true, '13 gün: pencere içinde');
+  assert.equal(kayit.hostKanitli(sinirdaOtuz, simdi), false, '15 gün: pencere dışında');
+
+  /* Ölü URL tekrarları: hata sayısı artıyor ama başarıları ezmiyor. */
+  const inatci = { ok: 4, hata: 9, son: simdi, sonOk: simdi };
+  assert.equal(kayit.hostKanitli(inatci, simdi), true, 'ölü URL tekrarları iyi host’u hemen düşürmez');
+  const tukenmis = { ok: 4, hata: 40, son: simdi, sonOk: simdi };
+  assert.equal(kayit.hostKanitli(tukenmis, simdi), false, 'sürekli başarısız host kanıtını yitirir');
+
+  /* Başarı kaydı kanıt penceresini tazeler. */
+  kayit.hostBasarisiKaydet('https://vk.com/video_ext.php?oid=9', true);
+  const hafiza = kayit.hostBasarilari();
+  assert.ok(hafiza['vk.com'].sonOk > 0, 'başarı zamanı (`sonOk`) kaydedilir');
+  assert.equal(kayit.hostKanitli(hafiza['vk.com']), true);
+});
+
 test('yapısal: oynatıcı cihaz hafızasını ve telemetriyi gerçekten kullanıyor', () => {
   const izle = readFileSync(path.join(KOK, IZLE), 'utf8');
   assert.match(izle, /hostBasarisiKaydet\(sarmalayiciCoz\(kaynak\[2\]\), true\)/, 'başarı cihaz hafızasına yazılır');

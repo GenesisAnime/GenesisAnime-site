@@ -2253,3 +2253,74 @@ a.etiket:hover {
   border-color: var(--ac);
   background: var(--card3);
 }
+
+/* ---------------------------------------------------------------- */
+/* Sürüm çubuğu: yeni servis çalışanı devralınca (bkz. ServisCalisani) */
+/* ---------------------------------------------------------------- */
+.surum-cubugu {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 4px;
+  background: var(--card2);
+  border: 1px solid var(--line2);
+  border-radius: 999px;
+  box-shadow: var(--golge);
+  max-width: calc(100vw - 24px);
+}
+
+.surum-cubugu-dugme {
+  border: 0;
+  background: var(--ac);
+  color: #fff;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 650;
+  padding: 9px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.surum-cubugu-dugme:hover {
+  filter: brightness(1.08);
+}
+
+.surum-cubugu-kapat {
+  border: 0;
+  background: transparent;
+  color: var(--tx3);
+  font-size: 18px;
+  line-height: 1;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.surum-cubugu-kapat:hover {
+  color: var(--tx);
+  background: var(--card3);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .surum-cubugu {
+    animation: surum-gir 260ms ease-out;
+  }
+}
+
+@keyframes surum-gir {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}

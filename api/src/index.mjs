@@ -72,7 +72,7 @@ import {
   TARAMA_KOSU_SINIRI,
   yolCoz,
 } from './yardimci.mjs';
-import { aktar, akisCoz, desteklenenHostlar, kaynakTuru, onbellekAtlaMi } from './akis.mjs';
+import { aktar, akisCoz, cozulemeyenKaynaklar, desteklenenHostlar, kaynakTuru, onbellekAtlaMi } from './akis.mjs';
 
 /* ================================================================ */
 /* 1 · İşleyiciler                                                  */
@@ -442,8 +442,10 @@ async function akisCozUc(istek, env, cors) {
      SÜRÜM NOTU (v2, 03.10): Cache API aynı zone'daki worker'lar arasında PAYLAŞILIYOR —
      test Worker'ının ölçüm sırasında yazdığı girdiler üretimde servis edildi ve
      `aktarim` adresi test Worker'ına işaret etti (canlı doğrulamada yakalandı, H-35).
-     Anahtarı sürümlemek o girdileri görünmez kılar; yeni girdiyi sunan worker yazar. */
-  const anahtar = new Request(`https://akis-onbellek.local/coz?v=2&k=${encodeURIComponent(kaynak)}`);
+     Anahtarı sürümlemek o girdileri görünmez kılar; yeni girdiyi sunan worker yazar.
+     SÜRÜM NOTU (v3, 04.10): çözümleme genişledi (VK/OK/Drive/Dailymotion/Yandex/HLS):
+     eski girdiler "desteklenmiyor"u önbelleğe almış olabilir; v3 onları görünmez kılar. */
+  const anahtar = new Request(`https://akis-onbellek.local/coz?v=3&k=${encodeURIComponent(kaynak)}`);
   /* `?t=` → istemci taze çözümleme istiyor (imzası düşmüş adres 403/502 verdi).
      Önbelleği atlarız ama sonucu yine yazarız: **tazeleme** budur. */
   const taze = onbellekAtlaMi(u.searchParams);
@@ -549,10 +551,14 @@ async function akisHataListe(istek, env, cors) {
   return json({ ok: true, gun, hostlar: ozet.results || [], son: son.results || [] }, 200, cors);
 }
 
-/** Sunucunun denemeye açık resolver embed host'larını duyur. */
+/**
+ * Sunucunun denemeye açık resolver host'larını duyur.
+ * `kapsamDisi`: çözülemeyen sağlayıcılar ve gerekçeleri — istemci bunları
+ * site playerında **denemez**, doğrudan kendi oynatıcısına düşer.
+ */
 function akisKapsamUc(cors) {
   return json(
-    { ok: true, surum: AKIS_KAPSAM_SURUMU, hostlar: desteklenenHostlar() },
+    { ok: true, surum: AKIS_KAPSAM_SURUMU, hostlar: desteklenenHostlar(), kapsamDisi: cozulemeyenKaynaklar() },
     200,
     { ...cors, 'Cache-Control': 'public, max-age=600' }
   );

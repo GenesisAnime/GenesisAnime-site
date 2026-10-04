@@ -391,6 +391,11 @@ export default function IzleIstemci() {
       if (!kaynak) continue;
       if (zincirDenenenRef.current.has(kaynak[2])) continue;
       if (denenenler[kaynak[2]]?.durum === 'basarisiz') continue;
+      /* Kapsam dışı host'lar sunucudan **çözülemez** (tablo sunucuda; ör. sibnet
+         veri merkezini engelliyor). Bunları denemek yalnız zaman kaybıdır:
+         site modunda 900 ms'lik turlar bitmez, kullanıcı "takıldı" sanır.
+         Sunucu kapsamı okunamadıysa eleme yapılmaz (bilgi yoksa varsayma). */
+      if (kapsam != null && !kapsamdaMi(kapsam, sarmalayiciCoz(kaynak[2]))) continue;
       adaylar.push(s);
     }
     /* Sıra: bu oturumda kanıtlanmış kaynak → cihazda kanıtlı host → kapsam içi
@@ -510,6 +515,51 @@ export default function IzleIstemci() {
 
   const oynatmaAdresi = akis ? aktarimAdresi(akis.cozum, akis.baslangic) : '';
 
+  /* ------------------------------------------------------------------ */
+  /* HLS köprüsü: Safari yerel oynatır; diğer tarayıcılarda hls.js takılır */
+  /* ------------------------------------------------------------------ */
+  /** hls.js yalnız gerektiğinde (ve bir kez) indirilir: paket şişmesin. */
+  const hlsRef = useRef<{ destroy: () => void } | null>(null);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !akis || akis.cozum.tur !== 'hls') return;
+    const adres = oynatmaAdresi.split('#')[0];
+    /* Yerel HLS desteği (Safari/iOS): aracıya gerek yok. */
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      if (video.src !== adres) video.src = adres;
+      return;
+    }
+    let iptal = false;
+    import('hls.js')
+      .then((mod) => {
+        if (iptal || !videoRef.current) return;
+        const Hls = mod.default;
+        if (!Hls.isSupported()) return;
+        const hls = new Hls({ enableWorker: true, maxBufferLength: 30 });
+        hlsRef.current = hls;
+        hls.on(Hls.Events.ERROR, (_olay, veri) => {
+          if (!veri?.fatal) return;
+          hls.destroy();
+          hlsRef.current = null;
+          /* Zincir aynı hatayı görsün: video elemanının hata yolu işletilir. */
+          videoHatasiRef.current?.();
+        });
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          videoRef.current?.play().catch(() => {});
+        });
+        hls.loadSource(adres);
+        hls.attachMedia(video);
+      })
+      .catch(() => {
+        /* hls.js indirilemedi: video elemanı hatayı bildirir, zincir ilerler. */
+      });
+    return () => {
+      iptal = true;
+      hlsRef.current?.destroy();
+      hlsRef.current = null;
+    };
+  }, [akis, oynatmaAdresi]);
+
   /** Kaynak seçilince akışı çözümle; başarısızlık iframe yolunu bozmaz. */
   useEffect(() => {
     const kaynak = aktifKaynak;
@@ -610,6 +660,9 @@ export default function IzleIstemci() {
    * HTTP kodunu göremez), 403/502 ise **bir kez** taze çözümle; tutmazsa kaynak
    * iframe'e düşer. Taze deneme hakkı seçim başına birdir — döngü kurulmaz.
    */
+  /* hls.js geri çağrısı bileşenin en güncel hata işleyicisini çağırsın. */
+  const videoHatasiRef = useRef<(() => void) | null>(null);
+
   const videoHatasi = useCallback(async () => {
     const video = videoRef.current;
     const kaynak = aktifKaynak;
@@ -653,6 +706,7 @@ export default function IzleIstemci() {
     }
     if (zincirSayacRef.current > 0) setZincirBilgi({ durum: 'basarili', denenen: zincirSayacRef.current });
   }, [akis, aktifKaynak, zincirZamanla]);
+  videoHatasiRef.current = videoHatasi;
 
   /* Kendi oynatıcıda gerçek konum cihazda saklanır: bölüm yeniden açılınca
      "kaldığın yerden" çalışsın (iframe yolunda bu bilgi yoktu). */
@@ -1069,7 +1123,9 @@ export default function IzleIstemci() {
                 key={oynatmaAdresi}
                 ref={videoRef}
                 className="oynatici-video"
-                src={oynatmaAdresi}
+                /* HLS'te kaynak hls.js ya da yerel oynatıcı tarafından bağlanır;
+                   `src` boş kalır ki tarayıcı listeyi kendi başına çekmesin. */
+                src={akis.cozum.tur === 'hls' ? undefined : oynatmaAdresi}
                 controls
                 autoPlay
                 playsInline

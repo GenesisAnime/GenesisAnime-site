@@ -306,9 +306,13 @@ export function aktarimAdresi(akis: AkisCozumu, baslangic = 0): string {
   return `${akis.aktarim.split('#')[0]}${konumEki(baslangic)}`;
 }
 
-/** Kendi `<video>` elemanımızın native oynatabildiği biçimler (HLS/DASH ayrı iş). */
+/**
+ * Kendi `<video>` elemanımızın oynatabildiği biçimler.
+ * HLS: Safari yerel oynatır; diğer tarayıcılarda `hls.js` köprüsü takılır
+ * (bileşen, `tur === 'hls'` görünce dinamik yükler). DASH desteklenmez.
+ */
 export function akisOynatilirMi(tur: string): boolean {
-  return tur === 'mp4' || tur === 'webm';
+  return tur === 'mp4' || tur === 'webm' || tur === 'hls';
 }
 
 /** Kullanıcıya gösterilen durum notları (tek kaynaktan; bileşen metin yazmaz). */
@@ -325,7 +329,7 @@ const NOTLAR: Record<AkisNotu, string> = {
   cozulemedi: 'Akış çözümlenemedi; kaynağın playerını kullanabilir veya başka bir kaynak deneyebilirsin.',
   'akis-yogun': 'Akış servisi şu an yoğun (günlük istek sınırı); kaynağın playerını kullanabilir veya daha sonra yeniden deneyebilirsin.',
   'tur-desteklenmiyor':
-    'Kaynak MP4/WebM dışı bir biçimde (HLS/DASH) sunuluyor; bu biçim kaynak oynatıcısında açılabilir.',
+    'Kaynak kendi oynatıcımızın çözemediği bir yayın biçiminde (ör. DASH) sunuluyor; kaynağın oynatıcısında açılabilir.',
   'akis-durdu': 'Akış oynatılamadı; kaynağın playerını kullanabilir veya başka bir kaynak deneyebilirsin.',
   'akis-erisilemedi': 'Aktarım ucuna ulaşılamadı; kaynağın playerını kullanabilir veya daha sonra yeniden deneyebilirsin.',
   'medya-desteklemiyor': 'Bu yayın kendi oynatıcımızda çözülemedi; kaynağın playerına geçebilir veya başka bir kaynak deneyebilirsin.',

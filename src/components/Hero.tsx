@@ -70,10 +70,10 @@ export default function Hero({ ogeler }: Props) {
         />
       ) : aktif.ban ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className="hero-gorsel" src={aktif.ban} alt="" aria-hidden="true" fetchPriority="high" />
+        <img className="hero-gorsel" src={aktif.ban} alt="" aria-hidden="true" fetchPriority="high" decoding="async" />
       ) : aktif.p ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className="hero-gorsel" src={aktif.p} alt="" aria-hidden="true" fetchPriority="high" />
+        <img className="hero-gorsel" src={aktif.p} alt="" aria-hidden="true" fetchPriority="high" decoding="async" />
       ) : null}
       <div className="hero-perde" />
 

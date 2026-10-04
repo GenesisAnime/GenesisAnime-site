@@ -38,7 +38,7 @@ export const AKIS_GUNLUK_SINIR = 300; // IP başına
 /* Site playerının çözümleme hatası bildirimleri: kaynak başına birkaç kayıt,
    tarama sınırından (30/gün) ayrı ve daha geniş — ama sınırsız değil. */
 export const AKIS_HATA_GUNLUK_SINIR = 200; // IP başına
-export const AKIS_KAPSAM_SURUMU = 1;
+export const AKIS_KAPSAM_SURUMU = 3;
 /** Site playerının bildirebildiği hata kodları (istemci: src/lib/akis-kayit.ts). */
 export const AKIS_HATA_TURLERI = [
   'cozulemedi', // /akis/coz akış bulamadı (404)

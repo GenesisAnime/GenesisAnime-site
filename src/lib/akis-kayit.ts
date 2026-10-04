@@ -7,6 +7,9 @@
  *     sonraki bölümde ilk denemeyi kanıtlı host'la yapar; kullanıcı sekiz
  *     bilinmeyen host'u boşa denemez. Veri yalnızca bu cihazda (localStorage)
  *     durur ve 30 gün sonra kendiliğinden düşer.
+ *     Kanıt **zamanla azalır**: son 14 günde oynamayan host kanıtını yitirir
+ *     (`sonOk` penceresi) ve ölü URL tekrarları iyi bir host'u hemen düşürmez
+ *     (hata sayısı başarıların kat kat üstüne çıkınca düşer).
  *  2. **Hata bildirimi:** çözülemeyen kaynak Worker'a bildirilir; yönetici
  *     panelinde host bazında toplanır ve kapsam listesi gerçek sonuçla beslenir.
  *     Kayıt önce kuyruğa yazılır: ağ yoksa kaybolmaz, `online` olayında gider.
@@ -38,6 +41,11 @@ const KUYRUK_ANAHTARI = 'genesisanime:v1:akis-hata-kuyruk';
 const GONDERILDI_ANAHTARI = 'genesisanime:v1:akis-hata-gonderilen';
 const HOST_SINIRI = 60;
 const HOST_OMRU_MS = 30 * 24 * 60 * 60 * 1000;
+/** Kanıt penceresi: son başarı bu süreden eskiyse host kanıtlı sayılmaz. */
+const KANIT_PENCERESI_MS = 14 * 24 * 60 * 60 * 1000;
+/** Hoşgörü: ölü URL tekrarları kanıtı hemen silmesin (hata < ok × kat + taban). */
+const HATA_HOSGORU_KATI = 3;
+const HATA_HOSGORU_TABANI = 3;
 const KUYRUK_SINIRI = 60;
 const KUYRUK_OMRU_MS = 24 * 60 * 60 * 1000;
 const GONDERILDI_SINIRI = 120;
@@ -55,6 +63,8 @@ export interface HostKaydi {
   ok: number;
   hata: number;
   son: number;
+  /** Son **başarılı** oynatma zamanı. Eski kayıtta yoktur → `son` yerine geçer. */
+  sonOk?: number;
 }
 
 export interface AkisHataGirdisi {
@@ -123,23 +133,42 @@ export function hostBasarisiKaydet(adres: string, basarili: boolean): void {
   if (!host) return;
   const kayitlar = hostBasarilari();
   const kayit = kayitlar[host] ?? { ok: 0, hata: 0, son: 0 };
+  const simdi = Date.now();
   kayitlar[host] = {
     ok: kayit.ok + (basarili ? 1 : 0),
     hata: kayit.hata + (basarili ? 0 : 1),
-    son: Date.now(),
+    son: simdi,
+    sonOk: basarili ? simdi : kayit.sonOk,
   };
   depoYaz(HOST_ANAHTARI, kayitlar);
 }
 
-/** Cihazda kanıtlı host: en az bir başarı var ve başarılar geride değil. */
-export function hostKanitli(kayit: HostKaydi | undefined): boolean {
-  return Boolean(kayit && kayit.ok > 0 && kayit.ok >= kayit.hata);
+/**
+ * Cihazda kanıtlı host mu?
+ *
+ * Şartlar: en az bir başarı, **son 14 günde** bir başarı (kanıt penceresi) ve
+ * hata sayısı başarıları ezmemiş olması (hoşgörü). Böylece ölü URL tekrarları
+ * iyi bir host'u hemen düşürmez; oynamayan host ise iki hafta sonra kanıtını
+ * yitirir ve zincir yeniden gerçek sonuca bakar.
+ */
+export function hostKanitli(kayit: HostKaydi | undefined, simdi = Date.now()): boolean {
+  if (!kayit || kayit.ok <= 0) return false;
+  const sonOk = kayit.sonOk ?? kayit.son ?? 0;
+  if (simdi - sonOk > KANIT_PENCERESI_MS) return false;
+  return kayit.hata < kayit.ok * HATA_HOSGORU_KATI + HATA_HOSGORU_TABANI;
 }
 
-/** Kanıtlı host'un puanı (0–1): zincir sıralamasında öne almak için. */
-export function hostPuani(kayit: HostKaydi | undefined): number {
+/**
+ * Kanıtlı host'un puanı (0–1): başarı oranı × tazelik.
+ * Tazelik her 14 günde yarıya iner; zincir sıralaması bayat kanıta yaslanmaz.
+ */
+export function hostPuani(kayit: HostKaydi | undefined, simdi = Date.now()): number {
   if (!kayit || kayit.ok + kayit.hata === 0) return 0;
-  return kayit.ok / (kayit.ok + kayit.hata);
+  const temel = kayit.ok / (kayit.ok + kayit.hata);
+  const sonOk = kayit.sonOk ?? kayit.son ?? 0;
+  if (!sonOk) return 0;
+  const tazelik = Math.pow(0.5, Math.max(0, simdi - sonOk) / KANIT_PENCERESI_MS);
+  return temel * tazelik;
 }
 
 /**

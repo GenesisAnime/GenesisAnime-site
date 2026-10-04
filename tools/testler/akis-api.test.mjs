@@ -78,9 +78,19 @@ test('kaynakTuru: katalogdaki resolver hostları tanınır; benzer host reddedil
   assert.equal(akis.kaynakTuru(''), null);
 });
 
-test('kapsam hostları resolver tablosundan türetilir ve katalogdaki tüm player URLlerini kapsar', () => {
+test('kapsam: katalogda tanınan tüm hostlar; site playerı yalnız çözülebilenleri dener', () => {
   const hostlar = akis.desteklenenHostlar();
+  const bilinen = akis.bilinenHostlar();
   assert.equal(new Set(hostlar).size, hostlar.length, 'host kapsamı tekil olmalı');
+  assert.equal(new Set(bilinen).size, bilinen.length, 'bilinen host listesi tekil olmalı');
+  /* 04.10 canlı ölçümünde çözülemeyen sağlayıcılar deneme listesine girmez. */
+  assert.equal(hostlar.includes('video.sibnet.ru'), false, 'sibnet veri merkezine kapalı: denenmemeli');
+  assert.equal(hostlar.includes('www.mp4upload.com'), false, 'mp4upload medyası 403: denenmemeli');
+  assert.ok(hostlar.includes('my.mail.ru') && hostlar.includes('vk.com') && hostlar.includes('odnoklassniki.ru'));
+  assert.ok(hostlar.includes('drive.google.com') && hostlar.includes('yadi.sk') && hostlar.includes('uqload.com'));
+  const disi = akis.cozulemeyenKaynaklar();
+  assert.ok(disi.every((k) => typeof k.neden === 'string' && k.neden.length > 10), 'her çözülemeyen sağlayıcının gerekçesi olmalı');
+  assert.ok(disi.some((k) => k.ad === 'sibnet' && k.hostlar.includes('video.sibnet.ru')));
   assert.equal(akis.hostEslesir('cdn62.my.mail.ru', 'my.mail.ru'), true);
   assert.equal(akis.hostEslesir('my.mail.ru.kotu.example', 'my.mail.ru'), false);
 
@@ -98,7 +108,7 @@ test('kapsam hostları resolver tablosundan türetilir ve katalogdaki tüm playe
           assert.fail(`${kaynak[0]} URL'si ayrıştırılamıyor: ${kaynak[2]}`);
         }
         playerlar.add(kaynak[0]);
-        assert.ok(hostlar.some((taban) => akis.hostEslesir(host, taban)), `katalog host'u kapsamda olmalı: ${kaynak[0]} / ${host}`);
+        assert.ok(bilinen.some((taban) => akis.hostEslesir(host, taban)), `katalog host'u tanınmalı: ${kaynak[0]} / ${host}`);
         assert.ok(akis.kaynakTuru(adres), `katalog player URL'si resolver tarafından tanınmalı: ${kaynak[0]} / ${host}`);
       }
     }
@@ -130,11 +140,188 @@ test('akisAdaylari: allowlistli imzalı MP4/WebM bulunur; keyfi, HTTP ve imzası
   assert.deepEqual(akis.akisAdaylari(html, 'https://www.mp4upload.com/embed-x.html'), [{ url: imzali, tur: 'mp4' }]);
 });
 
+/* --------------------- yeni sağlayıcılar (04.10 canlı ölçümü) --------------------- */
+
+/** Test için Dean Edwards "packer" biçiminde paket üretir (packCoz'un tersi). */
+function paketle(govde, sozluk) {
+  /* Gerçek pakette 0 indeksi boş kalır; `if (k[c])` o yüzden 0 jetonuna
+dokunmaz. Aynı koruma testte de gerekli: gövdedeki sayılar bozulmasın. */
+  const kelimeler = ['', ...sozluk];
+  let p = govde;
+  kelimeler.forEach((kelime, i) => {
+    if (kelime) p = p.split(kelime).join(i.toString(36));
+  });
+  return (
+    `eval(function(p,a,c,k,e,d){e=function(c){return(c<a?'':e(parseInt(c/a)))+((c=c%a)>35?String.fromCharCode(c+29):c.toString(36))};` +
+    `if(!''.replace(/^/,String)){while(c--){d[e(c)]=k[c]||e(c)}k=[function(e){return d[e]}];e=function(){return'\\w+'};c=1};` +
+    `while(c--){if(k[c]){p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c])}}return p}` +
+    `('${p}',36,${kelimeler.length},'${kelimeler.join('|')}'.split('|'),0,{}))`
+  );
+}
+
+/* Gerçek uqload yanıtından türetilen imzalı HLS adresi (ölçüm: .akis-probe4). */
+const UQLOAD_HLS =
+  'https://strm7.uqload.vc/hls2/01/05086/3s1h4rgdgsu8_n/master.m3u8?t=-kGPbrTUKDZFBa667KVWdBgzlAadNr8LNdSyE9FjwPg&s=1791109357&e=14400&v=1879347&i=0.0&sp=0';
+
+const UQLOAD_PAGE = `<html><body><script>${paketle(
+  'jwplayer("vplayer").setup({sources:[{file:"' + UQLOAD_HLS + '"}],image:"https://strm7.uqload.vc/i/1.jpg"});',
+  ['jwplayer', 'vplayer', 'setup', 'sources', 'file', UQLOAD_HLS]
+)}</script></body></html>`;
+
+test('packCoz: paketlenmiş oynatıcı betiği çözülür; uzak kod çalıştırılmaz', () => {
+  const paket = paketle('file:"https://a.example/x.mp4"', ['file', 'https://a.example/x.mp4']);
+  const cozulmus = akis.packCoz(paket);
+  assert.ok(cozulmus, 'paket çözülmeli');
+  assert.match(cozulmus, /file:"https:\/\/a\.example\/x\.mp4"/);
+  assert.equal(akis.packCoz('<html>paket yok</html>'), null);
+  assert.equal(akis.packCoz(''), null);
+  assert.equal(akis.packCoz(null), null);
+});
+
+test("akisAdaylari: paket içindeki imzalı HLS listesi bulunur ve mp4 adayından öne alınır", () => {
+  const adaylar = akis.akisAdaylari(UQLOAD_PAGE, 'https://uqload.com/embed-3s1h4rgdgsu8.html');
+  assert.equal(adaylar[0]?.url, UQLOAD_HLS);
+  assert.equal(adaylar[0]?.tur, 'hls');
+
+  /* Paket çözülünce mp4 + HLS birlikte görünürse HLS öne geçer. */
+  const hlsKisa = 'https://strm7.uqload.vc/hls2/aa/x_n/master.m3u8?t=jeton&s=zaman';
+  const karisik = `<script>${paketle(
+    `file:"${hlsKisa}";src:"https://a3.mp4upload.com:183/d/${'x'.repeat(41)}/video.mp4"`,
+    ['file', 'src', hlsKisa]
+  )}</script>`;
+  const siral = akis.akisAdaylari(karisik, 'https://example.com/e');
+  assert.equal(siral[0]?.tur, 'hls');
+  assert.equal(siral[1]?.tur, 'mp4');
+});
+
+test('aktarimIzni: sibnet yolu, HLS CDN imzası, Dailymotion ve Yandex kuralları', () => {
+  assert.equal(akis.aktarimIzni('https://video.sibnet.ru/v/4d5d0be2d775d1d9e5657bf4e6ce8f9e/4582794.mp4').ok, true);
+  assert.equal(akis.aktarimIzni('https://video.sibnet.ru/v/kisa/4582794.mp4').hata, 'imzasiz-adres');
+  assert.equal(akis.aktarimIzni('https://video.sibnet.ru/shell.php?videoid=1').hata, 'imzasiz-adres');
+  assert.equal(akis.aktarimIzni(UQLOAD_HLS).ok, true);
+  assert.equal(akis.aktarimIzni('https://strm7.uqload.vc/hls2/01/1/x.m3u8?s=1').hata, 'imzasiz-adres');
+  assert.equal(
+    akis.aktarimIzni('https://cdndirector.dailymotion.com/cdn/manifest/video/x82sry8.m3u8?sec=SqmE&dmTs=912749').ok,
+    true
+  );
+  assert.equal(akis.aktarimIzni('https://cdndirector.dailymotion.com/cdn/manifest/video/x82sry8.m3u8').hata, 'imzasiz-adres');
+  const yandex =
+    'https://downloader.disk.yandex.ru/disk/' + 'a'.repeat(64) + '/' + 'b'.repeat(8) + '/tok?uid=0&hash=xyz%3D%3A&filename=x.mp4';
+  assert.equal(akis.aktarimIzni(yandex).ok, true);
+  assert.equal(
+    akis.aktarimIzni('https://downloader.disk.yandex.ru/disk/' + 'a'.repeat(64) + '/' + 'b'.repeat(8) + '/tok?uid=0').hata,
+    'imzasiz-adres'
+  );
+});
+
+test('hlsListeYaz: düz adresler ve URI öznitelikleri aktarım ucuna çevrilir', () => {
+  const vekil = (adres) => `/akis/aktar?u=${encodeURIComponent(adres)}`;
+  const list = [
+    '#EXTM3U',
+    '#EXT-X-KEY:METHOD=AES-128,URI="key.bin"',
+    '#EXT-X-STREAM-INF:BANDWIDTH=459539,RESOLUTION=640x360',
+    'index-v1-a1.m3u8?t=jeton&s=1791109357',
+    '',
+    '#EXTINF:9.009,',
+    'seg-1.ts?t=jeton',
+  ].join('\n');
+  const yazilmis = akis.hlsListeYaz(list, 'https://strm7.uqload.vc/hls2/01/05086/x_n/master.m3u8', vekil);
+  assert.match(yazilmis, /URI="\/akis\/aktar\?u=https%3A%2F%2Fstrm7\.uqload\.vc%2Fhls2%2F01%2F05086%2Fx_n%2Fkey\.bin"/);
+  assert.match(yazilmis, /\/akis\/aktar\?u=https%3A%2F%2Fstrm7\.uqload\.vc%2Fhls2%2F01%2F05086%2Fx_n%2Findex-v1-a1\.m3u8%3Ft%3Djeton%26s%3D1791109357/);
+  assert.match(yazilmis, /#EXT-X-KEY:METHOD=AES-128,URI="/, 'etiket korunmalı');
+  assert.equal(yazilmis.split('\n')[0], '#EXTM3U');
+});
+
+test('hlsMi: içerik türü ya da uzantı listeyi tanıtır', () => {
+  assert.equal(akis.hlsMi('application/vnd.apple.mpegurl', 'https://x/y'), true);
+  assert.equal(akis.hlsMi('', 'https://x/y/z.m3u8?t=1'), true);
+  assert.equal(akis.hlsMi('video/mp4', 'https://x/y/z.mp4'), false);
+  assert.equal(akis.hlsMi('', 'bozuk adres'), false);
+});
+
+test('akisCoz: VK, OK, Drive, Dailymotion ve Yandex sözleşmeleri', async () => {
+  const vkHtml = `<html><script>{"files":{"mp4_144":"https://vk.com/v.mp4?expires=1","mp4_360":"https://vd196.okcdn.ru/v/1080.mp4?expires=1790985600&sig=abc"}}</script></html>`;
+  const vk = await akis.akisCoz('https://vk.com/video_ext.php?oid=1&id=2&hash=abc&hd=1', {
+    fetchImpl: sahteFetch([{ govde: vkHtml }]),
+  });
+  assert.deepEqual(vk, {
+    ok: true,
+    kaynakAdi: 'vk',
+    tur: 'mp4',
+    url: 'https://vd196.okcdn.ru/v/1080.mp4?expires=1790985600&sig=abc',
+    imzaBitis: 1790985600 * 1000,
+  });
+
+  const okHtml = '<html><script>{"videos":[{"name":"lowest","url":"https://vd1.okcdn.ru/low.mp4?expires=1"},{"name":"sd","url":"https://vd1.okcdn.ru/sd.mp4?expires=1790985600&sig=z"}]}</script>'.replace(
+    /"/g,
+    '&quot;'
+  );
+  const ok = await akis.akisCoz('https://odnoklassniki.ru/videoembed/1888131025466', {
+    fetchImpl: sahteFetch([{ govde: okHtml }]),
+  });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.kaynakAdi, 'odnoklassniki');
+  assert.equal(ok.url, 'https://vd1.okcdn.ru/sd.mp4?expires=1790985600&sig=z');
+  assert.equal(ok.imzaBitis, 1790985600 * 1000);
+
+  const driveFetch = sahteFetch([]);
+  const drive = await akis.akisCoz('https://drive.google.com/file/d/1QoJPVKARY8-iKwFbH8Y2LxBYsNbgHHqF/preview', { fetchImpl: driveFetch });
+  assert.equal(drive.ok, true);
+  assert.equal(
+    drive.url,
+    'https://drive.usercontent.google.com/download?id=1QoJPVKARY8-iKwFbH8Y2LxBYsNbgHHqF&export=download&confirm=t'
+  );
+  assert.equal(driveFetch.cagrilar.length, 0, 'Drive embed sayfası boşuna çekilmemeli');
+
+  /* Dailymotion çözümleyicisi duruyor (metadata API doğrulanmış), ama sağlayıcı
+     04.10 ölçümünde veri merkezi çıkışına 403 verdiği için kapsam dışı: uç onu
+     denemez. Saf çözümleyici yine de doğrulanır. */
+  const dmJson = JSON.stringify({
+    qualities: {
+      auto: [
+        {
+          type: 'application/x-mpegURL',
+          url: 'https://cdndirector.dailymotion.com/cdn/manifest/video/x82sry8.m3u8?sec=SqmE&dmTs=912749',
+        },
+      ],
+    },
+  });
+  const dmAkis = akis.dailymotionAkisi(dmJson);
+  assert.equal(dmAkis.tur, 'hls');
+  assert.match(dmAkis.url, /cdn\/manifest\/video\/x82sry8\.m3u8\?sec=/);
+  const dm = await akis.akisCoz('https://www.dailymotion.com/embed/video/x82sry8', { fetchImpl: sahteFetch([]) });
+  assert.equal(dm.hata, 'desteklenmiyor');
+
+  const yandexJson = JSON.stringify({
+    href:
+      'https://downloader.disk.yandex.ru/disk/' + 'a'.repeat(64) + '/' + 'b'.repeat(8) + '/tok?uid=0&hash=xyz&filename=v.mp4',
+  });
+  const ya = await akis.akisCoz('https://yadi.sk/i/4_6NurZyVmAMOQ', {
+    fetchImpl: sahteFetch([{ govde: yandexJson, basliklar: { 'content-type': 'application/json' } }]),
+  });
+  assert.equal(ya.ok, true);
+  assert.equal(ya.tur, 'mp4');
+  assert.match(ya.url, /downloader\.disk\.yandex\.ru\/disk\//);
+});
+
+test('aktar: HLS listesi yeniden yazılır, parçalar imza denetiminden geçer', async () => {
+  const liste =
+    '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=459539,RESOLUTION=640x360\nindex-v1-a1.m3u8?t=jeton&s=1791109357\n';
+  const fetchImpl = sahteFetch([{ govde: liste, basliklar: { 'content-type': 'application/vnd.apple.mpegurl' } }]);
+  const istek = { headers: new Headers(), method: 'GET', url: 'https://api.test/akis/aktar?u=x' };
+  const sonuc = await akis.aktar(istek, UQLOAD_HLS, { fetchImpl, cors: {} });
+  assert.equal(sonuc.durum, 200);
+  assert.equal(sonuc.basliklar['Content-Type'], 'application/vnd.apple.mpegurl');
+  assert.match(sonuc.govde, /\/akis\/aktar\?u=https%3A%2F%2Fstrm7\.uqload\.vc%2Fhls2%2F01%2F05086%2F3s1h4rgdgsu8_n%2Findex-v1-a1\.m3u8%3Ft%3Djeton%26s%3D1791109357/);
+  assert.equal(fetchImpl.cagrilar[0].secenekler.headers.Range, undefined, 'listeye Range gönderilmez');
+});
+
 test('akisCoz: genel resolver statik MP4 bulur; uzak JavaScript çalıştırılmaz', async () => {
-  const url = 'https://s18.hdvid.tv/uirole5wwm4swchrln2xpfkapps42vqpm3flauq5uu46zxddfxttol6gqieq/v.mp4';
-  const fetchImpl = sahteFetch([{ govde: `<script>file: "${url}"</script>` }]);
-  const sonuc = await akis.akisCoz('https://hdvid.tv/embed-test.html', { fetchImpl });
-  assert.deepEqual(sonuc, { ok: true, kaynakAdi: 'hdvid', tur: 'mp4', url, imzaBitis: null });
+  const url = 'https://a3.mp4upload.com:183/d/' + 'x'.repeat(41) + '/video.mp4';
+  const fetchImpl = sahteFetch([{ govde: `<script>player.src: "${url}"</script>` }]);
+  /* Genel yol: HTML'i akış taşımayan ama çözülebilen bir sağlayıcı (uqload). */
+  const sonuc = await akis.akisCoz('https://uqload.com/embed-test.html', { fetchImpl });
+  assert.deepEqual(sonuc, { ok: true, kaynakAdi: 'uqload', tur: 'mp4', url, imzaBitis: null });
   assert.equal(fetchImpl.cagrilar.length, 1);
 });
 
@@ -170,8 +357,18 @@ test('akisCoz: embed → meta → imzalı akış (iki adım)', async () => {
   assert.ok(fetchImpl.cagrilar[1].adres.includes('/+/video/meta/3077395774695276545'), fetchImpl.cagrilar[1].adres);
 });
 
+test('akisCoz: çözülemeyen sağlayıcı hiç denenmez (boşa ağ isteği yok)', async () => {
+  const fetchImpl = sahteFetch([]);
+  const sibnet = await akis.akisCoz('https://video.sibnet.ru/shell.php?videoid=4582794', { fetchImpl });
+  assert.equal(sibnet.hata, 'desteklenmiyor');
+  assert.equal(sibnet.neden, 'saglayici-cozulemiyor');
+  assert.equal(fetchImpl.cagrilar.length, 0, 'engelli sağlayıcı için yukarı akışa çıkılmamalı');
+  const mp4u = await akis.akisCoz('https://www.mp4upload.com/embed-x.html', { fetchImpl });
+  assert.equal(mp4u.hata, 'desteklenmiyor');
+});
+
 test('akisCoz: desteklenen fakat statik akışı olmayan provider anlaşılır hata verir', async () => {
-  const desteklenmeyen = await akis.akisCoz('https://video.sibnet.ru/shell.php?videoid=1', {
+  const desteklenmeyen = await akis.akisCoz('https://uqload.com/embed-bos.html', {
     fetchImpl: sahteFetch([{ govde: '<html>player JavaScript/API ile yükleniyor</html>' }]),
   });
   assert.equal(desteklenmeyen.hata, 'akis-bulunamadi');
@@ -246,11 +443,30 @@ test('aktar: izin verilmeyen hedef ve imzasız adres hiç istenmez', async () =>
 });
 
 test('aktar: medya olmayan yanıt geçirilmez (HTML hata sayfası video sanılmasın)', async () => {
-  const html = sahteFetch([{ durum: 403, govde: '<html>403</html>', basliklar: { 'content-type': 'text/html' } }]);
+  const html = sahteFetch([{ durum: 200, govde: '<html>uyarı sayfası</html>', basliklar: { 'content-type': 'text/html' } }]);
   const sonuc = await akis.aktar(sahteIstek(), IMZALI, { fetchImpl: html });
   assert.equal(sonuc.durum, 502);
   assert.equal(sonuc.hata, 'medya-degil');
   assert.equal(sonuc.tip, 'text/html');
+  assert.equal(sonuc.ayrinti, 'upstream-200', 'yukarı akış kodu teşhis için görünür olmalı');
+});
+
+test('aktar: yukarı akış reddi (403/404) medya sanılmaz, kodu raporlanır', async () => {
+  const red = sahteFetch([{ durum: 403, govde: '<html>403</html>', basliklar: { 'content-type': 'text/html' } }]);
+  const sonuc = await akis.aktar(sahteIstek(), IMZALI, { fetchImpl: red });
+  assert.equal(sonuc.durum, 502, '502 istemcide taze çözümlemeyi tetikler');
+  assert.equal(sonuc.hata, 'kaynak-reddetti');
+  assert.equal(sonuc.ayrinti, 'upstream-403');
+  assert.equal(sonuc.tip, 'text/html');
+});
+
+test('aktar: HLS listesi 403 dönerse boş liste geçirilmez', async () => {
+  const red = sahteFetch([{ durum: 403, govde: '', basliklar: { 'content-type': 'text/html' } }]);
+  const istek = { headers: new Headers(), method: 'GET', url: 'https://api.test/akis/aktar?u=x' };
+  const sonuc = await akis.aktar(istek, UQLOAD_HLS, { fetchImpl: red, cors: {} });
+  assert.equal(sonuc.durum, 502);
+  assert.equal(sonuc.hata, 'kaynak-reddetti');
+  assert.equal(sonuc.govde, undefined, 'boş gövde 200 sanılmasın');
 });
 
 test('aktar: kaynak ağ hatası 502 olarak raporlanır', async () => {
@@ -430,6 +646,7 @@ test('uç: /akis/kapsam resolver hostlarını şema sürümüyle döndürür', a
     ok: true,
     surum: yardimci.AKIS_KAPSAM_SURUMU,
     hostlar: akis.desteklenenHostlar(),
+    kapsamDisi: akis.cozulemeyenKaynaklar(),
   });
 });
 
