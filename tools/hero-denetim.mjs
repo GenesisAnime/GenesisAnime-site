@@ -21,6 +21,9 @@
  *   3. Hero yüksekliği, başlık+menü dışında kalan alanın 1,35 katını aşmaz
  *      (hero ekranı yutmasın; eski hâl 568−111−68 = 389 px alana 751 px sığdırıyordu).
  *   4. Sayfada yatay taşma yok.
+ *   5. Mobilde hero kapağı **dikey varyanttır**, TMDB 16:9 backdrop'u değil:
+ *      `<picture>` sanat yönlendirmesi bozulursa telefon yine kırpılmış/bulanık
+ *      geniş görseli indirir (mobilde ölçüldü: TMDB isteği 0).
  *
  * Çalıştırma:
  *   npm run denetim:hero            (önce `npm run build` gerekir)
@@ -150,6 +153,8 @@ const KURAL = `(() => {
     dugmeSayisi: dugumler.length,
     heroPerdeVar: !!document.querySelector('.hero-perde'),
     kapakKaynagi: (document.querySelector('.hero-gorsel') || {}).currentSrc || null,
+    /* Yalnız currentSrc (gerçekten inen görsel) okunur: HTMLSourceElement'te
+       IDL adı srcset'tir, srcSet boş döner. */
     yatayTasma: document.documentElement.scrollWidth - document.documentElement.clientWidth,
   };
 })()`;
@@ -199,7 +204,11 @@ try {
       dugmeSayisi: Math.max(...olcumler.map((x) => x.dugmeSayisi)),
       yatayTasma: Math.max(...olcumler.map((x) => x.yatayTasma)),
       olcumSayisi: olcumler.length,
+      /* İnen hero kapakları (boş = görsel henüz inmemiş; o ölçüm sayılmaz). */
+      kapaklar: olcumler.map((x) => x.kapakKaynagi).filter(Boolean),
     };
+    const tmdbKapak = m.kapaklar.filter((u) => u.includes('image.tmdb.org')).length;
+    m.mobilKapakOk = m.kapaklar.length > 0 && tmdbKapak === 0;
 
     /* Başlık ile sabit alt menü arasında kalan **gerçek** alan. */
     const kullanilabilir = (m.navUst ?? olcu.yukseklik) - m.hero.y;
@@ -214,7 +223,7 @@ try {
     const enAlt = m.dugmeler.reduce((maks, d) => (d.alt > maks.alt ? d : maks), { metin: '—', alt: 0 });
     const dugmelerUstte = enAlt.alt <= menüTaban;
 
-    if (!(ctaGorunur && kirpikYok && yukseklikUygun && tasmaYok && dugmelerUstte)) hata++;
+    if (!(ctaGorunur && kirpikYok && yukseklikUygun && tasmaYok && dugmelerUstte && m.mobilKapakOk)) hata++;
 
     sonuclar.push({
       olcu: olcu.ad,
@@ -234,7 +243,9 @@ try {
       dugmelerUstte,
       yukseklikUygun,
       tasmaYok,
-      kapak: String(m.kapakKaynagi || '').replace(/^https:\/\//, '').slice(0, 52),
+      mobilKapakOk: m.mobilKapakOk,
+      tmdbKapak,
+      kapak: String(m.kapaklar.find((u) => !u.includes('image.tmdb.org')) || m.kapaklar[0] || '').replace(/^https:\/\//, '').slice(0, 52),
     });
   }
 } finally {
@@ -256,6 +267,7 @@ for (const s of sonuclar) {
   console.log(`   en alttaki düğme         : ${s.enAltDugme} · sabit menü üstü ${s.menuUstu} px ${im(s.dugmelerUstte)}`);
   console.log(`   yatay taşma              : ${s.yatayTasma} px ${im(s.tasmaYok)}`);
   console.log(`   hero kapağı              : ${s.kapak}`);
+  console.log(`   mobil hero kapağı kaynağı : TMDB backdrop ${s.tmdbKapak} adet ${im(s.mobilKapakOk)}`);
 }
 
 if (hata) {
