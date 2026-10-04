@@ -1,6 +1,6 @@
 # 10 · Yol Haritası
 
-> Son güncelleme: 2026-10-02
+> Son güncelleme: 2026-10-04
 
 ## Tamamlanan fazlar
 
@@ -27,6 +27,46 @@
 | Eksik 22 yapımın AniList eşleştirmesi | Künye bütünlüğü | 6.085 → 6.107 |
 | `/kesfet/` için "sadece izlenebilir olanlar" anahtarı | 141 kaynaksız yapımı gizleme | Kullanıcı tercihi |
 | Anime başına OG kartı | Paylaşımda yapıma özel görsel | Bugün site geneli `public/og.png` var; 6.107 sayfa için kart üretmek 1 GB'lık Pages sınırını yaklaştırır, veriden `generateStaticParams` yerine derleme sonrası üretim denenebilir |
+
+### F. Faz 9 · Oynatıcı olgunluğu (04.10 planı)
+
+Bugünkü ölçüm: 316.819 kaynağın **%53,5'i** (169.348 · 19 host) site playerında
+çözülebiliyor, %46,5'i (13 sağlayıcı) çözülemiyor ([12](12-akis-koprusu.md)).
+Aşağıdaki sıra "en çok kaynağı açan iş" önce olacak biçimde kurgulandı.
+
+**P0 · Kapsamı büyüten işler**
+
+| İş | Kazanç | Nasıl | Risk / gerekçe |
+|---|---|---|---|
+| Ev IP'sinden **çözüm toplayıcı** (gece Playwright işi) | voe · doodstream · byse · cda · streamwish · videa sınıfı (≈6.700 kaynak) gerçek tarayıcıda çözülür | Bu makinede zaten saatlik döngü var (`dongu:gunluk`); Playwright kurulu. Gece 100–200 popüler bölüm gerçek Chromium'da açılır, imzalı adresler Worker önbelleğine yazılır | İmzalar günlük → yalnız "ısıtılmış" bölümler kapsanır; kapsam popülerliğe göre sıralanır. Worker'a yazma ucu jeton ister |
+| Sibnet (133.290 · %42) tarayıcı katmanı | Site playerına %42 kaynak | Sunucu 403 (veri merkezi kuralı); istemciden `fetch` CORS'suz okunamaz. Tek teknik yol: kullanıcının tarayıcısında **bir kez** izlemek ve `postMessage` yayınlayan bir sarmalayıcı ile konum/olay almak (Sibnet'in kendi player'ı API veriyor mu?) | Ölçülecek: Sibnet gömülü sayfası postMessage yayınlıyor mu. Yayınlıyorsa „iframe player" zaten %42'nin konumunu okuyabilir hale gelir |
+| Dailymotion (2.650) + mp4upload (3.692) çıkış denemesi | ~6.300 kaynak | 403'ün nedeni manifest/Referer/çerez olabilir; sırayla 4 kombinasyon (Referer, Origin, çerez, farklı UA) ölçülür | Ölçüm ucuz (birkaç saat); başarısızlık kayda geçer ve kapanır |
+| Kalan 13 sağlayıcı için „neden" panosu | Şeffaflık | `/yonetim`'de host başına başarı oranı + son hata (zaten `/akis/hata` topluyor) | — |
+
+**P1 · Oynatma deneyimi**
+
+| İş | Değer | Not |
+|---|---|---|
+| **Altyazı desteği (VTT)** | Türkçe izleyici için en büyük eksik | Köprü HLS listesindeki `#EXT-X-MEDIA:TYPE=SUBTITLES` satırlarını zaten yeniden yazıyor; yapılacak: `<track>` üretimi + hls.js `subtitleTracks` + varsayılan Türkçe seçimi. Arşivde bölüm bazlı `.vtt` dosyaları da var (yerel) |
+| Kalite seçimi (HLS seviyeleri) | 1080p/720p seçimi | Uqload akışı ölçümünde **tek** varyant (640×360) vardı; çoğu kaynakta seçenek olmayacak — yine de gösterilmeli (mevcutsa) |
+| Bölüm sonu otomatik geçiş + izlendi | Binge izleme | Güvenilir "bitti" olayı yalnız kendi `<video>` elemanında var (%53); iframe'de sayfa süresi verisiyle yaklaşım korunur |
+| Ön ısıtma (prefetch) | Daha hızlı başlangıç | Sayfa açılışında 1. kaynağın ilk parçasını `Range: bytes=0-1` ile yoklamak, oynatma başlangıcını bir tur öne alır |
+| Klavye kısayolları + PiP + hız | Masaküstü ve mobil UX | `space/k/j/l/f/m`, 0,25×–2× |
+| Kalite/performans göstergesi (buffer, düşen kare) | Güven | hls.js olaylarından; yalnız bilgi amaçlı |
+
+**P2 · Dayanıklılık ve gözlemlenebilirlik**
+
+| İş | Değer |
+|---|---|
+| `e=`/`s=` imza parametrelerini ayrıştırıp önbellek TTL'ini doğru kurmak (uqload HLS `e=14400` taşıyor, bugün 1 saat varsayılıyor) | Süresi geçmiş adresin önbellekten servis edilmesini engeller |
+| `/akis/coz` başarı oranı + gecikme sayacı (kişisel veri saklamadan) | Hangi sağlayıcının ne zaman bozulduğunu görmek |
+| Gece kanaryası: sağlayıcı başına 5 rastgele bölümü gerçek tarayıcıda oynat, sonucu panele yaz (`akis-olcum.mjs` genişletmesi) | Sessiz bozulmayı yakalar |
+| Çözüm önbelleğinin cihazlar arası paylaşımı (hesap API'si) | Telefonda çözülen kaynak masaüstünde de hazır |
+| Captcha/fail sınıflandırmasının telemetriye geçmesi | ✅ 04.10 `captcha` kodu eklendi ([12](12-akis-koprusu.md)) |
+
+**Yapılmayacaklar (tekrar hatırlatma):** video barındırma/proxyleme ve indirme yok;
+captcha **programatik olarak çözülmez** (asıl çözüm duvarı aşmak değil, akışı
+sağlayıcının sayfasından bağımsız oynatmak — bkz. §04.10 captcha bölümü).
 
 ### B. Faz 5 · Hesaplar ve API
 
