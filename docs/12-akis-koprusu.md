@@ -82,9 +82,11 @@ deneyebilirsin" yazar.
 **Cihaz hafızası (04.10):** Zincirin ilk denemesi artık cihazın kendi deneyimiyle başlar:
 `src/lib/akis-kayit.ts` host bazında başarı/başarısızlık sayar (localStorage,
 `genesisanime:v1:akis-hostlar`; 30 gün ömür, 60 host sınırı). Bu cihazda en az bir kez oynamış host
-“kanıtlı” sayılır ve sonraki bölümlerde aday sırasında oturum kanıtının hemen ardından gelir
-(oturum içi kanıt → cihazda kanıtlı host → kapsam içi → kalanlar); hiç kanıt yoksa varsayılan
-seçim değişmez. Veri cihazdan çıkmaz; kullanıcı elle kaynak seçince otomatik tercih kapanır.
+“kanıtlı” sayılır ve sonraki bölümlerde “Sitenin playerı”na geçildiği anda **ilk deneme kanıtlı
+host'la başlar**; zincirde sıra oturum içi kanıt → cihazda kanıtlı host → kapsam içi → kalanlar
+şeklindedir. Tercih, mod düğmesiyle aynı tıklamada (tek render'da) uygulanır — canlı testte ilk
+isteğin boşa varsayılan kaynağa gittiği görülüp düzeltildi. Hiç kanıt yoksa varsayılan seçim
+değişmez. Veri cihazdan çıkmaz; kullanıcı elle kaynak seçince otomatik tercih kapanır.
 
 **Hata telemetrisi (04.10):** Sitenin playerında çözülemeyen, türü desteklenmeyen ya da akışı
 duran kaynaklar `POST /akis/hata` ile Worker'a bildirilir: `{url, hata, anime?, bolum?}`;

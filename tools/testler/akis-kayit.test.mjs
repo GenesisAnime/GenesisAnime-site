@@ -137,5 +137,6 @@ test('yapısal: oynatıcı cihaz hafızasını ve telemetriyi gerçekten kullan�
   assert.match(izle, /akisHatasiBildir\(\{ url: adres/, 'başarısızlık Worker’a bildirilir');
   assert.match(izle, /hostKanitli\(cihaz\[kaynakHostu/, 'zincir cihaz kanıtını kullanır');
   assert.match(izle, /kanitliSira\(gosterilenKaynaklar\.map/, 'yeni bölümde kanıtlı host öne alınır');
+  assert.match(izle, /tercihiUygula\(\);\n\s+\}\}/, 'mod düğmesi kanıtlı sırayı senkron uygular (ilk deneme kanıtlı host)');
   assert.match(izle, /tercihiKapat\(\)/, 'elle seçim otomatik tercihi kapatır');
 });

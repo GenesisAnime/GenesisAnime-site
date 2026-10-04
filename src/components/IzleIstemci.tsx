@@ -451,14 +451,24 @@ export default function IzleIstemci() {
   const tercihiKapat = useCallback(() => {
     tercihUygulananRef.current = `${anime?.slug ?? ''}|${bolum?.n ?? 0}`;
   }, [anime?.slug, bolum?.n]);
-  useEffect(() => {
-    if (playerModu !== 'site' || !gosterilenKaynaklar.length) return;
+  /**
+   * Kanıtlı sırayı **senkron** uygular. Mod düğmesi bunu `setPlayerModu('site')`
+   * ile aynı tıklamada çağırır: iki durum tek render'da birleştiği için ilk
+   * çözümleme doğrudan kanıtlı host'la başlar. Ayrı effect yalnızca kaynaklar
+   * sonradan geldiği durumu yakalar; aksi hâlde aradaki varsayılan seçim bir
+   * kez boşa denenirdi (canlı test yakaladı: ilk istek Odnoklassniki'ydi).
+   */
+  const tercihiUygula = useCallback(() => {
+    if (!gosterilenKaynaklar.length) return;
     if (tercihUygulananRef.current === tercihAnahtari) return;
     tercihUygulananRef.current = tercihAnahtari;
     const sira = kanitliSira(gosterilenKaynaklar.map((k) => sarmalayiciCoz(k[2])));
     if (sira !== null) setKaynakSira(sira);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerModu, bolum?.n, gosterilenKaynaklar.length]);
+  }, [gosterilenKaynaklar, tercihAnahtari]);
+  useEffect(() => {
+    if (playerModu !== 'site') return;
+    tercihiUygula();
+  }, [playerModu, tercihiUygula]);
 
   /* Embed moduna dönünce ya da bölüm değişince zincir sıfırlanır: iframe'in
      açılıp açılmadığını okuyamadığımız için orada otomatik deneme anlamsız. */
@@ -1366,6 +1376,7 @@ export default function IzleIstemci() {
                 onClick={() => {
                   setPlayerModu('site');
                   setZorlaCoz(false);
+                  tercihiUygula();
                 }}
               >
                 Sitenin playerı
