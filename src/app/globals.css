@@ -461,6 +461,13 @@ button {
   align-items: center;
 }
 
+/* İkincil düğme grubu: masaüstünde sarmalayıcı **görünmez** (düğmeler eskisi
+   gibi `hero-dugmeler` akışında); mobilde tek satırda kaydırılan bir şeride
+   dönüşür. Ayrıntı: mobil medya sorgusundaki `.hero-ikinciller`. */
+.hero-ikinciller {
+  display: contents;
+}
+
 .hero-noktalar {
   display: flex;
   gap: 6px;
@@ -1981,12 +1988,76 @@ a.etiket:hover {
   .ust-arama .arama-kisayol {
     display: none;
   }
+  /* Hero mobilde **tek ekrana** sığar: sabit alt menü 68 px + güvenli alan
+     kadar pay bırakılır, özet iki satıra iner, düğmeler iki sütuna geçer.
+     Ölçüm (320×568, 04.10): hero 751 px yüksekti ve "Hemen İzle" 558 px'teydi —
+     yani birincil düğme ekranın dışında, sabit menünün altında kalıyordu. */
   .hero {
-    min-height: 64vh;
+    min-height: 0;
+  }
+  .hero-ic {
+    padding-top: 76px;
+    padding-bottom: 22px;
+  }
+  /* Dik ekranda 16:9 afişin kırpılması sertleşiyor: yüz bandını yukarı al. */
+  .hero-gorsel {
+    object-position: center 22%;
+  }
+  /* Yatay (90deg) perde dik ekranda metnin altını kapatmıyordu: alta doğru
+     koyulaşan dikey katman eklenir, metin her afişte okunur kalır. */
+  .hero-perde {
+    background:
+      linear-gradient(180deg, rgba(8, 6, 13, 0.5) 0%, rgba(8, 6, 13, 0.78) 46%, var(--bg) 98%),
+      linear-gradient(90deg, rgba(8, 6, 13, 0.88) 0%, rgba(8, 6, 13, 0.3) 72%);
+  }
+  .hero-ad {
+    font-size: clamp(26px, 8.2vw, 40px);
+    margin-bottom: 10px;
+    /* Uzun adlar dört satıra çıkıp düğmeleri ekran dışına itiyordu. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .hero-meta {
+    gap: 6px;
+    font-size: 12.5px;
+    margin-bottom: 10px;
   }
   .hero-ozet {
-    -webkit-line-clamp: 3;
-    font-size: 14.5px;
+    -webkit-line-clamp: 2;
+    font-size: 13.5px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  /* Birincil düğme tam satır; ikinciller tek satırda yatay kaydırılır.
+     Eskiden beş düğme alt alta dizilip 225 px yer kaplıyordu. */
+  .hero-dugmeler {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .hero-dugmeler .dugme-birincil {
+    width: 100%;
+  }
+  .hero-ikinciller {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .hero-ikinciller::-webkit-scrollbar {
+    display: none;
+  }
+  .hero-dugmeler .dugme {
+    padding-left: 13px;
+    padding-right: 13px;
+    min-height: 42px;
+    white-space: nowrap;
+  }
+  .hero-noktalar {
+    margin-top: 12px;
   }
   .kart {
     width: 142px;

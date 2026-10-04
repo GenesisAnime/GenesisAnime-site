@@ -100,35 +100,39 @@ export default function Hero({ ogeler }: Props) {
           <Link className="dugme dugme-birincil" href={`/izle/?a=${encodeURIComponent(aktif.s)}&b=1`}>
             <OynatIkon /> Hemen İzle
           </Link>
-          <button
-            className={`dugme dugme-ikincil${listedemi ? ' etkin' : ''}`}
-            onClick={() =>
-              listeDegistir({
-                slug: aktif.s,
-                ad: aktif.ad,
-                poster: aktif.p,
-                yil: aktif.yil,
-                zaman: Date.now(),
-              })
-            }
-            aria-pressed={listedemi}
-          >
-            {listedemi ? <TikIkon /> : <ArtiIkon />}
-            {listedemi ? 'Listemde' : 'Listeme ekle'}
-          </button>
-          {aktif.fr ? (
+          {/* Mobilde bu grup tek satırda yatay kaydırılır (hero tek ekrana sığsın);
+              masaüstünde `display: contents` ile sarmalayıcı görünmez kalır. */}
+          <div className="hero-ikinciller">
             <button
-              className="dugme dugme-ikincil"
-              onClick={() => setFragmanAcik(true)}
-              aria-haspopup="dialog"
+              className={`dugme dugme-ikincil${listedemi ? ' etkin' : ''}`}
+              onClick={() =>
+                listeDegistir({
+                  slug: aktif.s,
+                  ad: aktif.ad,
+                  poster: aktif.p,
+                  yil: aktif.yil,
+                  zaman: Date.now(),
+                })
+              }
+              aria-pressed={listedemi}
             >
-              ▶ Fragman
+              {listedemi ? <TikIkon /> : <ArtiIkon />}
+              {listedemi ? 'Listemde' : 'Listeme ekle'}
             </button>
-          ) : null}
-          <Link className="dugme dugme-ikincil" href={`/anime/${aktif.s}/`}>
-            Detaylar
-          </Link>
-          <RastgeleDugme havuz={ogeler.map((o) => ({ s: o.s, bs: o.bs }))} />
+            {aktif.fr ? (
+              <button
+                className="dugme dugme-ikincil"
+                onClick={() => setFragmanAcik(true)}
+                aria-haspopup="dialog"
+              >
+                ▶ Fragman
+              </button>
+            ) : null}
+            <Link className="dugme dugme-ikincil" href={`/anime/${aktif.s}/`}>
+              Detaylar
+            </Link>
+            <RastgeleDugme havuz={ogeler.map((o) => ({ s: o.s, bs: o.bs }))} />
+          </div>
         </div>
 
         {fragmanAcik && aktif.fr ? (
