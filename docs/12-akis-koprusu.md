@@ -23,6 +23,10 @@ GET|HEAD /akis/aktar?u=<imzalı akış adresi>
     → medya baytları, Range ve If-Range KORUNARAK aktarılır
 ```
 
+Bunların yanında hata telemetrisi uçları `api/src/index.mjs` içinde tanımlıdır:
+`POST /akis/hata` (istemci bildirimi) ve `GET /akis/hata?gun=7&limit=40` (yönetici özeti) —
+ayrıntı “Hata telemetrisi” bölümünde.
+
 Resolver host tablosu katalogdaki 21 player türünü tanır; bu yalnızca sunucuya **deneme adayı**
 olarak gönderilebilecek hostları bildirir. Mail.ru dışında HTML'de açıkça ilan edilen, HTTPS ve
 izinli medya hostundan gelen imzalı MP4/WebM aranır. Kaynak JS çalıştırılmaz; HLS/DASH manifesti,
@@ -74,6 +78,25 @@ tüketilmez. Akış çözülüp de video **20 saniyede** oynamaya başlamazsa ka
 (takılma koruması); 429 gelirse zincir durur ve durum satırı bunu söyler. Panelde açma/kapama
 anahtarı vardır: başarıda "çalışan kaynağı buldu (n kaynak denendi)", tükenişte "kalanları elle
 deneyebilirsin" yazar.
+
+**Cihaz hafızası (04.10):** Zincirin ilk denemesi artık cihazın kendi deneyimiyle başlar:
+`src/lib/akis-kayit.ts` host bazında başarı/başarısızlık sayar (localStorage,
+`genesisanime:v1:akis-hostlar`; 30 gün ömür, 60 host sınırı). Bu cihazda en az bir kez oynamış host
+“kanıtlı” sayılır ve sonraki bölümlerde aday sırasında oturum kanıtının hemen ardından gelir
+(oturum içi kanıt → cihazda kanıtlı host → kapsam içi → kalanlar); hiç kanıt yoksa varsayılan
+seçim değişmez. Veri cihazdan çıkmaz; kullanıcı elle kaynak seçince otomatik tercih kapanır.
+
+**Hata telemetrisi (04.10):** Sitenin playerında çözülemeyen, türü desteklenmeyen ya da akışı
+duran kaynaklar `POST /akis/hata` ile Worker'a bildirilir: `{url, hata, anime?, bolum?}`;
+`hata` ∈ `cozulemedi · tur-desteklenmiyor · akis-durdu · akis-erisilemedi · medya-desteklemiyor`.
+İstemci kaydı önce cihazdaki kuyruğa yazar (ağ yoksa kaybolmaz, `online` olayında gönderilir);
+gönderilen kayıt bir saatliğine “gönderildi defteri”ne işlenir, aynı kaynak+kod bu sürede ikinci
+kez yazılmaz. Sunucu da IP başına **200/gün** sınırı ve aynı IP+kaynak+kod için 1 saat
+tekilleştirme uygular; IP yalnızca tuzlu SHA-256 özetiyle saklanır. Kayıtlar `akis_hata`
+tablosunda (migration `0002-akis-hata.sql`) toplanır; `GET /akis/hata?gun=7&limit=40`
+(ADMIN_TOKEN) host bazında toplam + son kayıtları döndürür ve `/yonetim/` panelindeki
+**“Sitenin playerı: çözülemeyen kaynaklar”** bölümünü besler. Böylece “hangi host hangi bölümde
+çözülemiyor” sorusu gerçek veriyle yanıtlanır — kapsam listesi zamanla ölçümle beslenir.
 
 1. Kullanıcı “Sitenin playerı”nı seçer; seçili kaynak kapsamdaysa `GET /akis/coz?kaynak=<embed>`
    (12 sn üst sınır) başlar. Başka kaynaklar topluca taranmaz. Kapsam dışındakiler “Dene” düğmesiyle
@@ -135,7 +158,8 @@ listesindedir, doğrulanmış değil.
    etkilenmez, o yüzden yedek yol korunmalı).
 5. **Kötüye kullanım yüzeyi.** ✅ 03.10: `/akis/coz` için **günlük IP sınırı** var (300 gerçek
    çözümleme/gün; önbellek vuruşları sayılmaz). Aşılırsa 429 döner ve istemci bunu ayrı anlatıp
-   iframe'e düşer — sessiz gerileme yok. Kalan: istek sayacı ve başarısızlık oranı (gözlemlenebilirlik).
+   iframe'e düşer — sessiz gerileme yok. ✅ 04.10: çözülemeyen kaynak bildirimi (`/akis/hata`,
+   IP başına 200/gün) ve panelde host bazında özet. Kalan: başarı oranı ve gecikme sayacı.
 
 ## Bu değişikliğin dağıtım sınırı
 
@@ -153,5 +177,6 @@ sürümlenerek eski girdiler görünmez kılındı. Test Worker'ı silinince yaz
 1. **Canlı doğrulama:** Worker/site dağıtımından sonra her sağlayıcı türünden örneklerle; başarı ve
    hata nedenlerini ölç, yalnız doğrulanmış oynatımları desteklenen olarak belgele.
 2. **Özel playerlar:** gerekirse yasal/teknik erişimi olan HLS/DASH ve sağlayıcı API/manifest akışları.
-3. **Gözlemlenebilirlik:** resolver başarı oranı, gecikme ve aktarım hataları (kişisel veri saklamadan).
+3. **Gözlemlenebilirlik:** ✅ 04.10 hata bildirimi + host bazında panel özeti; kalan: resolver başarı
+   oranı, gecikme ve aktarım hatalarının sayacı (kişisel veri saklamadan).
 4. **Kendi kontrol katmanı:** tarayıcı kontrolleri şu an temel arayüz; markalı çubuk/önizleme sonra.

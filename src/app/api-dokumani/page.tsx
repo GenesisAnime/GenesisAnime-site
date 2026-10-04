@@ -31,6 +31,12 @@ const GenelUclar = [
     '{ok} · 201',
     'IP başına 30/gün · aynı URL 24 saatte bir · host izin listesi (IP ve localhost reddedilir)',
   ],
+  [
+    'POST /akis/hata',
+    '{url, hata, anime?, bolum?}',
+    '{ok} · 201 · 200 tekrar · 429',
+    'Site playerı çözemediği kaynağı otomatik bildirir · IP başına 200/gün · aynı kaynak + kod 1 saatte bir',
+  ],
 ] as const;
 
 const HesapUclar = [
@@ -47,6 +53,7 @@ const HesapUclar = [
 const YoneticiUclar = [
   ['GET /bildirim?durum=&limit=', '— (ADMIN_TOKEN)', '{kayitlar}', 'Bildirim kuyruğu'],
   ['POST /bildirim/:id', '{durum}', '{ok}', 'durum: yeni · incelendi · gecersiz'],
+  ['GET /akis/hata?gun=7&limit=40', '— (ADMIN_TOKEN)', '{ok, gun, hostlar, son}', 'Host bazında çözülemeyen kaynak özeti · panelde “Sitenin playerı” bölümünü besler'],
   ['GET /tarama/ayar', '— (ADMIN_TOKEN)', '{ayar}', 'Link tarama döngüsü politikası'],
   ['PUT /tarama/ayar', '{aktif, dilim, saat, yayinla, push, hemen}', '{ayar}', 'dilim 25…20.000 · saat 0–23'],
   [

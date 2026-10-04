@@ -406,6 +406,10 @@ test('yolCoz: köprü uçları yönlendiricide tanımlı', () => {
   assert.deepEqual(yardimci.yolCoz('/akis/kapsam', 'GET'), { islem: 'akis-kapsam' });
   assert.deepEqual(yardimci.yolCoz('/akis/kapsam/', 'GET'), { islem: 'akis-kapsam' });
   assert.deepEqual(yardimci.yolCoz('/akis/kapsam', 'POST'), { islem: 'yontem-yok' });
+  assert.deepEqual(yardimci.yolCoz('/akis/hata', 'POST'), { islem: 'akis-hata-ekle' });
+  assert.deepEqual(yardimci.yolCoz('/akis/hata', 'GET'), { islem: 'akis-hata-liste' });
+  assert.deepEqual(yardimci.yolCoz('/akis/hata/', 'GET'), { islem: 'akis-hata-liste' });
+  assert.deepEqual(yardimci.yolCoz('/akis/hata', 'DELETE'), { islem: 'yontem-yok' });
   assert.deepEqual(yardimci.yolCoz('/akis/aktar', 'GET'), { islem: 'akis-aktar' });
   assert.deepEqual(yardimci.yolCoz('/akis/aktar/', 'HEAD'), { islem: 'akis-aktar' });
   assert.deepEqual(yardimci.yolCoz('/akis/aktar', 'POST'), { islem: 'yontem-yok' });
@@ -427,4 +431,172 @@ test('uç: /akis/kapsam resolver hostlarını şema sürümüyle döndürür', a
     surum: yardimci.AKIS_KAPSAM_SURUMU,
     hostlar: akis.desteklenenHostlar(),
   });
+});
+
+test('akisHataDogrula: host URL’den türetilir, kodlar sınırlıdır', () => {
+  assert.deepEqual(yardimci.akisHataDogrula(null), { ok: false, hata: 'govde-yok' });
+  assert.equal(yardimci.akisHataDogrula({ url: 'ftp://ornek.com/a' }).ok, false);
+  assert.equal(yardimci.akisHataDogrula({ url: 'https://vk.com/a', bolum: 0 }).ok, false);
+  assert.equal(yardimci.akisHataDogrula({ url: 'https://vk.com/a', anime: 'boş luk' }).ok, false);
+
+  assert.deepEqual(yardimci.akisHataDogrula({ url: 'https://VK.com/a', anime: 'naruto', bolum: 3, hata: 'akis-durdu' }).veri, {
+    url: 'https://VK.com/a',
+    host: 'vk.com',
+    anime: 'naruto',
+    bolum: 3,
+    hata: 'akis-durdu',
+  });
+  /* Bilinmeyen kod telemetriyi reddetmez; cozulemedi’ye düşer. */
+  assert.equal(yardimci.akisHataDogrula({ url: 'https://vk.com/a', hata: 'uydurma-kod' }).veri.hata, 'cozulemedi');
+  assert.equal(yardimci.akisHataDogrula({ url: 'https://vk.com/a' }).veri.hata, 'cozulemedi');
+});
+
+/** `oranAsildi` + `akis_hata` sorgularını karşılayan küçük sahte D1. */
+function hataDb() {
+  const kayitlar = [];
+  const sayilar = new Map();
+  const db = {
+    prepare(sql) {
+      const s = sql.replace(/\s+/g, ' ').trim();
+      return {
+        bind(...p) {
+          return {
+            async run() {
+              if (s.startsWith('INSERT INTO oran')) {
+                const mevcut = sayilar.get(p[0]);
+                sayilar.set(p[0], { pencere: p[1], sayi: mevcut && mevcut.pencere === p[1] ? mevcut.sayi : 0 });
+                return { meta: { changes: 1 } };
+              }
+              if (s.startsWith('UPDATE oran SET sayi = sayi + 1')) {
+                const satir = sayilar.get(p[0]);
+                if (!satir || satir.pencere !== p[1] || satir.sayi >= p[2]) return { meta: { changes: 0 } };
+                satir.sayi += 1;
+                return { meta: { changes: 1 } };
+              }
+              if (s.startsWith('INSERT INTO akis_hata')) {
+                kayitlar.push({ url: p[0], host: p[1], anime: p[2], bolum: p[3], hata: p[4], ip_hash: p[5], zaman: p[6] });
+                return { meta: { changes: 1 } };
+              }
+              throw new Error('beklenmeyen sorgu: ' + s);
+            },
+            async first() {
+              if (s.startsWith('SELECT id FROM akis_hata')) {
+                return kayitlar.find((k) => k.url === p[0] && k.hata === p[1] && k.ip_hash === p[2] && k.zaman > p[3]) ?? null;
+              }
+              throw new Error('beklenmeyen sorgu: ' + s);
+            },
+          };
+        },
+      };
+    },
+  };
+  return { db, kayitlar, sayilar };
+}
+
+test('uç: /akis/hata kaydı yazar, aynı kaynağı bir saat içinde tekrar yazmaz', async () => {
+  const varsayilan = await import('../../api/src/index.mjs');
+  const kapi = varsayilan.default;
+  const { db, kayitlar, sayilar } = hataDb();
+  const env = { SITE_ORIGIN: 'https://genesisanime.github.io', DB: db, IP_TUZ: 'tuz' };
+  const gonder = (govde, ip = '203.0.113.7') =>
+    kapi.fetch(
+      new Request('https://api.test/akis/hata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': ip },
+        body: JSON.stringify(govde),
+      }),
+      env,
+      {}
+    );
+
+  const kotu = await gonder({ url: 'ftp://ornek.com/a' });
+  assert.equal(kotu.status, 400);
+  assert.equal((await kotu.json()).hata, 'url-gecersiz');
+  assert.equal(kayitlar.length, 0, 'geçersiz kayıt yazılmaz');
+
+  const ilk = await gonder({ url: 'https://vk.com/video_ext.php?oid=1', hata: 'cozulemedi', anime: 'naruto', bolum: 1 });
+  assert.equal(ilk.status, 201);
+  assert.equal(kayitlar.length, 1);
+  assert.equal(kayitlar[0].host, 'vk.com');
+  assert.equal(kayitlar[0].anime, 'naruto');
+  assert.ok(!('ip' in kayitlar[0]), 'ham IP saklanmaz — yalnız ip_hash');
+
+  const tekrar = await gonder({ url: 'https://vk.com/video_ext.php?oid=1', hata: 'cozulemedi', anime: 'naruto', bolum: 1 });
+  assert.equal(tekrar.status, 200);
+  assert.equal((await tekrar.json()).tekrar, true);
+  assert.equal(kayitlar.length, 1, 'aynı kaynak+kod bir saat içinde tekrar yazılmaz');
+
+  const farkli = await gonder({ url: 'https://vk.com/video_ext.php?oid=1', hata: 'akis-durdu', anime: 'naruto', bolum: 1 });
+  assert.equal(farkli.status, 201, 'farklı hata kodu ayrı kayıttır');
+  assert.equal(kayitlar.length, 2);
+
+  /* Günlük sınır: sayaç doldurulunca 429 döner ve kayıt yazılmaz. */
+  const anahtar = [...sayilar.keys()].find((k) => String(k).startsWith('akis-hata:'));
+  assert.ok(anahtar, 'sayaç akis-hata: önekli olmalı');
+  sayilar.get(anahtar).sayi = 1_000_000;
+  const asildi = await gonder({ url: 'https://voe.sx/e/2', hata: 'cozulemedi' });
+  assert.equal(asildi.status, 429);
+  assert.equal(kayitlar.length, 2, 'sınır aşılınca yazılmaz');
+});
+
+test('uç: /akis/hata listesi ADMIN_TOKEN ister, host bazında toplar', async () => {
+  const varsayilan = await import('../../api/src/index.mjs');
+  const kapi = varsayilan.default;
+  const zaman = new Date().toISOString();
+  const satirlar = [
+    { url: 'https://vk.com/a', host: 'vk.com', anime: 'naruto', bolum: 1, hata: 'cozulemedi', zaman },
+    { url: 'https://vk.com/b', host: 'vk.com', anime: 'naruto', bolum: 2, hata: 'akis-durdu', zaman },
+    { url: 'https://voe.sx/c', host: 'voe.sx', anime: 'naruto', bolum: 3, hata: 'cozulemedi', zaman },
+  ];
+  const db = {
+    prepare(sql) {
+      const s = sql.replace(/\s+/g, ' ').trim();
+      return {
+        bind(...p) {
+          return {
+            async all() {
+              if (s.includes('GROUP BY host')) {
+                const sayim = new Map();
+                for (const r of satirlar) sayim.set(r.host, (sayim.get(r.host) ?? 0) + 1);
+                return { results: [...sayim.entries()].map(([host, adet]) => ({ host, adet, son: zaman })) };
+              }
+              if (s.startsWith('SELECT url, host, anime, bolum, hata, zaman')) {
+                return { results: satirlar.slice(0, p[1]) };
+              }
+              throw new Error('beklenmeyen sorgu: ' + s);
+            },
+          };
+        },
+      };
+    },
+  };
+  const env = { SITE_ORIGIN: 'https://genesisanime.github.io', DB: db, ADMIN_TOKEN: 'gizli-jeton', IP_TUZ: 'tuz' };
+
+  const yetkisiz = await kapi.fetch(new Request('https://api.test/akis/hata?gun=7'), env, {});
+  assert.equal(yetkisiz.status, 401, 'jetonsuz liste okunamaz');
+
+  const yanit = await kapi.fetch(
+    new Request('https://api.test/akis/hata?gun=7&limit=10', { headers: { Authorization: 'Bearer gizli-jeton' } }),
+    env,
+    {}
+  );
+  assert.equal(yanit.status, 200);
+  const veri = await yanit.json();
+  assert.equal(veri.ok, true);
+  assert.equal(veri.gun, 7);
+  assert.deepEqual(
+    veri.hostlar.map((h) => h.host).sort(),
+    ['vk.com', 'voe.sx']
+  );
+  assert.equal(veri.hostlar.find((h) => h.host === 'vk.com').adet, 2, 'host bazında toplanır');
+  assert.equal(veri.son.length, 3);
+
+  /* Bozuk parametre NaN → Invalid Date hatasına dönüşmemeli. */
+  const bozuk = await kapi.fetch(
+    new Request('https://api.test/akis/hata?gun=abc&limit=-5', { headers: { Authorization: 'Bearer gizli-jeton' } }),
+    env,
+    {}
+  );
+  assert.equal(bozuk.status, 200);
+  assert.equal((await bozuk.json()).gun, 7);
 });

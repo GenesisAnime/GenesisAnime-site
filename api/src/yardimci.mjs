@@ -35,7 +35,18 @@ export const GIRIS_SAATLIK_SINIR = 20; // IP başına
    normal kullanımın çok üstünde (bölüm başına 1-2, kaynak değişiminde birkaç),
    otomatik kötüye kullanıma karşı ise dar. */
 export const AKIS_GUNLUK_SINIR = 300; // IP başına
+/* Site playerının çözümleme hatası bildirimleri: kaynak başına birkaç kayıt,
+   tarama sınırından (30/gün) ayrı ve daha geniş — ama sınırsız değil. */
+export const AKIS_HATA_GUNLUK_SINIR = 200; // IP başına
 export const AKIS_KAPSAM_SURUMU = 1;
+/** Site playerının bildirebildiği hata kodları (istemci: src/lib/akis-kayit.ts). */
+export const AKIS_HATA_TURLERI = [
+  'cozulemedi', // /akis/coz akış bulamadı (404)
+  'tur-desteklenmiyor', // akış MP4/WebM değil
+  'akis-durdu', // video oynamadı ya da zaman aşımına uğradı
+  'akis-erisilemedi', // aktarım ucuna ulaşılamadı (403/502)
+  'medya-desteklemiyor', // tarayıcı akışı çözemedi
+];
 export const GOVDE_SINIRI = 65_536; // 64 KB (genel uçlar)
 // /me/durum taşıma sınırı: iç içe JSON dizesi, tırnak kaçışıyla gövdeyi ~2 katına
 // şişirebilir; bu yüzden blob sınırının iki katı + pay bırakılır. Blob'un kendisi
@@ -132,6 +143,42 @@ export function bildirimDogrula(govde) {
 }
 
 /**
+ * Akış çözümleme hatası bildirimini doğrular (site playerı).
+ * `host` daima URL'den türetilir; istemcinin gönderdiği host'a güvenilmez.
+ * Bilinmeyen hata kodu `cozulemedi`ya düşer: telemetri, istemci sürümü geride
+ * kaldığı için 400 döndürüp kayıt kaybetmemeli.
+ */
+export function akisHataDogrula(govde) {
+  if (!govde || typeof govde !== 'object') return { ok: false, hata: 'govde-yok' };
+  const { url, anime, bolum, hata } = govde;
+  if (!urlGecerli(url)) return { ok: false, hata: 'url-gecersiz' };
+
+  let animeSlug = null;
+  if (anime !== undefined && anime !== null && anime !== '') {
+    if (!slugGecerli(anime)) return { ok: false, hata: 'anime-gecersiz' };
+    animeSlug = anime;
+  }
+
+  let bolumNo = null;
+  if (bolum !== undefined && bolum !== null && bolum !== '') {
+    const n = Number(bolum);
+    if (!Number.isInteger(n) || n <= 0 || n > 100_000) return { ok: false, hata: 'bolum-gecersiz' };
+    bolumNo = n;
+  }
+
+  return {
+    ok: true,
+    veri: {
+      url: String(url),
+      host: new URL(String(url)).hostname.toLowerCase(),
+      anime: animeSlug,
+      bolum: bolumNo,
+      hata: AKIS_HATA_TURLERI.includes(hata) ? hata : 'cozulemedi',
+    },
+  };
+}
+
+/**
  * Yol → işlem eşlemesi. Yöntem uyuşmazlığı 'yontem-yok', bilinmeyen yol 'yok'.
  * Sıra önemlidir: /me/durum PUT ile GET farklı işler.
  */
@@ -159,6 +206,8 @@ export function yolCoz(yol, yontem) {
   // Akış çözümleyici + aktarım + kapsam (bkz. src/akis.mjs, docs/12).
   if (y === '/akis/coz' && m === 'GET') return { islem: 'akis-coz' };
   if (y === '/akis/kapsam' && m === 'GET') return { islem: 'akis-kapsam' };
+  if (y === '/akis/hata' && m === 'POST') return { islem: 'akis-hata-ekle' };
+  if (y === '/akis/hata' && m === 'GET') return { islem: 'akis-hata-liste' };
   if ((y === '/akis/aktar' || y === '/akis/akis') && (m === 'GET' || m === 'HEAD')) return { islem: 'akis-aktar' };
 
   // Link tarama döngüsü (hepsi yönetici jetonu ister).
@@ -174,6 +223,7 @@ export function yolCoz(yol, yontem) {
     '/akis/coz',
     '/akis/kapsam',
     '/akis/aktar',
+    '/akis/hata',
     '/bildirim',
     '/auth/kayit',
     '/auth/giris',
@@ -325,6 +375,16 @@ export async function oranAsildi(db, anahtar, pencere, sinir) {
     .bind(anahtar, pencere, sinir)
     .run();
   return Number(sonuc?.meta?.changes ?? 0) === 0;
+}
+
+/** Aynı IP aynı kaynak+hata için 1 saat içinde tekrar yazmaz (zincir tekrar denerse şişmesin). */
+export async function akisHataTekrarMi(db, url, hata, ipHash) {
+  const esik = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const satir = await db
+    .prepare('SELECT id FROM akis_hata WHERE url = ? AND hata = ? AND ip_hash = ? AND zaman > ? LIMIT 1')
+    .bind(url, hata, ipHash, esik)
+    .first();
+  return Boolean(satir);
 }
 
 /** Aynı IP aynı URL'i 24 saat içinde bildirdiyse tekrar yazma. */

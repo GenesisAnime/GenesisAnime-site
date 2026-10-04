@@ -53,6 +53,38 @@ interface Durum {
   kosu_siniri: number;
 }
 
+/* Site playerının çözümleme hataları (`GET /akis/hata`): host bazında toplam +
+   son kayıtlar. Karar değil, ölçüm — hangi host gerçekten çözülemiyor? */
+interface AkisHataHost {
+  host: string;
+  adet: number;
+  son: string;
+}
+
+interface AkisHataKayit {
+  url: string;
+  host: string;
+  anime: string | null;
+  bolum: number | null;
+  hata: string;
+  zaman: string;
+}
+
+interface AkisHataDurum {
+  gun: number;
+  hostlar: AkisHataHost[];
+  son: AkisHataKayit[];
+}
+
+/** Hata kodlarının insan dili karşılığı (api/src/yardimci.mjs · AKIS_HATA_TURLERI). */
+const AKIS_HATA_ADI: Record<string, string> = {
+  cozulemedi: 'akış bulunamadı',
+  'tur-desteklenmiyor': 'MP4/WebM değil',
+  'akis-durdu': 'oynatma başlamadı',
+  'akis-erisilemedi': 'aktarım ucuna ulaşılamadı',
+  'medya-desteklemiyor': 'tarayıcı çözemedi',
+};
+
 const SAATLER = Array.from({ length: 24 }, (_, i) => i);
 
 /** Yerel saatle okunur damga (panel istemcide çalışır, saat dilimi kullanıcının). */
@@ -81,6 +113,7 @@ export default function YonetimIstemci() {
   const [hata, setHata] = useState<string | null>(null);
   const [mesaj, setMesaj] = useState<string | null>(null);
   const [yukleniyor, setYukleniyor] = useState(false);
+  const [akisHata, setAkisHata] = useState<AkisHataDurum | null>(null);
 
   const cagri = useCallback(
     async (yol: string, yontem = 'GET', govde: unknown = null, kullanilanJeton?: string) => {
@@ -119,6 +152,9 @@ export default function YonetimIstemci() {
         return false;
       }
       setDurum(y.veri as unknown as Durum);
+      /* Çözümleme hataları ikincil veri: alınamazsa panel yine bağlı kalır. */
+      const h = await cagri('/akis/hata?gun=7&limit=40', 'GET', null, kullanilanJeton);
+      setAkisHata(h.ok ? (h.veri as unknown as AkisHataDurum) : null);
       setBagli(true);
       setHata(null);
       return true;
@@ -421,6 +457,68 @@ export default function YonetimIstemci() {
           Ayrıntılı günlük, koşunun yapıldığı makinede: <code>tools/rapor/gunluk-dongu.log</code> ve{' '}
           <code>tools/rapor/gunluk-dongu.jsonl</code>
         </p>
+      </div>
+
+      <div className="kaynak-panel">
+        <h3>Sitenin playerı: çözülemeyen kaynaklar</h3>
+        <p className="ipucu">
+          Kullanıcıların site playerında açılmadığını bildirdiği kaynaklar, host bazında (son 7 gün).
+          Günlük kota (429) ve köprü yokluğu buraya yazılmaz — onlar kaynağın kusuru değil.
+        </p>
+        {!akisHata || akisHata.hostlar.length === 0 ? (
+          <div className="uyari-kutu bilgi">
+            <span aria-hidden="true">ℹ️</span>
+            <span>Son 7 günde çözümleme hatası bildirilmedi.</span>
+          </div>
+        ) : (
+          <>
+            <table className="tablo" style={{ fontSize: 12.5 }}>
+              <thead>
+                <tr>
+                  <th>Host</th>
+                  <th className="sayi">Kayıt</th>
+                  <th>Son bildirim</th>
+                </tr>
+              </thead>
+              <tbody>
+                {akisHata.hostlar.map((h) => (
+                  <tr key={h.host}>
+                    <td>{h.host}</td>
+                    <td className="sayi">{sayiBicim(h.adet)}</td>
+                    <td>{gecenSure(h.son)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <details style={{ marginTop: 10 }}>
+              <summary style={{ cursor: 'pointer', fontSize: 12.5 }}>
+                Son bildirimler ({akisHata.son.length})
+              </summary>
+              <div style={{ overflowX: 'auto', marginTop: 8 }}>
+                <table className="tablo" style={{ fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      <th>Zaman</th>
+                      <th>Host</th>
+                      <th>Anime · bölüm</th>
+                      <th>Neden</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {akisHata.son.map((k) => (
+                      <tr key={`${k.url}|${k.hata}|${k.zaman}`}>
+                        <td>{zamanMetni(k.zaman)}</td>
+                        <td>{k.host}</td>
+                        <td>{k.anime ? `${k.anime} · ${k.bolum ?? '?'}` : '—'}</td>
+                        <td title={k.url}>{AKIS_HATA_ADI[k.hata] ?? k.hata}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </>
+        )}
       </div>
     </div>
   );

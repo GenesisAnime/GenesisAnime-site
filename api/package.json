@@ -7,8 +7,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "db:yerel": "wrangler d1 execute genesisanime --local --file=migrations/0001.sql",
-    "db:uzak": "wrangler d1 execute genesisanime --remote --file=migrations/0001.sql"
+    "db:yerel": "wrangler d1 execute genesisanime --local --file=migrations/0001.sql && wrangler d1 execute genesisanime --local --file=migrations/0002-akis-hata.sql",
+    "db:uzak": "wrangler d1 execute genesisanime --remote --file=migrations/0001.sql && wrangler d1 execute genesisanime --remote --file=migrations/0002-akis-hata.sql"
   },
   "devDependencies": {
     "wrangler": "^4.145.0"

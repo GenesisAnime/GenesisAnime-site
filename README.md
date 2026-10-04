@@ -5,13 +5,13 @@
 **Türkçe anime arşivi — %100 açık kaynak, tamamen statik, sunucusuz.**
 
 [![Lisans: MIT](https://img.shields.io/badge/lisans-MIT-green)](LICENSE)
-[![Testler: 212 geçti](https://img.shields.io/badge/testler-212%20ge%C3%A7ti-success)](docs/05-kalite-ve-testler.md)
+[![Testler: 220 geçti](https://img.shields.io/badge/testler-220%20ge%C3%A7ti-success)](docs/05-kalite-ve-testler.md)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
 [![Cloudflare Workers + D1](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-f38020)](docs/11-hesaplar-uygulama.md)
 
 6.107 anime · 71.694 bölüm · 316.820 kaynak · 961 seri (franchise) grubu · 363 fansub grubu
 
-Yerel site: **http://127.0.0.1:3000/** · API: **https://genesisanime-api.genesisanime.workers.dev** (isteğe bağlı)
+Site: **https://genesisanime.github.io/GenesisAnime-site/** · API: **https://genesisanime-api.genesisanime.workers.dev** (isteğe bağlı)
 
 PWA kurulabilir · çevrimdışı iskelet · hesap açmadan tam çalışır (isteğe bağlı senkron)
 
@@ -47,15 +47,16 @@ depodadır. Kapalı bileşen, gizli veri işleme veya reklam/izleyici betiği yo
 | Site derlemesi | 7.448 sayfa → `out/` 21.049 dosya / 873,51 MB; **GitHub Pages'te yayında**: https://genesisanime.github.io/GenesisAnime-site/ (yerelde Windows başlatıcısıyla) |
 | Link sağlığı | kapsam **%58,72** — 173.030 `ok` · 301 `ölü` · 34 `engelli` · 12.861 `belirsiz` (ölçülebilir havuz tükendi) |
 | Otomasyon | günlük link döngüsü zamanlayıcıda (saatlik uyanır, günde bir koşar) · `/yonetim/` panelinden ayar + koşu geçmişi |
-| Testler | `npm test` **212 geçti / 1 koşullu atlandı** (ağsız; 0 hata) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
-| Site playerı | “Kaynağın playerı / Sitenin playerı” seçimi, çalışan/başarısız/denenmeyen ayrı listeler, genişletilmiş statik çözümleyici ve **otomatik kaynak zinciri** (kaynak açılmazsa sıradakini dener, en çok 8 kaynak) **canlıda**: Mail.ru akışı kendi `<video>`'muzda oynadı; çözülemeyen kaynak ayrı listede gösterildi |
-| API | Cloudflare Worker + D1 yayında (bölge WEUR): kapsam ucu `/akis/kapsam`, genel statik resolver ve akış köprüsü 04.10'dan beri üretimde · CORS yalnızca `https://genesisanime.github.io` kaynağına açık |
+| Testler | `npm test` **220 geçti / 1 koşullu atlandı** (ağsız; 0 hata) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
+| Site playerı | “Kaynağın playerı / Sitenin playerı” seçimi, çalışan/başarısız/denenmeyen ayrı listeler, genişletilmiş statik çözümleyici ve **otomatik kaynak zinciri** (kaynak açılmazsa sıradakini dener, en çok 8 kaynak) **canlıda**: Mail.ru akışı kendi `<video>`'muzda oynadı; çözülemeyen kaynak ayrı listede gösterildi · çalıştığı kanıtlanan host **cihazda hatırlanır** ve sonraki bölümde zincir onunla başlar (`src/lib/akis-kayit.ts`) |
+| API | Cloudflare Worker + D1 yayında (bölge WEUR): kapsam ucu `/akis/kapsam`, genel statik resolver ve akış köprüsü 04.10'dan beri üretimde · **hata telemetrisi** `POST /akis/hata` (D1 `akis_hata`) + yönetici özeti, panelde host bazında görünür · CORS yalnızca `https://genesisanime.github.io` kaynağına açık |
 | Son güncelleme | 4 Ekim 2026 |
-| Sıradaki işler | **canlı kaynak doğrulaması** (hangi host gerçekten oynuyor; şu an yalnız Mail.ru kanıtlı) · analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · Odnoklassniki çözümleyicisi · akış köprüsünde gözlemlenebilirlik (istek sayacı/oran) · markalı kontrol çubuğu ([docs/12](docs/12-akis-koprusu.md) · [docs/10](docs/10-yol-haritasi.md)) |
+| Sıradaki işler | **canlı kaynak doğrulaması** (hangi host gerçekten oynuyor; şu an yalnız Mail.ru kanıtlı) · analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · Odnoklassniki çözümleyicisi · `/akis/hata` özetini kapsam kararına bağlamak (hangi host elenmeli) · markalı kontrol çubuğu ([docs/12](docs/12-akis-koprusu.md) · [docs/10](docs/10-yol-haritasi.md)) |
 
-## Hızlı başlangıç (Windows)
+## Yerel geliştirme (Windows)
 
-İlk kullanımda proje klasöründen **`siteyi-baslat.cmd`** dosyasına çift tıkla. Gerekli site ve
+Site yukarıdaki adreste yayında; buradaki adımlar siteyi **kendi makinesinde** çalıştırmak ve
+geliştirmek içindir. İlk kullanımda proje klasöründen **`siteyi-baslat.cmd`** dosyasına çift tıkla. Gerekli site ve
 Worker npm paketlerini kurar, yerel D1 şemasını uygular, akış API'sini (`127.0.0.1:8789`) ve
 siteyi (`127.0.0.1:3000`) başlatır. Kapatmak için **`siteyi-durdur.cmd`** dosyasına çift tıkla;
 sunucu penceresini elle kapatmak da mümkündür. İlk kurulum internet erişimi ve Wrangler paketleri

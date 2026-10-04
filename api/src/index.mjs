@@ -10,6 +10,8 @@
  *   GET    /saglik               çalışıyor mu?
  *   POST   /bildirim             kullanıcı bildirimi (oran sınırı + tekilleştirme)
  *   GET    /bildirim             yönetici: kuyruk listesi (ADMIN_TOKEN)
+ *   POST   /akis/hata            site playerı: çözülemeyen kaynağı bildir (sınırlı + tekilleştirme)
+ *   GET    /akis/hata            yönetici: host bazında hata özeti (ADMIN_TOKEN)
  *   POST   /bildirim/:id         yönetici: durum güncelle (yeni|incelendi|gecersiz)
  *   POST   /auth/kayit           e-posta + parola ile kayıt
  *   POST   /auth/giris           giriş (jeton + yenileme)
@@ -37,6 +39,7 @@
 
 import {
   AKIS_GUNLUK_SINIR,
+  AKIS_HATA_GUNLUK_SINIR,
   AKIS_KAPSAM_SURUMU,
   BILDIRIM_DURUMLARI,
   BILDIRIM_GUNLUK_SINIR,
@@ -45,6 +48,8 @@ import {
   GIRIS_SAATLIK_SINIR,
   SURUM,
   adminMi,
+  akisHataDogrula,
+  akisHataTekrarMi,
   baytUzunlugu,
   bearer,
   bildirimDogrula,
@@ -481,6 +486,69 @@ async function akisCozUc(istek, env, cors) {
   return json(veri, 200, taze ? { ...cors, 'X-Akis-Onbellek': 'atlandi' } : cors);
 }
 
+/**
+ * `POST /akis/hata` — site playerının çözümleme hatası bildirimi.
+ *
+ * Topluluk ölçümü: hangi host, hangi bölümde çözülemedi. Kullanıcı bildirimi
+ * (`/bildirim`) gibi karar değil, öncelik/ölçüm girdisidir; yönetici panelinde
+ * host bazında toplanır. Gövde küçüktür: kaynak URL'i, hata kodu, anime/bölüm.
+ * IP tuzlanır (ham hâli saklanmaz), aynı kaynak+hata 1 saat içinde tekrar yazılmaz.
+ */
+async function akisHataEkle(istek, env, cors) {
+  const govde = await govdeOku(istek);
+  if (!govde.ok) return json({ ok: false, hata: govde.hata }, 400, cors);
+  const kontrol = akisHataDogrula(govde.veri);
+  if (!kontrol.ok) return json({ ok: false, hata: kontrol.hata }, 400, cors);
+
+  const ip = istek.headers.get('CF-Connecting-IP') || 'yok';
+  const ipHash = await ipTuzla(ip, env.IP_TUZ || env.JWT_SECRET || 'genesis');
+  const gun = new Date().toISOString().slice(0, 10);
+
+  if (await oranAsildi(env.DB, `akis-hata:${ipHash}`, gun, AKIS_HATA_GUNLUK_SINIR)) {
+    return json({ ok: false, hata: 'cok-fazla-istek' }, 429, cors);
+  }
+  const { url, host, anime, bolum, hata } = kontrol.veri;
+  if (await akisHataTekrarMi(env.DB, url, hata, ipHash)) {
+    return json({ ok: true, tekrar: true }, 200, cors);
+  }
+
+  await env.DB.prepare(
+    'INSERT INTO akis_hata (url, host, anime, bolum, hata, ip_hash, zaman) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  )
+    .bind(url, host, anime, bolum, hata, ipHash, new Date().toISOString())
+    .run();
+
+  return json({ ok: true }, 201, cors);
+}
+
+/**
+ * `GET /akis/hata?gun=7&limit=40` — yönetici özeti (ADMIN_TOKEN).
+ * Host bazında toplam + son kayıtlar; panel “hangi host çözülemiyor” sorusunu
+ * buradan yanıtlar. Sorgu parametreleri NaN'a düşse bile güvenli varsayılana döner.
+ */
+async function akisHataListe(istek, env, cors) {
+  if (!adminMi(istek, env)) return json({ ok: false, hata: 'yetkisiz' }, 401, cors);
+  const url = new URL(istek.url);
+  const istenenGun = Number(url.searchParams.get('gun'));
+  const istenenLimit = Number(url.searchParams.get('limit'));
+  const gun = Number.isFinite(istenenGun) && istenenGun > 0 ? Math.min(Math.floor(istenenGun), 90) : 7;
+  const limit = Number.isFinite(istenenLimit) && istenenLimit > 0 ? Math.min(Math.floor(istenenLimit), 200) : 40;
+  const esik = new Date(Date.now() - gun * 24 * 60 * 60 * 1000).toISOString();
+
+  const ozet = await env.DB.prepare(
+    'SELECT host, COUNT(*) AS adet, MAX(zaman) AS son FROM akis_hata WHERE zaman >= ? GROUP BY host ORDER BY adet DESC LIMIT ?'
+  )
+    .bind(esik, limit)
+    .all();
+  const son = await env.DB.prepare(
+    'SELECT url, host, anime, bolum, hata, zaman FROM akis_hata WHERE zaman >= ? ORDER BY zaman DESC, id DESC LIMIT ?'
+  )
+    .bind(esik, limit)
+    .all();
+
+  return json({ ok: true, gun, hostlar: ozet.results || [], son: son.results || [] }, 200, cors);
+}
+
 /** Sunucunun denemeye açık resolver embed host'larını duyur. */
 function akisKapsamUc(cors) {
   return json(
@@ -561,6 +629,10 @@ async function istekIsle(istek, env) {
         return await taramaKosu(istek, env, cors);
       case 'tarama-kalp':
         return await taramaKalp(istek, env, cors);
+      case 'akis-hata-ekle':
+        return akisHataEkle(istek, env, cors);
+      case 'akis-hata-liste':
+        return akisHataListe(istek, env, cors);
       case 'akis-kapsam':
         return akisKapsamUc(cors);
       case 'akis-coz':

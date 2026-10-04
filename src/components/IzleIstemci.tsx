@@ -23,7 +23,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Anime, Taksonomi } from '@/lib/tipler';
+import type { Anime, Kaynak, Taksonomi } from '@/lib/tipler';
 import { animeVeriYolu, genelYol } from '@/lib/yollar';
 import { bolumNumarasi, embedUygun, kaynakEtiketi, kaynakGrubu, kaynakGrupla, playerAd, sayiBicim } from '@/lib/bicim';
 import { durumOzeti, kullanimDisiMi, oynaticiDurumu, type OynatıcıDurum } from '@/lib/oynatici';
@@ -66,6 +66,15 @@ import {
   type AkisCozumu,
   type AkisNotu,
 } from '@/lib/akis';
+import {
+  akisHatasiBildir,
+  hostBasarilari,
+  hostBasarisiKaydet,
+  hostKanitli,
+  kanitliSira,
+  kaynakHostu,
+  type AkisHataKodu,
+} from '@/lib/akis-kayit';
 import { useBaglandi, useCalismayanlar, useTercihler } from '@/lib/depo/kanca';
 import {
   calismayanIsaretle,
@@ -372,13 +381,15 @@ export default function IzleIstemci() {
       if (denenenler[kaynak[2]]?.durum === 'basarisiz') continue;
       adaylar.push(s);
     }
-    /* Sıra: bu oturumda kanıtlanmış kaynak > kapsam içi host > geri kalan.
-       Kanıtlanmış kaynak, ilk denemenin başarılı olduğu kaynaktır; zincir ona
-       doğrudan dönerse kullanıcı 8 bilinmeyen host'u boşa izlemez. */
+    /* Sıra: bu oturumda kanıtlanmış kaynak → cihazda kanıtlı host → kapsam içi
+       host → geri kalan. Kanıt, kullanıcının sekiz bilinmeyen host'u boşa
+       denemesini engeller; cihaz kaydı bölümler arasında da taşınır. */
+    const cihaz = hostBasarilari();
     const puan = (s: number) => {
       const kaynak = kaynaklar[s];
       if (denenenler[kaynak[2]]?.durum === 'calisiyor') return 0;
-      return kapsamdaMi(kapsam, sarmalayiciCoz(kaynak[2])) ? 1 : 2;
+      if (hostKanitli(cihaz[kaynakHostu(sarmalayiciCoz(kaynak[2]))])) return 1;
+      return kapsamdaMi(kapsam, sarmalayiciCoz(kaynak[2])) ? 2 : 3;
     };
     return adaylar.sort((a, b) => puan(a) - puan(b));
   }, []);
@@ -418,6 +429,36 @@ export default function IzleIstemci() {
     zincirSayacRef.current = 0;
     setZincirBilgi({ durum: 'bos', denenen: 0 });
   }, [zincirTemizle]);
+
+  /**
+   * Başarısız denemeyi cihaz hafızasına ve telemetriye yazar. Günlük kota ve
+   * köprü yokluğu kaynağın kusuru değildir; çağıran taraf onları hiç iletmez.
+   */
+  const kaynakBasarisiz = useCallback(
+    (kaynak: Kaynak, hata: AkisHataKodu) => {
+      const adres = sarmalayiciCoz(kaynak[2]);
+      hostBasarisiKaydet(adres, false);
+      akisHatasiBildir({ url: adres, hata, anime: anime?.slug ?? null, bolum: bolum?.n ?? null });
+    },
+    [anime?.slug, bolum?.n]
+  );
+
+  /* Cihazda kanıtlı host varsa ilk deneme ondan yapılır: bölüm ya da mod
+     değişiminde **bir kez** uygulanır, kullanıcının sonraki seçimini ezmez. */
+  const tercihUygulananRef = useRef('');
+  const tercihAnahtari = `${anime?.slug ?? ''}|${bolum?.n ?? 0}`;
+  /** Kullanıcı bu bölümde kaynağı elle seçti: otomatik tercih devreye girmez. */
+  const tercihiKapat = useCallback(() => {
+    tercihUygulananRef.current = `${anime?.slug ?? ''}|${bolum?.n ?? 0}`;
+  }, [anime?.slug, bolum?.n]);
+  useEffect(() => {
+    if (playerModu !== 'site' || !gosterilenKaynaklar.length) return;
+    if (tercihUygulananRef.current === tercihAnahtari) return;
+    tercihUygulananRef.current = tercihAnahtari;
+    const sira = kanitliSira(gosterilenKaynaklar.map((k) => sarmalayiciCoz(k[2])));
+    if (sira !== null) setKaynakSira(sira);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerModu, bolum?.n, gosterilenKaynaklar.length]);
 
   /* Embed moduna dönünce ya da bölüm değişince zincir sıfırlanır: iframe'in
      açılıp açılmadığını okuyamadığımız için orada otomatik deneme anlamsız. */
@@ -490,6 +531,10 @@ export default function IzleIstemci() {
         setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { hata: sonuc.hata, durum: 'basarisiz' } }));
         /* Sunucudaki günlük sınır (429) ayrı anlatılır: sebep kullanıcıya görünsün. */
         setAkisNotu(sonuc.hata === 'cok-fazla-istek' ? 'akis-yogun' : 'cozulemedi');
+        /* Kota ve köprü yokluğu kaynağın kusuru değil: ölçüme yazılmaz. */
+        if (sonuc.hata !== 'cok-fazla-istek' && sonuc.hata !== 'kopru-yok') {
+          kaynakBasarisiz(kaynak, 'cozulemedi');
+        }
         /* Sınır dolduysa zincir durur: sıradakileri denemek kotayı kurtarmaz. */
         if (sonuc.hata === 'cok-fazla-istek') setZincirBilgi({ durum: 'sinir', denenen: zincirSayacRef.current });
         else zincirZamanla();
@@ -501,6 +546,7 @@ export default function IzleIstemci() {
         setAkisSorun(hata);
         setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { hata, durum: 'basarisiz' } }));
         setAkisNotu('tur-desteklenmiyor');
+        kaynakBasarisiz(kaynak, 'tur-desteklenmiyor');
         zincirZamanla();
         return;
       }
@@ -521,6 +567,7 @@ export default function IzleIstemci() {
         setAkisSorun('akis-durdu');
         setAkisNotu('akis-durdu');
         setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { hata: 'akis-durdu', durum: 'basarisiz' } }));
+        kaynakBasarisiz(kaynak, 'akis-durdu');
         zincirZamanla();
       }, ZINCIR_YUKLEME_SINIRI_MS);
     });
@@ -546,6 +593,9 @@ export default function IzleIstemci() {
       setAkisNotu(not);
       setAkisSorun(not);
       setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { hata: not, durum: 'basarisiz' } }));
+      const kod: AkisHataKodu =
+        not === 'akis-erisilemedi' || not === 'medya-desteklemiyor' ? not : 'akis-durdu';
+      kaynakBasarisiz(kaynak, kod);
       zincirZamanla();
     };
     if (akisTazeRef.current) return dur('akis-durdu');
@@ -564,6 +614,7 @@ export default function IzleIstemci() {
     setAkis({ cozum: sonuc.akis, baslangic });
     setAkisDurum('hazir');
     setAkisNotu('akis-tazelendi');
+    hostBasarisiKaydet(sarmalayiciCoz(kaynak[2]), true);
     /* Tazeleme de oynatmayı başlattıysa zincir başarıyla durur. */
     if (yuklemeZamanlayiciRef.current !== null) {
       window.clearTimeout(yuklemeZamanlayiciRef.current);
@@ -825,6 +876,8 @@ export default function IzleIstemci() {
   const kaynakCozumunuDene = (sira: number) => {
     const kaynak = gosterilenKaynaklar[sira];
     if (!kaynak) return;
+    /* Kullanıcı bilinçli olarak bu kaynağı istedi: kanıtlı-host tercihi onu ezmesin. */
+    tercihiKapat();
     setKaynakSira(sira);
     setPlayerModu('site');
     if (!akisVarMi()) {
@@ -1008,6 +1061,8 @@ export default function IzleIstemci() {
                   if (!kaynak) return;
                   setAkisDurum('hazir');
                   setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { durum: 'calisiyor' } }));
+                  /* Cihaz hafızası: bu host burada gerçekten oynadı. */
+                  hostBasarisiKaydet(sarmalayiciCoz(kaynak[2]), true);
                   /* Oynatma başladı: takılma koruması düşer, zincir başarıyla kapanır. */
                   if (yuklemeZamanlayiciRef.current !== null) {
                     window.clearTimeout(yuklemeZamanlayiciRef.current);
