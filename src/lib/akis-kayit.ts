@@ -10,7 +10,10 @@
  *     Kanıt **zamanla azalır**: son 14 günde oynamayan host kanıtını yitirir
  *     (`sonOk` penceresi) ve ölü URL tekrarları iyi bir host'u hemen düşürmez
  *     (hata sayısı başarıların kat kat üstüne çıkınca düşer).
- *  2. **Hata bildirimi:** çözülemeyen kaynak Worker'a bildirilir; yönetici
+ *  2. **Çözüm önbelleği:** başarıyla çözülen kaynağın imzalı adresi cihazda
+ *     saklanır; aynı bölüm ikinci kez açıldığında kaynak yeniden taranmaz,
+ *     oynatma doğrudan başlar.
+ *  3. **Hata bildirimi:** çözülemeyen kaynak Worker'a bildirilir; yönetici
  *     panelinde host bazında toplanır ve kapsam listesi gerçek sonuçla beslenir.
  *     Kayıt önce kuyruğa yazılır: ağ yoksa kaybolmaz, `online` olayında gider.
  *     Gönderilen kayıt bir saatliğine “gönderildi defteri”ne işlenir; zincir aynı
@@ -191,7 +194,99 @@ export function kanitliSira(adresler: string[]): number | null {
   return enIyiSira;
 }
 
-/* ----------------------------- 2 · hata bildirimi ----------------------------- */
+/* --------------------------- 2 · çözüm önbelleği --------------------------- */
+
+/**
+ * Cihazdaki çözüm önbelleği: "bu kaynak bir kez başarıyla çözüldü".
+ *
+ * Neden var: kullanıcı aynı bölümü ikinci kez açtığında zincir kaynağı yeniden
+ * taramak zorunda kalıyordu (`/akis/coz` + upstream). Oysa başarılı çözüm
+ * elimizde: imzalı akış adresini saklayıp doğrudan oynatmak yeterli. Böylece
+ * "daha önce taranmış ve olumlu sonuç alınmış" kaynak bir daha taranmaz.
+ *
+ * Bayatlama: imza bitişi biliniyorsa kayıt o anda (`COZUM_IMZA_PAYI_MS` güvenlik
+ * payıyla) düşer; bilinmiyorsa `COZUM_OMRU_MS` sonunda. Adres bayatlarsa `<video>`
+ * 403/502 verir ve mevcut **taze çözümleme** yolu devreye girer — yani yanlış
+ * giden önbelleğin bedeli en fazla bir yenileme turudur, kalıcı bozulma değil.
+ */
+const COZUM_ANAHTARI = 'genesisanime:v1:akis-cozum';
+const COZUM_SINIRI = 80;
+/** İmza bitişi bilinmeyen çözümün azami ömrü. */
+export const COZUM_OMRU_MS = 6 * 60 * 60 * 1000;
+/**
+ * İmza bitiminden önce bırakılan güvenlik payı.
+ * 30 sn: oynatıcının akışı açıp başlaması için yeterli, ama kullanılabilir ömrün
+ * büyük kısmını yemez. (İlk sürümde 2 dakikaydı ve ömrü 2 dakikadan kısa kalan
+ * her imza "süresi geçmiş" sayılıyordu — sınır testte yakalandı.)
+ */
+const COZUM_IMZA_PAYI_MS = 30 * 1000;
+
+export interface CozumKaydi {
+  /** Aktarım ucundan geçen oynatma adresi. */
+  aktarim: string;
+  tur: string;
+  imzaBitis: number | null;
+  /** Kayıt zamanı (epoch ms). */
+  zaman: number;
+}
+
+function cozumGecerli(kayit: CozumKaydi | undefined, simdi: number): kayit is CozumKaydi {
+  if (!kayit || typeof kayit.aktarim !== 'string' || !kayit.aktarim) return false;
+  if (typeof kayit.imzaBitis === 'number' && kayit.imzaBitis > 0) {
+    return simdi < kayit.imzaBitis - COZUM_IMZA_PAYI_MS;
+  }
+  return simdi - (kayit.zaman || 0) < COZUM_OMRU_MS;
+}
+
+function cozumleriOku(simdi = Date.now()): Record<string, CozumKaydi> {
+  const ham = depoOku<Record<string, CozumKaydi>>(COZUM_ANAHTARI, {});
+  const gecerliler: [string, CozumKaydi][] = [];
+  for (const [adres, kayit] of Object.entries(ham)) {
+    if (cozumGecerli(kayit, simdi)) gecerliler.push([adres, kayit]);
+  }
+  gecerliler.sort((a, b) => (b[1].zaman || 0) - (a[1].zaman || 0));
+  return Object.fromEntries(gecerliler.slice(0, COZUM_SINIRI));
+}
+
+/** Bu kaynağın taze çözümü var mı? Varsa doğrudan oynatılır — tarama yok. */
+export function cozumOku(adres: string, simdi = Date.now()): CozumKaydi | null {
+  if (!adres) return null;
+  const kayit = cozumleriOku(simdi)[adres];
+  return cozumGecerli(kayit, simdi) ? kayit : null;
+}
+
+/** Başarılı çözümlemeyi cihaza yaz (sonraki ziyaret taramasız başlasın). */
+export function cozumKaydet(
+  adres: string,
+  cozum: { aktarim: string; tur: string; imzaBitis?: number | null }
+): void {
+  if (!adres || !cozum.aktarim) return;
+  const kayitlar = cozumleriOku();
+  /* Aynı adres zaten kayıtlıysa yazma: `onCanPlay` bir oynatma sırasında birden
+     çok kez tetiklenebiliyor, gereksiz localStorage yazımı yapmayalım. */
+  const eski = kayitlar[adres];
+  if (eski && eski.aktarim === cozum.aktarim && eski.tur === cozum.tur) return;
+  /* Zaman damgası **kesin artan** tutulur: aynı milisaniyede yazılan kayıtlar
+     sıralamada birbirini ezmesin (sınır düşürmesi en yeni kayıtları korusun). */
+  const enYeni = Object.values(kayitlar).reduce((enBuyuk, k) => Math.max(enBuyuk, k.zaman || 0), 0);
+  kayitlar[adres] = {
+    aktarim: cozum.aktarim,
+    tur: cozum.tur,
+    imzaBitis: typeof cozum.imzaBitis === 'number' ? cozum.imzaBitis : null,
+    zaman: Math.max(Date.now(), enYeni + 1),
+  };
+  const sirali = Object.entries(kayitlar)
+    .sort((a, b) => (b[1].zaman || 0) - (a[1].zaman || 0))
+    .slice(0, COZUM_SINIRI);
+  depoYaz(COZUM_ANAHTARI, Object.fromEntries(sirali));
+}
+
+/** Taze çözümü olan kaynak adresleri — zincir bu kaynakları öne alır. */
+export function cozumluAdresler(simdi = Date.now()): Set<string> {
+  return new Set(Object.keys(cozumleriOku(simdi)));
+}
+
+/* ----------------------------- 3 · hata bildirimi ----------------------------- */
 
 function kuyrukOku(): KuyrukKaydi[] {
   const kuyruk = depoOku<KuyrukKaydi[]>(KUYRUK_ANAHTARI, []);

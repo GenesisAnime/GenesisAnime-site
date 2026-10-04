@@ -500,3 +500,38 @@ test('fansublar.json: tekil slug/ad, taksonomiyle aynı küme, kaynak adlarını
   const eksik = [...tamTarama().fansubAdlari].filter((ad) => !adlar.has(ad)).slice(0, 5);
   assert.deepEqual(eksik, [], 'kaynaklarda geçen fansub adı grup dizininde yok');
 });
+
+/* ================================================================ */
+/* Ana sayfa kart verisi: hafif sürüm tam sürümle birebir           */
+/* ================================================================ */
+
+test('ana-sayfa-kartlar.json: ana-sayfa.json ile birebir (bayat dosya yok)', async () => {
+  const { kartlariKirp, kaynakYolu, hedefYolu, KART_ALANLARI } = await import('../ana-sayfa-kartlar.mjs');
+  const tam = JSON.parse(fs.readFileSync(kaynakYolu(), 'utf8'));
+  const beklenen = kartlariKirp(tam);
+
+  assert.ok(fs.existsSync(hedefYolu()), 'ana-sayfa-kartlar.json yok — `npm run veri` (ya da tools/ana-sayfa-kartlar.mjs) çalıştırılmalı');
+  const hafif = JSON.parse(fs.readFileSync(hedefYolu(), 'utf8'));
+
+  assert.equal(hafif.satirlar.length, beklenen.satirlar.length, 'satır sayısı farklı');
+  for (let i = 0; i < beklenen.satirlar.length; i++) {
+    assert.equal(hafif.satirlar[i].baslik, beklenen.satirlar[i].baslik, `${i}. satır başlığı farklı`);
+    assert.equal(hafif.satirlar[i].tur, beklenen.satirlar[i].tur, `${i}. satır türü farklı`);
+    assert.deepEqual(
+      hafif.satirlar[i].ogeler,
+      beklenen.satirlar[i].ogeler,
+      `${i}. satırın kartları farklı — hafif dosya bayat (npm run veri)`
+    );
+  }
+
+  /* Kart bileşeninin okuduğu alanlar dışına taşma olmamalı: `oz`, `ban4k`, `t`
+     gibi ağır alanlar kazara geri gelirse istemciye gereksiz bayt iner. */
+  for (const oge of hafif.satirlar[0].ogeler) {
+    const fazla = Object.keys(oge).filter((a) => !KART_ALANLARI.includes(a));
+    assert.deepEqual(fazla, [], 'hafif kart verisinde beklenmeyen alan var');
+  }
+
+  /* Eski alanların gelmemesi performans sözleşmesi: dosya 128 KB'ın altında kalmalı. */
+  const bayt = fs.statSync(hedefYolu()).size;
+  assert.ok(bayt < 128 * 1024, `ana-sayfa-kartlar.json çok büyüdü: ${(bayt / 1024).toFixed(0)} KB`);
+});

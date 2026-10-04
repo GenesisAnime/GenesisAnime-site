@@ -175,3 +175,123 @@ test('yapısal: oynatıcı cihaz hafızasını ve telemetriyi gerçekten kullan�
   assert.match(izle, /zincirDenenenRef\.current\.add\(kaynak\[2\]\)/, 'çözümleme başlayan kaynak denenmiş sayılır');
   assert.match(izle, /ekipAnahtari/, 'süzgeç karşılaştırması içerik üzerinden (yeniden yükleme seçimi sıfırlamaz)');
 });
+
+/* ================================================================ */
+/* Çözüm önbelleği: başarılı çözüm cihazda kalır                     */
+/* ================================================================ */
+
+test('çözüm: taze kayıt okunur, imzası düşen ve yaşlı kayıt okunmaz', async () => {
+  depoKur();
+  const kayit = await import('../../src/lib/akis-kayit.ts');
+  const simdi = Date.now();
+  const saat = 60 * 60 * 1000;
+
+  const adres = 'https://vk.com/video_ext.php?oid=-1&id=456';
+  kayit.cozumKaydet(adres, {
+    aktarim: 'https://api.example/akis/aktar?u=x',
+    tur: 'mp4',
+    imzaBitis: simdi + 4 * saat,
+  });
+
+  const okunan = kayit.cozumOku(adres, simdi);
+  assert.ok(okunan, 'imzası gelecekte olan kayıt okunur');
+  assert.equal(okunan.tur, 'mp4');
+  assert.equal(okunan.aktarim, 'https://api.example/akis/aktar?u=x');
+
+  /* İmza bitişi geçmiş kayıt kullanılmaz: tarama yeniden yapılır. */
+  kayit.cozumKaydet('https://ok.ru/video/2', {
+    aktarim: 'https://api.example/akis/aktar?u=y',
+    tur: 'mp4',
+    imzaBitis: simdi - 1000,
+  });
+  assert.equal(kayit.cozumOku('https://ok.ru/video/2', simdi), null, 'imzası düşen çözüm okunmaz');
+
+  /* İmza bitişi bilinmiyorsa 6 saatlik ömür geçerlidir. */
+  kayit.cozumKaydet('https://drive.google.com/file/d/abc/preview', {
+    aktarim: 'https://api.example/akis/aktar?u=z',
+    tur: 'mp4',
+    imzaBitis: null,
+  });
+  assert.ok(kayit.cozumOku('https://drive.google.com/file/d/abc/preview', simdi + 5 * saat), '6 saat içinde geçerli');
+  assert.equal(
+    kayit.cozumOku('https://drive.google.com/file/d/abc/preview', simdi + 7 * saat),
+    null,
+    '6 saatten eski imzasız çözüm kullanılmaz'
+  );
+
+  /* İmzası bitmek üzere olan kayıt kullanılmaz: oynatma başlarken 403 yemeyelim
+     (güvenlik payı 30 sn). */
+  kayit.cozumKaydet('https://videa.hu/player/x', {
+    aktarim: 'https://api.example/akis/aktar?u=s',
+    tur: 'mp4',
+    imzaBitis: simdi + 10 * 1000,
+  });
+  assert.equal(kayit.cozumOku('https://videa.hu/player/x', simdi), null, 'imza bitmek üzereyken önbellek kullanılmaz');
+
+  /* Hiç kaydı olmayan kaynak null döner: zincir normal taramayı yapar. */
+  assert.equal(kayit.cozumOku('https://my.mail.ru/mail/x/video/1.html', simdi), null);
+  assert.equal(kayit.cozumOku('', simdi), null);
+});
+
+test('çözüm: aynı adres yeniden yazılmaz, liste sınırlı kalır', async () => {
+  depoKur();
+  const kayit = await import('../../src/lib/akis-kayit.ts');
+  const simdi = Date.now();
+  const anahtar = 'genesisanime:v1:akis-cozum';
+
+  const adres = 'https://vk.com/video_ext.php?oid=7';
+  kayit.cozumKaydet(adres, { aktarim: 'https://api/a', tur: 'mp4', imzaBitis: simdi + 60_000 });
+  const ilk = JSON.parse(globalThis.window.localStorage.getItem(anahtar))[adres];
+  kayit.cozumKaydet(adres, { aktarim: 'https://api/a', tur: 'mp4', imzaBitis: simdi + 60_000 });
+  const ikinci = JSON.parse(globalThis.window.localStorage.getItem(anahtar))[adres];
+  assert.equal(ikinci.zaman, ilk.zaman, 'aynı içerik ikinci kez yazılmaz (onCanPlay tekrar tetiklenir)');
+
+  /* Farklı adres yazılırsa kayıt güncellenir. */
+  kayit.cozumKaydet(adres, { aktarim: 'https://api/b', tur: 'hls', imzaBitis: simdi + 60_000 });
+  const ucuncu = JSON.parse(globalThis.window.localStorage.getItem(anahtar))[adres];
+  assert.equal(ucuncu.aktarim, 'https://api/b');
+  assert.equal(ucuncu.tur, 'hls');
+
+  /* Sınır: en yeni 80 kayıt tutulur. */
+  for (let i = 0; i < 120; i++) {
+    kayit.cozumKaydet(`https://voe.sx/e/${i}`, { aktarim: `https://api/k${i}`, tur: 'mp4', imzaBitis: simdi + 60_000 });
+  }
+  const liste = JSON.parse(globalThis.window.localStorage.getItem(anahtar));
+  assert.ok(Object.keys(liste).length <= 80, `çözüm listesi sınırlı kalmalı (şu an ${Object.keys(liste).length})`);
+  assert.ok(kayit.cozumluAdresler().has('https://voe.sx/e/119'), 'en yeni kayıt korunur');
+});
+
+test('çözüm: bozuk/eksik kayıt okunmaz (tarama yanlış atlanmaz)', async () => {
+  depoKur();
+  const kayit = await import('../../src/lib/akis-kayit.ts');
+  const anahtar = 'genesisanime:v1:akis-cozum';
+  globalThis.window.localStorage.setItem(
+    anahtar,
+    JSON.stringify({
+      'https://vk.com/x': { tur: 'mp4', imzaBitis: null, zaman: Date.now() }, // aktarim yok
+      'https://ok.ru/y': null,
+      'https://mail.ru/z': { aktarim: '', tur: 'mp4', imzaBitis: null, zaman: Date.now() },
+    })
+  );
+  assert.equal(kayit.cozumOku('https://vk.com/x'), null, 'aktarım adresi olmayan kayıt kullanılmaz');
+  assert.equal(kayit.cozumOku('https://ok.ru/y'), null, 'bozuk kayıt kullanılmaz');
+  assert.equal(kayit.cozumOku('https://mail.ru/z'), null, 'boş aktarım kullanılmaz');
+});
+
+test('yapısal: oynatıcı çözüm önbelleğini okur, yazar ve zinciri ona göre dizer', () => {
+  const izle = readFileSync(path.join(KOK, IZLE), 'utf8');
+  assert.match(izle, /cozumOku\(adres\)/, 'seçilen kaynağın çözümü önbellekten okunur');
+  assert.match(izle, /if \(hazir\) \{[\s\S]{0,200}oynatmayiKur/, 'önbellek vuruşu ağ taraması yapmadan doğrudan oynatır');
+  assert.match(izle, /cozumKaydet\(sarmalayiciCoz\(kaynak\[2\]\), akis\.cozum\)/, 'oynama başlayınca çözüm cihaza yazılır');
+  assert.match(izle, /cozumluAdresler\(\)/, 'zincir çözümü hazır kaynakları öne alır');
+  assert.match(izle, /if \(cozumlu\.has\(adres\)\) return 0\.5;/, 'çözümü hazır kaynak, kanıtlı host’tan da önce denenir');
+});
+
+test('yapısal: site modu kapsam dışı kaynakları listeden çıkarır', () => {
+  const izle = readFileSync(path.join(KOK, IZLE), 'utf8');
+  assert.match(izle, /const siteKapsami = playerModu === 'site' && akisKapsam != null;/, 'site modu + sunucu kapsamı birlikte aranır');
+  assert.match(izle, /temelKaynaklar\.filter\(kapsamIciMi\)/, 'kapsam dışı kaynaklar süzülür');
+  assert.match(izle, /siteKapsami && !kapsamIciMi\(kaynak\)/, 'oynatıcı süzgeç düğmeleri de kapsam içi kaynaklardan sayılır (Sibnet görünmez)');
+  assert.match(izle, /siteUygunlar\.length \? siteUygunlar : temelKaynaklar/, 'hepsi kapsam dışıysa liste boşaltılmaz');
+  assert.match(izle, /kapsamDisiGizlenen > 0 \?/, 'gizlenen kaynak sayısı kullanıcıya bildirilir');
+});

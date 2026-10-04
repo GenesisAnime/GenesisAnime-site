@@ -294,3 +294,93 @@ konumlanınca metin menüye değiyordu. Taban 88 px'e alındı (`calc(88px +
 env(safe-area-inset-bottom))`) — canlı doğrulama: menü üstü 776 px, çubuk altı
 766 px, **10 px boşluk**. Ölçü `tools/testler/surum.test.mjs` içinde alt menü
 yüksekliğine bağlandı.
+
+## 04.10 · Çözüm önbelleği: aynı kaynak ikinci kez taranmaz
+
+Sitenin playerı modu her seçimde adayları baştan tarıyordu: `/akis/coz` +
+upstream + HLS manifesti. Oysa çözülmüş bir adres bir süre geçerli kalır; aynı
+kaynağa dönmek yeniden taramayı gerektirmez.
+
+`src/lib/akis-kayit.ts` içine — kanıt kaydının yanına — çözüm önbelleği eklendi:
+
+| kural | değer | gerekçe |
+|---|---|---|
+| anahtar | `genesisanime:v1:akis-cozum` | host hafızasından ayrı; silinse bile site çalışır |
+| sınır | 80 adres | kullanıcı başına tek satır; yerel depo şişmez |
+| ömür | imza varsa `imzaBitis − 30 sn`, yoksa 6 saat | akış adresleri imzalı; süresi geçen adres 403 döner |
+| yazma anı | `onCanPlay` | kanıt oynatmadır: yalnız çözülüp oynatılmayan adres kaydedilmez |
+| zincir puanı | 0,5 | kanıtlı hosttan (1) önce, taranmamıştan sonra denenir |
+
+Okuma yolu seçim anındadır: `cozumOku(adres)` doluysa oynatma doğrudan kurulur
+ve **hiç ağ isteği yapılmaz**. Bayat kayıt kendini tedavi eder: `<video>`
+403/502 alırsa mevcut tazeleme yolu adresi yeniden çözer ve yeni sonucu yazar.
+
+Ölçüm (yerel derleme, `/akis` gerçek Worker'a vekillenerek; 11eyes 1. bölüm):
+
+| senaryo | `/akis/coz` | sonuç |
+|---|---|---|
+| soğuk (önbellek yok, site modu) | 1 — yalnız uqload | oynatma başladı, `readyState` 4 |
+| sıcak (aynı kaynak yeniden seçildi) | 0 | oynatma kaldığı yerden sürdü (34 segment `/akis/aktar`) |
+
+İmza payı 2 dakikadan 30 saniyeye çekildi: 2 dakikalık pay, kalan ömrü 2
+dakikanın altına düşmüş her imzayı kullanılamaz sayıyordu ve önbellek
+neredeyse hiç tutmuyordu (test yakaladı). Testler:
+`tools/testler/akis-kayit.test.mjs` (imza payı, monoton sıralama, sınır, bozuk
+kayıt) — 5 yeni test.
+
+## 04.10 · Site modunda yalnız erişilebilen hostlar (Sibnet gizlendi)
+
+Sitenin playerı kaynağı **bizim sunucumuzdan** çeker; sunucunun erişemediği
+host orada hiçbir zaman çalışmaz. Buna rağmen liste onları gösteriyordu ve
+denemesi boşa gidiyordu.
+
+- kapsam (`/akis/kapsam` → `kapsamDisi`) yüklüyse site modunda yalnız kapsam
+  içi kaynaklar listelenir; oynatıcı süzgeci (Sibnet/Uqload düğmeleri) de
+  kapsam dışını atlar, yani hiçbir zaman boşa taranmaz.
+- kapsam dışı hostlar tamamen kaybolmaz: "N kaynak bu modda gösterilmiyor
+  (sunucumuz o host'a erişemiyor)" notu ve tek tıkla Kaynağın playerı'na dönen
+  bağlantı kalır. Süzme sonrası liste boşalırsa eski davranışa düşülür — liste
+  asla boş görünmez.
+- Kaynağın playerı modu değişmez: Sibnet orada görünmeye devam eder, çünkü
+  videoyu Sibnet'in kendi oynatıcısı açar.
+
+Canlı/yerel doğrulama (11eyes 1. bölüm: 3 Sibnet + 1 Uqload):
+
+| mod | listede | `/akis/coz` (soğuk) |
+|---|---|---|
+| Kaynağın playerı | 4 kaynak; Sibnet'ler "Kullanım dışı" | 0 |
+| Sitenin playerı | 1 kaynak (Uqload); not: "3 kaynak bu modda gösterilmiyor" | 1 — yalnız uqload |
+
+## 04.10 · Ana sayfa: kademeli satır yükleme (981 KB → 290 KB)
+
+18 satır × 30 kart = 540 kart tek HTML'de geliyordu; tarayıcı yalnız ekranın
+üstünü gösterse de tamamını ayrıştırıp hidrasyon yapıyordu.
+
+| ölçüm | önce | sonra |
+|---|---|---|
+| HTML (ham / gzip) | 981 KB / 89 KB | 290 KB / 36 KB |
+| DOM düğümü (ilk açılış) | 6.907 | 1.596 |
+| `<img>` sayısı | 544 | 91 |
+| kaynak isteği | 250 | 40 |
+| ilk açılışta gerçek kart | 540 | 90 (3 satır) |
+
+Mekanik:
+
+1. İlk 3 satır sunucuda render edilir (`HEMEN_SATIR`); kalan 15 satır başlık +
+   "Tümünü gör" + 6 iskelet kart olarak basılır — JS hiç çalışmasa bile sayfa
+   yapısı ve bağlantılar durur.
+2. `TembelSatirlar` gözcüsü **sınırda** durur: yüklenmiş satırların hemen
+   ardında, yer tutuculardan önce. Gözcü görüş alanına 900 px yaklaşınca
+   `ana-sayfa-kartlar.json` (100 KB ham / 15 KB gzip; tam dosya 369 KB / 99 KB)
+   bir kez indirilir, satırlar üçerli gruplar hâlinde eklenir.
+3. Konum ölçümü `scroll`/`resize` üzerinde `requestAnimationFrame` ile
+   kısıtlanır ve her büyümeden sonra yinelenir; sayfa sonuna atlayan kullanıcıda
+   da grup grup yakınsar. Veri indirilemezse yer tutucular olduğu gibi kalır.
+4. Kart alanları `tools/ana-sayfa-kartlar.mjs` içinde kırpılır
+   (`KART_ALANLARI`); `veri.test.mjs` kırpılmış dosyanın `ana-sayfa.json` ile
+   birebir olduğunu ve 128 KB'ı aşmadığını doğrular.
+
+Ölçüm (390×844, yerel derleme): ilk açılışta 180 kart (3 sunucu + 1 grup),
+kaydırdıkça 270 → 450 → 540; her grup yalnız gözcü sınıra yaklaşınca eklendi.
+Sayfa yüksekliği 9.540 → 9.565 px (iskelet satırı gerçek satırdan birkaç piksel
+kısa; kaydırma zıplamıyor).

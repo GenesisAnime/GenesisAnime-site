@@ -19,6 +19,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { kartlariYaz } from './ana-sayfa-kartlar.mjs';
 import {
   ROOT,
   YOLLAR,
@@ -763,6 +764,9 @@ boyutlar.katalog = yazJson(
   true
 );
 boyutlar.anaSayfa = yazJson(path.join(YOLLAR.publicData, 'ana-sayfa.json'), anaSayfa, true);
+/* İstemciye giden hafif satır verisi (ana sayfanın kademeli yüklenen satırları
+   bunu okur; bkz. tools/ana-sayfa-kartlar.mjs). */
+boyutlar.anaSayfaKartlar = kartlariYaz();
 boyutlar.taksonomi = yazJson(path.join(YOLLAR.publicData, 'taksonomi.json'), taksonomi, true);
 
 const hamTekilUrl = new Set(linkSatirlari.map((l) => l.deger)).size;

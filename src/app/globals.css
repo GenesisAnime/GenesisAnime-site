@@ -623,6 +623,21 @@ button {
   z-index: 3;
 }
 
+/* Kademeli yüklenen satırların yer tutucusu: satır yüksekliğini korur,
+   tıklanabilir değildir, hover'da zıplamaz (bkz. TembelSatirlar.tsx). */
+.kart-iskelet {
+  pointer-events: none;
+}
+
+.kart-iskelet:hover {
+  transform: none;
+}
+
+.kart-iskelet .kart-gorsel {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
 .kart-gorsel {
   position: relative;
   aspect-ratio: 2 / 3;
@@ -687,9 +702,13 @@ button {
      karesinde GPU'da yeniden rasterlanıyordu (canlı sayfada ölçüldü: 1.085
      backdrop-filter katmanı — kasmanın ana kaynağı). Aynı görünüm için
      yarı saydam zemin koyulaştırıldı; blur yalnızca sabit üst bara kaldı. */
-  background: rgba(8, 6, 13, 0.92);
+  background: rgba(9, 6, 14, 0.95);
   border: 1px solid var(--line2);
   color: var(--tx);
+  /* Metin gölgesi: zemin blurunu kaybettikten sonra da açık posterler üzerinde
+     okunaklı kalsın (canlı ölçüm: %95 opak zemin + gölge, sarı yıldız için
+     kontrast ~10:1). Blur katmanı geri gelmez — gölge GPU'ya katman eklemez. */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
 }
 
 .kart-rozet.puan {
@@ -1184,6 +1203,24 @@ a.etiket:hover {
   font-size: 12px;
   color: var(--tx3);
   margin-bottom: 12px;
+}
+
+/* Metin içinde bağlantı gibi duran düğme (ör. "site modunda gizlenen kaynakları
+   kaynağın playerında gör"). Dokunma hedefi 24 px'in altına inmez. */
+.baglanti-dugme {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--ac2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  min-height: 24px;
+}
+
+.baglanti-dugme:hover {
+  color: var(--ac);
 }
 
 .player-modu {

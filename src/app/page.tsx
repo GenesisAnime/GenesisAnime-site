@@ -4,34 +4,30 @@ import Hero from '@/components/Hero';
 import Satir from '@/components/Satir';
 import Kart from '@/components/Kart';
 import IzlemeyeDevam from '@/components/IzlemeyeDevam';
+import TembelSatirlar from '@/components/TembelSatirlar';
 import { anaSayfaOku, kunyeOku } from '@/lib/veri';
 import { sayiBicim } from '@/lib/bicim';
-import type { AnaSayfaSatiri } from '@/lib/tipler';
+import { satirHref } from '@/lib/ana-sayfa';
 
 export const metadata: Metadata = {
   title: 'GenesisAnime — Türkçe anime izleme arşivi',
   alternates: { canonical: '/' },
 };
 
-/** Satır başlığına karşılık gelen /kesfet filtre bağlantısı. */
-function satirHref(s: AnaSayfaSatiri): string {
-  if (s.tur) return `/kesfet/?tur=${encodeURIComponent(s.tur)}`;
-  const harita: Record<string, string> = {
-    'Şu An Popüler': '/kesfet/?sirala=populer',
-    'Yeni Eklenenler': '/kesfet/?sirala=yeni',
-    '2026 Sezonu': '/kesfet/?yil=2026',
-    'Son 5 Yılın En İyileri': '/kesfet/?sirala=puan',
-    'Uzun Soluklu Seriler': '/kesfet/?sirala=bolum',
-    Filmler: '/kesfet/?format=MOVIE',
-    'Klasikler (2010 ve Öncesi)': '/kesfet/?sirala=eski',
-    'Kısa ve Tatlı (13 bölüm ve altı)': '/kesfet/?format=TV',
-  };
-  return harita[s.baslik] ?? '/kesfet/';
-}
+/**
+ * Sunucuda basılan satır sayısı. Ekranın üst kısmı (hero + ilk satırlar) HTML
+ * ile birlikte gelir; altındaki satırlar `TembelSatirlar` ile yaklaşınca
+ * yüklenir. Ölçüm (04.10): 18 satırın tamamını basmak 981 KB HTML ve ~6.900
+ * DOM düğümü üretiyordu; ilk üç satırda bu 300 KB / ~1.700 düğüme iner.
+ */
+const HEMEN_SATIR = 3;
 
 export default function AnaSayfa() {
   const anaSayfa = anaSayfaOku();
   const kunye = kunyeOku();
+
+  const hemen = anaSayfa.satirlar.slice(0, HEMEN_SATIR);
+  const tembel = anaSayfa.satirlar.slice(HEMEN_SATIR);
 
   return (
     <>
@@ -40,7 +36,7 @@ export default function AnaSayfa() {
       <div className="kap">
         <IzlemeyeDevam />
 
-        {anaSayfa.satirlar.map((s) => (
+        {hemen.map((s) => (
           <Satir key={s.baslik} baslik={s.baslik} tumuHref={satirHref(s)}>
             {s.ogeler.map((o) => (
               <Kart
@@ -58,6 +54,14 @@ export default function AnaSayfa() {
             ))}
           </Satir>
         ))}
+
+        {/* Kalan satırlar: yer tutucular HTML'e girer, içerik yaklaşınca gelir. */}
+        {tembel.length ? (
+          <TembelSatirlar
+            baslangic={HEMEN_SATIR}
+            basliklar={tembel.map((s) => ({ baslik: s.baslik, href: satirHref(s) }))}
+          />
+        ) : null}
 
         <section className="satir">
           <div className="satir-basi">

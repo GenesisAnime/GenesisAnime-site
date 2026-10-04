@@ -68,6 +68,9 @@ import {
 } from '@/lib/akis';
 import {
   akisHatasiBildir,
+  cozumKaydet,
+  cozumOku,
+  cozumluAdresler,
   hostBasarilari,
   hostBasarisiKaydet,
   hostKanitli,
@@ -203,6 +206,12 @@ export default function IzleIstemci() {
     [anime, bolumSira]
   );
 
+  /* ------------------- site playerı (mod + sunucu kapsamı) ------------------- */
+  /* Kaynak listesi bu iki değere göre süzüldüğü için **önce** tanımlanırlar. */
+  const [akisKapsam, setAkisKapsam] = useState<string[] | null>(null);
+  const [akisKapsamHatasi, setAkisKapsamHatasi] = useState<string | undefined>();
+  const [playerModu, setPlayerModu] = useState<'kaynak' | 'site'>('kaynak');
+
   /* --------------------------- kaynaklar --------------------------- */
 
   const kaynaklar = useMemo(() => {
@@ -250,20 +259,42 @@ export default function IzleIstemci() {
     [seciliFansublar, epkGruplari]
   );
 
+  /* -------------------- "sitenin playerı" kaynak kapsamı -------------------- */
+  /* Sunucu hangi host'ları çözebiliyorsa yalnız onlar bu modda gösterilir.
+     Sibnet gibi veri merkezini engelleyen host'lar burada hiç görünmez (zincir
+     de onları denemez); "Kaynağın playerı" modunda liste yine tam kalır —
+     kullanıcı sibnet'i orada görüp iframe ile izleyebilir. */
+  const siteKapsami = playerModu === 'site' && akisKapsam != null;
+  const kapsamIciMi = useCallback(
+    (k: Kaynak) => kapsamdaMi(akisKapsam, sarmalayiciCoz(k[2])),
+    [akisKapsam]
+  );
+
   const oynaticiSecenekleri = useMemo(() => {
     const sayilar = new Map<string, number>();
     for (const kaynak of kaynaklar) {
       if (gecerliSecim.length && !gecerliSecim.includes(kaynakGrubu(kaynak))) continue;
+      if (siteKapsami && !kapsamIciMi(kaynak)) continue;
       sayilar.set(kaynak[0], (sayilar.get(kaynak[0]) ?? 0) + 1);
     }
     return [...sayilar].map(([ad, sayi]) => ({ ad, sayi })).sort((a, b) => b.sayi - a.sayi || playerAd(a.ad).localeCompare(playerAd(b.ad), 'tr'));
-  }, [kaynaklar, gecerliSecim]);
+  }, [kaynaklar, gecerliSecim, siteKapsami, kapsamIciMi]);
 
-  const gosterilenKaynaklar = useMemo(() => {
+  const temelKaynaklar = useMemo(() => {
     const ekipSuzulmus = gecerliSecim.length ? kaynaklar.filter((k) => gecerliSecim.includes(kaynakGrubu(k))) : kaynaklar;
     const seciliPlayerVar = oynaticiSuzgeci && oynaticiSecenekleri.some((p) => p.ad === oynaticiSuzgeci);
     return seciliPlayerVar ? ekipSuzulmus.filter((k) => k[0] === oynaticiSuzgeci) : ekipSuzulmus;
   }, [kaynaklar, gecerliSecim, oynaticiSuzgeci, oynaticiSecenekleri]);
+
+  const siteUygunlar = useMemo(
+    () => (siteKapsami ? temelKaynaklar.filter(kapsamIciMi) : temelKaynaklar),
+    [temelKaynaklar, siteKapsami, kapsamIciMi]
+  );
+  /** Site modunda listeden çıkarılan kaynak sayısı (yalnız gizleme gerçekten olduysa). */
+  const kapsamDisiGizlenen = siteKapsami && siteUygunlar.length ? temelKaynaklar.length - siteUygunlar.length : 0;
+  /* Hepsi kapsam dışıysa liste boşaltılmaz: kullanıcı boş panel yerine kaynakları
+     görsün (oynatma yine çalışmaz, ama sebep ve mod düğmesi önünde olur). */
+  const gosterilenKaynaklar = siteUygunlar.length ? siteUygunlar : temelKaynaklar;
 
   /* Süzgeç değişince seçim başa döner. Karşılaştırma **içerik** üzerinden: tercih
      deposu yeniden yüklendiğinde (senkron/abonelik) dizi kimliği değişiyor ama
@@ -299,10 +330,9 @@ export default function IzleIstemci() {
   /* --------------------- site playerı (akış köprüsü) --------------------- */
   /* Akış çözümleme kullanıcı isteğiyle birer kaynak denenerek yapılır; iframe
      player modu varsayılan kalır. Sunucu kapsamı dinamik, başarılı/başarısız
-     kaynaklar ise bu bölümdeki gerçek deneme sonucuna göre listelenir. */
-  const [akisKapsam, setAkisKapsam] = useState<string[] | null>(null);
-  const [akisKapsamHatasi, setAkisKapsamHatasi] = useState<string | undefined>();
-  const [playerModu, setPlayerModu] = useState<'kaynak' | 'site'>('kaynak');
+     kaynaklar ise bu bölümdeki gerçek deneme sonucuna göre listelenir.
+     (`akisKapsam`, `akisKapsamHatasi`, `playerModu` yukarıda tanımlı: kaynak
+     listesi bunlara göre süzülüyor.) */
   const [zorlaCoz, setZorlaCoz] = useState(false);
   const [akisYenidenDeneme, setAkisYenidenDeneme] = useState(0);
   const [akisDenenenler, setAkisDenenenler] = useState<
@@ -398,15 +428,20 @@ export default function IzleIstemci() {
       if (kapsam != null && !kapsamdaMi(kapsam, sarmalayiciCoz(kaynak[2]))) continue;
       adaylar.push(s);
     }
-    /* Sıra: bu oturumda kanıtlanmış kaynak → cihazda kanıtlı host → kapsam içi
-       host → geri kalan. Kanıt, kullanıcının sekiz bilinmeyen host'u boşa
-       denemesini engeller; cihaz kaydı bölümler arasında da taşınır. */
+    /* Sıra: bu oturumda kanıtlanmış → **çözümü hazır** (taramasız oynar) →
+       cihazda kanıtlı host → kapsam içi host → geri kalan.
+       Çözüm önbelleği en güçlü kanıttır: kaynağın imzalı adresi elimizde olduğu
+       için hiç ağ turu harcamadan oynar. Kanıt, kullanıcının sekiz bilinmeyen
+       host'u boşa denemesini engeller; cihaz kaydı bölümler arasında taşınır. */
     const cihaz = hostBasarilari();
+    const cozumlu = cozumluAdresler();
     const puan = (s: number) => {
       const kaynak = kaynaklar[s];
+      const adres = sarmalayiciCoz(kaynak[2]);
       if (denenenler[kaynak[2]]?.durum === 'calisiyor') return 0;
-      if (hostKanitli(cihaz[kaynakHostu(sarmalayiciCoz(kaynak[2]))])) return 1;
-      return kapsamdaMi(kapsam, sarmalayiciCoz(kaynak[2])) ? 2 : 3;
+      if (cozumlu.has(adres)) return 0.5;
+      if (hostKanitli(cihaz[kaynakHostu(adres)])) return 1;
+      return kapsamdaMi(kapsam, adres) ? 2 : 3;
     };
     return adaylar.sort((a, b) => puan(a) - puan(b));
   }, []);
@@ -596,7 +631,6 @@ export default function IzleIstemci() {
     videoKonumRef.current = 0;
     const baslangic = Math.max(0, Math.floor(canli > 1 ? canli : konumOku(anime.slug, bolum.n)));
 
-    setAkisDurum('cozuluyor');
     setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { durum: 'bekliyor' } }));
     setAkisSorun('');
     /* Çözümleme gerçekten başladı: kaynak bu zincir turunda denenmiş sayılır.
@@ -604,7 +638,43 @@ export default function IzleIstemci() {
        ikinci kez seçemez (canlı testte bir kaynak iki kez denenmiş, bir hak
        boşa gitmişti). */
     zincirDenenenRef.current.add(kaynak[2]);
-    akisCoz(sarmalayiciCoz(kaynak[2])).then((sonuc) => {
+
+    /** Çözümü oynatıcıya bağlar ve takılma korumasını kurar. */
+    const oynatmayiKur = (cozum: AkisCozumu) => {
+      akisBolumRef.current = anahtar;
+      setAkis({ cozum, baslangic });
+      setAkisSorun('');
+      setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { durum: 'bekliyor' } }));
+      setAkisDurum('cozuluyor');
+      /* Takılma koruması: akış çözüldü ama video makul sürede oynamaya başlamazsa
+         kaynak başarısız sayılır ve zincir sıradakine geçer (onCanPlay timer'ı siler). */
+      if (yuklemeZamanlayiciRef.current !== null) window.clearTimeout(yuklemeZamanlayiciRef.current);
+      yuklemeZamanlayiciRef.current = window.setTimeout(() => {
+        yuklemeZamanlayiciRef.current = null;
+        if (akisSurumRef.current !== surum) return;
+        if ((videoRef.current?.readyState ?? 0) >= 3) return;
+        setAkis(null);
+        setAkisDurum('basarisiz');
+        setAkisSorun('akis-durdu');
+        setAkisNotu('akis-durdu');
+        setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { hata: 'akis-durdu', durum: 'basarisiz' } }));
+        kaynakBasarisiz(kaynak, 'akis-durdu');
+        zincirZamanla();
+      }, ZINCIR_YUKLEME_SINIRI_MS);
+    };
+
+    /* Daha önce başarıyla çözülen kaynak: **ağ taraması yapılmaz**, eldeki imzalı
+       adres doğrudan oynar. Adres bayatlamışsa `<video>` 403/502 verir ve mevcut
+       taze çözümleme yolu devreye girer (bedeli bir yenileme turu). */
+    const adres = sarmalayiciCoz(kaynak[2]);
+    const hazir = cozumOku(adres);
+    if (hazir) {
+      oynatmayiKur({ kaynakAdi: '', tur: hazir.tur, imzaBitis: hazir.imzaBitis, aktarim: hazir.aktarim });
+      return;
+    }
+
+    setAkisDurum('cozuluyor');
+    akisCoz(adres).then((sonuc) => {
       if (akisSurumRef.current !== surum) return;
       if (!sonuc.ok) {
         setAkisDurum('basarisiz');
@@ -631,26 +701,7 @@ export default function IzleIstemci() {
         zincirZamanla();
         return;
       }
-      akisBolumRef.current = anahtar;
-      setAkis({ cozum: sonuc.akis, baslangic });
-      setAkisSorun('');
-      setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { durum: 'bekliyor' } }));
-      setAkisDurum('cozuluyor');
-      /* Takılma koruması: akış çözüldü ama video makul sürede oynamaya başlamazsa
-         kaynak başarısız sayılır ve zincir sıradakine geçer (onCanPlay timer'ı siler). */
-      if (yuklemeZamanlayiciRef.current !== null) window.clearTimeout(yuklemeZamanlayiciRef.current);
-      yuklemeZamanlayiciRef.current = window.setTimeout(() => {
-        yuklemeZamanlayiciRef.current = null;
-        if (akisSurumRef.current !== surum) return;
-        if ((videoRef.current?.readyState ?? 0) >= 3) return;
-        setAkis(null);
-        setAkisDurum('basarisiz');
-        setAkisSorun('akis-durdu');
-        setAkisNotu('akis-durdu');
-        setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { hata: 'akis-durdu', durum: 'basarisiz' } }));
-        kaynakBasarisiz(kaynak, 'akis-durdu');
-        zincirZamanla();
-      }, ZINCIR_YUKLEME_SINIRI_MS);
+      oynatmayiKur(sonuc.akis);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aktifKaynak, bolum, kendiVideoAdayi, akisYenidenDeneme, zorlaCoz, akisKapsam]);
@@ -1150,6 +1201,11 @@ export default function IzleIstemci() {
                   setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { durum: 'calisiyor' } }));
                   /* Cihaz hafızası: bu host burada gerçekten oynadı. */
                   hostBasarisiKaydet(sarmalayiciCoz(kaynak[2]), true);
+                  /* Çözüm önbelleği **oynama başlayınca** yazılır: sunucu çözümü
+                     tek başına yeterli kanıt değil (bazı kaynaklar çözülüp
+                     oynamıyor). Sonraki ziyaret bu kaynağı hiç taramaz —
+                     "daha önce taranmış ve olumlu sonuç alınmış" hâli budur. */
+                  if (akis) cozumKaydet(sarmalayiciCoz(kaynak[2]), akis.cozum);
                   /* Oynatma başladı: takılma koruması düşer, zincir başarıyla kapanır. */
                   if (yuklemeZamanlayiciRef.current !== null) {
                     window.clearTimeout(yuklemeZamanlayiciRef.current);
@@ -1435,6 +1491,32 @@ export default function IzleIstemci() {
               {bolum ? `${bolumNumarasi(bolum.no, bolum.n)}. bölüm · ${sayiBicim(bolum.ekip.length)} ekip kaydı` : ''}
               {gosterilenKaynaklar.length > 1 ? ' · klavyeden 1-9 ile hızlı seçim' : ''}
             </p>
+
+            {/* Site modunda kapsam dışı host'lar listeden çıkarılır (Sibnet gibi
+                veri merkezini engelleyenler bu modda hiç oynayamaz). Sessizce
+                gizlemek yerine sayı + tek tıkla mod değişimi sunulur. */}
+            {kapsamDisiGizlenen > 0 ? (
+              <p className="ipucu" role="status">
+                {sayiBicim(kapsamDisiGizlenen)} kaynak bu modda gösterilmiyor (sunucumuz o host'a
+                erişemiyor).{' '}
+                <button
+                  type="button"
+                  className="baglanti-dugme"
+                  onClick={() => {
+                    setPlayerModu('kaynak');
+                    setZorlaCoz(false);
+                  }}
+                >
+                  Kaynağın playerında gör
+                </button>
+              </p>
+            ) : null}
+            {siteKapsami && !siteUygunlar.length ? (
+              <p className="ipucu" role="status">
+                Bu bölümdeki kaynakların hiçbiri site playerımızda açılamıyor; kaynağın
+                playerıyla izleyebilirsin.
+              </p>
+            ) : null}
 
             <div className="player-modu" role="group" aria-label="Oynatıcı seçimi">
               <button
