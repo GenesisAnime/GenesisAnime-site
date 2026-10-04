@@ -272,8 +272,44 @@ dosyalarına `p2` alanı olarak yazılır (`npm run poster:xl` → `tools/poster
 `anime_meta.anilist_id` eşleşmeleri 50'lik `Page(media(id_in:…))` istekleriyle çekilir
 (117 istek, 1,5 sn aralık, 429/5xx'te artan bekleme), parçalar `tools/cache/poster-xl/`
 altında önbelleklenir, yalnız `/cover/large/*.jpe?g` kabul edilir (aynı yolun PNG'leri
-326–489 KB iniyor). Kapsam: **3.067/6.107** anime dosyası (AniList kimliği eşleşen ve JPEG
-kapağı olanlar); ana sayfa verisine 353, kırpılmış kart dosyasına 339 `p2` düştü.
+326–489 KB iniyor).
+
+### 04.10 · Kapsam genişletmesi: engelin ölçümü
+
+`p2`'si olmayan 3.040 yapım incelendiğinde beklenti "AniList kimliği yoktu" idi;
+ölçüm bunu **yanlış çıkardı** (3.040'ın 2.783'ünün kimliği zaten var):
+
+| grup | sayı | neden `p2` almıyor |
+|---|---|---|
+| AniList kapağı yalnız **PNG** | 1.491 | `/cover/large/*.png` 460×631–690 için **184–903 KB** — karta kabul edilemez |
+| AniList kapağı yalnız **medium** | 1.131 | 230×331, MAL'ın 225×320'sinden büyük değil (kazanç yok) |
+| AniList kimliği **yok** | 257 | hiç eşlenmemiş yapımlar (arşiv dışı kaynaklardan gelen kayıtlar) |
+| AniList kaydı yok/boş | ~161 | kayıt silinmiş ya da kapak alanı boş |
+
+İki yeni yol bu engelleri açar (ikisi de `p2` yazar, istemci sözleşmesi aynı kalır):
+
+1. **Başlık eşleştirmesi** (`npm run poster:esle` → `tools/poster-esle.mjs`) — kimliği
+   olmayan 257 yapım için; arama tabanlı, `tools/lib/tmdb.mjs` normalizasyonunu kullanır.
+   Ayrıca poster URL'indeki eski MAL kimliği (`≤70.000`, dosya adı = MAL kimliği) varsa
+   **kesin** yol `idMal_in` ile doğrulanır. Kabul üç şart ister: ad benzerliği ≥0,90
+   (normalize tam eşleşme 1,00) + yıl farkı ≤1 + format ailesi uyumu; aynı AniList kaydına
+   iki yapım bağlanamaz (çakışan, ad benzerliği yüksek olanda kalır). Ölçüm: 257 hedef →
+   **35 kabul** (25 tam · 10 yakın; `ad 1,00` + yıl ±0 çoğunlukta), ret gerekçeleri
+   `tools/rapor/poster-esle.json` içinde — çoğu "arama sonucu yok" (bunlar özet/ONA
+   bölümleri: "Air Recap", "91 Days: Mijikai Rousoku" gibi AniList'te ayrı kaydı olmayanlar).
+   MAL kimliği yolu bu turda 4 kayıtta doğrulandı ama hiçbiri JPEG/large kapak vermedi;
+   kabul edilenlerin tamamı başlık benzerliğinden geldi.
+2. **Yerel PNG→JPEG üretimi** (`npm run kapak:yerel` → `tools/kapak-yerel.mjs`) — AniList'in
+   yalnız PNG verdiği yapımlar için kapak Chromium'da 460 px genişlikte JPEG'e çevrilir
+   (q0,78) ve `public/kapak/<slug>.jpg` olarak depoya konur; `p2` mutlak site adresi olur.
+   Ölçüm: 96 dosya · **6,2 MB** toplam · ortalama 66,4 KB (PNG kaynağı 46,4 MB) · PSNR 28–34 dB
+   (görsel olarak ayırt edilemez). Varsayılan kapsam **talep gören** yapımlar: ana sayfa
+   kartları + `kaynakSayisi ≥ 300`; `--esik 100` / `--tumu` ile genişletilebilir (1.491 dosya
+   tümü çevrilirse ≈88 MB olurdu — depo ikiye katlanırdı, bu yüzden bilinçli olarak ertelendi).
+
+**Yeni kapsam (04.10):** anime dosyası **3.197/6.107 (%52,3)** · ana sayfa kartı **531/564
+(%94,1)** · kart dosyası **507/540 (%93,9)** · hero **24/24**.
+Önceki durum: 3.067 (%50,2) · 353 (%62,6) · 339 · 14/24.
 
 İstemci sözleşmesi (`src/lib/gorsel.ts`):
 
@@ -281,7 +317,7 @@ kapağı olanlar); ana sayfa verisine 353, kırpılmış kart dosyasına 339 `p2
 |---|---|---|
 | `178w` | MAL `/r/178x254/` (10–15 KB) | 1× ekran — bayt aynı kaldı |
 | `225w` | MAL `/r/225x319/` (15–24 KB) | 1× geniş kart / 2× küçük kart |
-| `460w` | AniList `p2` (95–100 KB) | 2×/3× telefon, retina masaüstü |
+| `460w` | AniList `p2` (95–100 KB) **veya** yerel `/kapak/<slug>.jpg` (66 KB ort.) | 2×/3× telefon, retina masaüstü |
 
 `/r/356x508/` adayı **kaldırıldı** (büyütme = bulanıklık). Mobil hero ise `<picture>` ile
 sanat yönetimi yapar: ≤860 px'te dikey kapak (`p2` → MAL 225), üstünde 4K backdrop;

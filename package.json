@@ -18,6 +18,8 @@
     "tmdb:zenginlestir": "node --no-warnings tools/tmdb-zenginlestir.mjs",
     "tmdb:kapsam": "node --no-warnings tools/tmdb-kapsam.mjs",
     "poster:xl": "node --no-warnings tools/poster-xl.mjs",
+    "poster:esle": "node --no-warnings tools/poster-esle.mjs",
+    "kapak:yerel": "node --no-warnings tools/kapak-yerel.mjs",
     "akis:olcum": "node --no-warnings tools/akis-olcum.mjs",
     "veri:rapor": "node --no-warnings tools/report-data.mjs",
     "test": "node --no-warnings --test \"tools/testler/*.test.mjs\"",

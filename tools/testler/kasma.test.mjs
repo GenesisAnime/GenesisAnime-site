@@ -118,6 +118,17 @@ test('poster yardımcıları MAL küçültme yolunu üretir', async () => {
   // Yalnız p2 verildiğinde (MAL'sız) da tek aday kalır; geçersiz/anlamsız adres eklenmez
   assert.equal(gorsel.posterSrcSet(null, buyuk), `${buyuk} 460w`);
   assert.equal(gorsel.posterSrcSet(null, 'https://kotu-ornek/gorsel.jpg'), null);
+  /* Yerel üretilmiş kapak (`tools/kapak-yerel.mjs`): AniList yalnız PNG verdiğinde
+     kapağı biz çeviririz; adres de 460w adayı olmalı — aksi hâlde tarayıcı
+     kendi ürettiğimiz dosyayı hiç görmez, 225 px MAL kapağında kalır. */
+  const yerel = 'https://genesisanime.github.io/GenesisAnime-site/kapak/hunter-x-hunter-2011.jpg';
+  assert.equal(gorsel.yerelKapakMi(yerel), true);
+  assert.equal(gorsel.yerelKapakMi(buyuk), false);
+  assert.equal(gorsel.yerelKapakMi('/kapak/x.jpg'), true);
+  assert.equal(gorsel.yerelKapakMi('https://ornek/kapak/'), false, 'dosya adı olmayan yol kapak sayılmaz');
+  assert.match(gorsel.posterSrcSet(tam, yerel), /kapak\/hunter-x-hunter-2011\.jpg 460w/);
+  assert.equal(gorsel.posterSrcSet(null, yerel), `${yerel} 460w`);
+  assert.match(gorsel.posterKapakSrcSet(tam, yerel), /kapak\/hunter-x-hunter-2011\.jpg 460w/);
 });
 
 test('yüksek yoğunlukta AniList 460 px kapağı seçilir (MAL büyütmesi değil)', async () => {

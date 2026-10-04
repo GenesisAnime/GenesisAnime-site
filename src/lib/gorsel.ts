@@ -46,6 +46,20 @@ export function malOlcek(url: string, genislik: number, yukseklik: number): stri
 /** AniList kapak kökü: yalnız `/cover/large/` biçimi kabul edilir (460×662). */
 export const ANILIST_KAPAK_ONEK = 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/';
 
+/**
+ * Yerel üretilmiş kapak yolu (`public/kapak/<slug>.jpg`, 460 px JPEG).
+ *
+ * Neden gerekli: AniList'te 1.491 yapımın *büyük* kapağı yalnız **PNG**'dir ve o
+ * dosyalar aynı 460 px için 184–903 KB iniyor (karta kabul edilemez). Bu yüzden
+ * talep gören yapımların kapağı bir kez çevrilip `tools/kapak-yerel.mjs` ile
+ * depoya konur (`p2` alanına mutlak site adresi yazılır). İstemci tarafında bu
+ * adres de AniList kapağı gibi **460w adayı** sayılır; aksi hâlde kendi
+ * ürettiğimiz dosya `srcSet`e hiç girmez, tarayıcı 225 px MAL kapağında kalırdı.
+ */
+export function yerelKapakMi(url?: string | null): boolean {
+  return typeof url === 'string' && /\/kapak\/[^/]+\.jpe?g$/i.test(url);
+}
+
 /** AniList büyük kapağının gerçek genişliği (ölçüldü: bx5 460×662, bx6 460×690). */
 export const POSTER_XL_GENISLIK = 460;
 
@@ -54,7 +68,8 @@ export const POSTER_XL_GENISLIK = 460;
  *
  *   178w  MAL `/r/178x254/` — 1× ekran (10–15 KB; bugünkü davranış, bayt aynı)
  *   225w  MAL `/r/225x319/` — MAL'ın gerçek kaynağı (225×320); tavan
- *   460w  AniList `/cover/large/` — yüksek yoğunluk (2×/3× telefon, retina masaüstü)
+ *   460w  AniList `/cover/large/` **veya** yerel `/kapak/<slug>.jpg` — yüksek
+ *         yoğunluk (2×/3× telefon, retina masaüstü); ikisi de gerçek 460 px
  *
  * Eskiden 356w adayı vardı: MAL CDN'i 225 px kaynağı **büyütüp** veriyordu
  * (31–38 KB, bulanık). Ölçüm 04.10: `/r/356x508/` = bulanık büyütme; telefonlar
@@ -68,7 +83,9 @@ export function posterSrcSet(poster: string | null, buyuk?: string | null): stri
     adaylar.push(`${malOlcek(poster, 178, 254)} 178w`);
     adaylar.push(`${malOlcek(poster, 225, 319)} 225w`);
   }
-  if (buyuk && buyuk.startsWith(ANILIST_KAPAK_ONEK)) adaylar.push(`${buyuk} ${POSTER_XL_GENISLIK}w`);
+  if (buyuk && (buyuk.startsWith(ANILIST_KAPAK_ONEK) || yerelKapakMi(buyuk))) {
+    adaylar.push(`${buyuk} ${POSTER_XL_GENISLIK}w`);
+  }
   return adaylar.length ? adaylar.join(', ') : null;
 }
 
@@ -81,7 +98,9 @@ export function posterSrcSet(poster: string | null, buyuk?: string | null): stri
 export function posterKapakSrcSet(poster: string | null, buyuk?: string | null): string | null {
   const adaylar: string[] = [];
   if (poster && poster.startsWith(MAL_ONEK)) adaylar.push(`${malOlcek(poster, 225, 319)} 225w`);
-  if (buyuk && buyuk.startsWith(ANILIST_KAPAK_ONEK)) adaylar.push(`${buyuk} ${POSTER_XL_GENISLIK}w`);
+  if (buyuk && (buyuk.startsWith(ANILIST_KAPAK_ONEK) || yerelKapakMi(buyuk))) {
+    adaylar.push(`${buyuk} ${POSTER_XL_GENISLIK}w`);
+  }
   return adaylar.length ? adaylar.join(', ') : null;
 }
 

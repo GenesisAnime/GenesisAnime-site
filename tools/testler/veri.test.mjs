@@ -540,29 +540,47 @@ test('ana-sayfa-kartlar.json: ana-sayfa.json ile birebir (bayat dosya yok)', asy
   assert.ok(bayt < 192 * 1024, `ana-sayfa-kartlar.json çok büyüdü: ${(bayt / 1024).toFixed(0)} KB`);
 });
 
-test('p2: yüksek yoğunluk kapakları AniList 460 px JPEG ve kapsam yeterli', async () => {
+test('p2: yüksek yoğunluk kapakları AniList 460 px JPEG ya da yerel /kapak JPEG, kapsam yeterli', async () => {
   const dizin = 'public/data/anime';
   const dosyalar = fs.readdirSync(dizin).filter((f) => f.endsWith('.json'));
   const kapakDeseni = /^https:\/\/s4\.anilist\.co\/file\/anilistcdn\/media\/anime\/cover\/large\/.+\.jpe?g$/;
+  /* İkinci meşru kaynak: AniList yalnız PNG verdiğinde (`/cover/large/*.png`,
+     184–903 KB) kapağı `tools/kapak-yerel.mjs` 460 px JPEG'e çevirip depoya
+     koyar; `p2` mutlak site adresidir ve dosya **gerçekten var olmalı**. */
+  const yerelOnek = 'https://genesisanime.github.io/GenesisAnime-site/kapak/';
+  const yerelMi = (u) => u.startsWith(yerelOnek) && /\.jpg$/.test(u);
   let p2li = 0;
+  let yerelli = 0;
   const bozuk = [];
+  const eksik = [];
   for (const ad of dosyalar) {
     const j = JSON.parse(fs.readFileSync(path.join(dizin, ad), 'utf8'));
     if (!j.p2) continue;
     p2li++;
+    if (yerelMi(j.p2)) {
+      yerelli++;
+      if (!fs.existsSync(path.join('public', 'kapak', path.basename(new URL(j.p2).pathname)))) eksik.push(j.slug);
+      continue;
+    }
     if (!kapakDeseni.test(j.p2)) bozuk.push(j.slug);
   }
-  assert.deepEqual(bozuk.slice(0, 5), [], 'p2 yalnızca AniList `/cover/large/*.jpg` olabilir (PNG 300–490 KB, medium 230 px: kazanç yok)');
-  /* AniList eşleşmelerinin ~%54'ünde büyük JPEG var (rastgele 100 örnek:
-     54 JPEG · 28 PNG · 18 medium). Alt sınır, alanın sessizce boşaltılmasını
-     engeller; üst sınır yok çünkü kapsam veriye bağlı büyüyebilir. */
-  assert.ok(p2li >= 2_500, `p2 kapsamı düştü: ${p2li} anime (beklenen ≥ 2500)`);
+  assert.deepEqual(
+    bozuk.slice(0, 5),
+    [],
+    'p2 yalnızca AniList `/cover/large/*.jpg` ya da yerel `/kapak/*.jpg` olabilir (PNG 184–903 KB, medium 230 px: kazanç yok)'
+  );
+  assert.deepEqual(eksik.slice(0, 5), [], 'p2 bir yerel kapağa işaret ediyor ama dosya yok');
+  /* AniList eşleşmelerinin bir kısmında büyük JPEG var; kalanı PNG/medium.
+     Alt sınır alanın sessizce boşaltılmasını engeller, üst sınır yok. */
+  assert.ok(p2li >= 3_000, `p2 kapsamı düştü: ${p2li} anime (beklenen ≥ 3000)`);
+  assert.ok(yerelli >= 80, `yerel kapak kapsamı düştü: ${yerelli} dosya`);
 
   const ana = JSON.parse(fs.readFileSync('public/data/ana-sayfa.json', 'utf8'));
   const ogeler = [...(ana.hero || []), ...(ana.satirlar || []).flatMap((s) => s.ogeler || [])];
   const anaP2 = ogeler.filter((o) => o.p2).length;
-  assert.ok(anaP2 >= 250, `ana sayfa kartlarında p2 kapsamı düştü: ${anaP2}`);
+  assert.ok(anaP2 >= 500, `ana sayfa kartlarında p2 kapsamı düştü: ${anaP2}`);
   for (const o of ogeler) {
-    if (o.p2) assert.ok(kapakDeseni.test(o.p2), `ana sayfa kartı p2 bozuk: ${o.s}`);
+    if (!o.p2) continue;
+    assert.ok(kapakDeseni.test(o.p2) || yerelMi(o.p2), `ana sayfa kartı p2 bozuk: ${o.s}`);
   }
 });
