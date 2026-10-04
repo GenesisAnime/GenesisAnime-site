@@ -265,8 +265,13 @@ export default function IzleIstemci() {
     return seciliPlayerVar ? ekipSuzulmus.filter((k) => k[0] === oynaticiSuzgeci) : ekipSuzulmus;
   }, [kaynaklar, gecerliSecim, oynaticiSuzgeci, oynaticiSecenekleri]);
 
-  useEffect(() => setKaynakSira(0), [gecerliSecim, oynaticiSuzgeci]);
-  useEffect(() => setOynaticiSuzgeci(null), [gecerliSecim]);
+  /* Süzgeç değişince seçim başa döner. Karşılaştırma **içerik** üzerinden: tercih
+     deposu yeniden yüklendiğinde (senkron/abonelik) dizi kimliği değişiyor ama
+     içerik aynı kalıyor — kimlik değişimi seçimi boşa sıfırlayıp zincirin
+     ortasındaki kaynağı yeniden denetiyordu (canlı test: 7 kaynak, 8 istek). */
+  const ekipAnahtari = gecerliSecim.join('|');
+  useEffect(() => setKaynakSira(0), [ekipAnahtari, oynaticiSuzgeci]);
+  useEffect(() => setOynaticiSuzgeci(null), [ekipAnahtari]);
 
   const aktifKaynak =
     gosterilenKaynaklar[Math.min(kaynakSira, Math.max(0, gosterilenKaynaklar.length - 1))] ?? null;

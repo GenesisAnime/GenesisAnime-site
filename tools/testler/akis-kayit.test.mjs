@@ -141,4 +141,5 @@ test('yapısal: oynatıcı cihaz hafızasını ve telemetriyi gerçekten kullan�
   assert.match(izle, /tercihiKapat\(\)/, 'elle seçim otomatik tercihi kapatır');
   assert.match(izle, /zincirDenenenRef\.current\.has/, 'aynı kaynak zincirde iki kez seçilmez (yarış koruması)');
   assert.match(izle, /zincirDenenenRef\.current\.add\(kaynak\[2\]\)/, 'çözümleme başlayan kaynak denenmiş sayılır');
+  assert.match(izle, /ekipAnahtari/, 'süzgeç karşılaştırması içerik üzerinden (yeniden yükleme seçimi sıfırlamaz)');
 });

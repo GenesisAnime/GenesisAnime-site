@@ -85,8 +85,11 @@ deneyebilirsin" yazar.
 “kanıtlı” sayılır ve sonraki bölümlerde “Sitenin playerı”na geçildiği anda **ilk deneme kanıtlı
 host'la başlar**; zincirde sıra oturum içi kanıt → cihazda kanıtlı host → kapsam içi → kalanlar
 şeklindedir. Tercih, mod düğmesiyle aynı tıklamada (tek render'da) uygulanır — canlı testte ilk
-isteğin boşa varsayılan kaynağa gittiği görülüp düzeltildi. Hiç kanıt yoksa varsayılan seçim
-değişmez. Veri cihazdan çıkmaz; kullanıcı elle kaynak seçince otomatik tercih kapanır.
+isteğin boşa varsayılan kaynağa gittiği görülüp düzeltildi. Zincir, çözümlemesi başlayan kaynağı
+“denendi” sayar; fansub süzgeci karşılaştırması da **içerik** üzerinden yapılır, çünkü tercih
+deposunun yeniden yüklenmesi dizi kimliğini değiştirip seçimi sıfırlıyor ve aynı kaynağı ikinci kez
+denettiriyordu (canlı test: 7 kaynak, 8 istek). Hiç kanıt yoksa varsayılan seçim değişmez. Veri
+cihazdan çıkmaz; kullanıcı elle kaynak seçince otomatik tercih kapanır.
 
 **Hata telemetrisi (04.10):** Sitenin playerında çözülemeyen, türü desteklenmeyen ya da akışı
 duran kaynaklar `POST /akis/hata` ile Worker'a bildirilir: `{url, hata, anime?, bolum?}`;
