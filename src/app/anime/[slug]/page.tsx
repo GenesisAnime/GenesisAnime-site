@@ -6,7 +6,7 @@ import BolumListesi from '@/components/BolumListesi';
 import Kart from '@/components/Kart';
 import { animeOku, fansublarDosyaOku, kunyeOku, serilerOku, tumSluglar } from '@/lib/veri';
 import { durumAd, formatAd, jsonLdGuvenli, kisalt, puanBicim, sayiBicim, sureBicim } from '@/lib/bicim';
-import { backdropSrcSet, tmdbKucuk } from '@/lib/gorsel';
+import { backdropSrcSet, posterSrcSet, tmdbKucuk } from '@/lib/gorsel';
 import { SITE } from '@/lib/site';
 
 export const dynamicParams = false;
@@ -128,7 +128,14 @@ export default async function AnimeSayfasi({ params }: { params: Promise<{ slug:
           <div className="afis">
             {anime.poster ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={anime.poster} alt={`${anime.ad} afişi`} fetchPriority="high" decoding="async" />
+              <img
+                src={anime.poster}
+                srcSet={posterSrcSet(anime.poster) ?? undefined}
+                sizes="(max-width: 520px) 90px, 130px"
+                alt={`${anime.ad} afişi`}
+                fetchPriority="high"
+                decoding="async"
+              />
             ) : (
               <div className="kart-yer-tutucu">{anime.ad}</div>
             )}

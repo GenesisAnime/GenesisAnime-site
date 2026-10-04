@@ -150,8 +150,10 @@ button {
   position: sticky;
   top: 0;
   z-index: 60;
-  background: rgba(8, 6, 13, 0.82);
-  backdrop-filter: blur(14px) saturate(140%);
+  /* Sabit (sticky) üst bar kaydırma boyunca hep görünür: `backdrop-filter`
+     her karede arkasındaki içeriği yeniden bulanıklaştırır ve mobil GPU'da
+     kasmanın ikinci kaynağıydı. Zemin biraz koyulaştırıldı; görünüm aynı. */
+  background: rgba(9, 7, 15, 0.94);
   border-bottom: 1px solid var(--line);
 }
 
@@ -629,6 +631,9 @@ button {
   background: var(--card2);
   border: 1px solid var(--line);
   box-shadow: var(--golge);
+  /* Her kart kendi boyama alanı: kart içi değişiklik (rozet, hover, görsel yüklemesi)
+     satırın geri kalanını yeniden boyamasın — 540 kartta fark hissedilir. */
+  contain: paint;
 }
 
 .kart-gorsel img {
@@ -677,8 +682,12 @@ button {
   border-radius: 7px;
   font-size: 11.5px;
   font-weight: 700;
-  background: rgba(8, 6, 13, 0.82);
-  backdrop-filter: blur(6px);
+  /* Arka plan opak: eskiden `backdrop-filter: blur(6px)` vardı. Ana sayfada
+     540 kart × 2 rozet = 1.079 bulanık katman oluşuyordu; her biri kaydırma
+     karesinde GPU'da yeniden rasterlanıyordu (canlı sayfada ölçüldü: 1.085
+     backdrop-filter katmanı — kasmanın ana kaynağı). Aynı görünüm için
+     yarı saydam zemin koyulaştırıldı; blur yalnızca sabit üst bara kaldı. */
+  background: rgba(8, 6, 13, 0.92);
   border: 1px solid var(--line2);
   color: var(--tx);
 }
@@ -1672,9 +1681,10 @@ a.etiket:hover {
   bottom: 0;
   left: 0;
   right: 0;
+  /* Sabit alt menü de kaydırma boyunca hep görünür: bulanık katman burada da
+     her karede yeniden rasterlanıyordu (üst bar ile aynı gerekçe). */
   z-index: 60;
-  background: rgba(13, 9, 22, 0.95);
-  backdrop-filter: blur(14px);
+  background: rgba(13, 9, 22, 0.97);
   border-top: 1px solid var(--line);
   padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
 }

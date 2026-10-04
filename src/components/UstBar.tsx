@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { genelYol } from '@/lib/yollar';
+import { posterSrcSet } from '@/lib/gorsel';
 import { ara, katalogHazir, katalogYukle } from '@/lib/istemci/katalog';
 import type { KatalogSatiri } from '@/lib/tipler';
 import { AraIkon, KapatIkon, MenuIkon } from './Ikon';
@@ -181,7 +182,7 @@ export default function UstBar() {
                   >
                     {s[5] ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={s[5]} alt="" loading="lazy" />
+                      <img src={s[5]} srcSet={posterSrcSet(s[5]) ?? undefined} sizes="38px" alt="" loading="lazy" decoding="async" />
                     ) : (
                       <span className="iskelet" style={{ width: 38, height: 54, flex: 'none' }} />
                     )}

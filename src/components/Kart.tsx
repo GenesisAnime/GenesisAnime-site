@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { puanBicim, sayiBicim } from '@/lib/bicim';
+import { POSTER_SIZES, posterSrcSet } from '@/lib/gorsel';
 
 export interface KartVerisi {
   slug: string;
@@ -39,7 +40,14 @@ export default function Kart({
       <div className="kart-gorsel">
         {poster ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={poster} alt={ad} loading="lazy" decoding="async" />
+          <img
+            src={poster}
+            srcSet={posterSrcSet(poster) ?? undefined}
+            sizes={POSTER_SIZES}
+            alt={ad}
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           <div className="kart-yer-tutucu">{ad}</div>
         )}
