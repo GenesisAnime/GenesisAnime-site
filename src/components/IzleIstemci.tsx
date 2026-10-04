@@ -311,6 +311,12 @@ export default function IzleIstemci() {
   }>({ durum: 'bos', denenen: 0 });
   /** Zincirde denenen kaynak sayısı (sınır için) ve bekleyen zamanlayıcılar. */
   const zincirSayacRef = useRef(0);
+  /**
+   * Bu zincir turunda seçilmiş kaynakların ham adresleri. `denenenler` durumu
+   * render ile geciktiğinde aynı kaynak ikinci kez seçilebiliyordu (canlı testte
+   * sibnet iki kez denendi, bir zincir hakkı boşa gitti); bu küme o boşluğu kapatır.
+   * Bölüm/mod değişiminde ve elle seçimde sıfırlanır. */
+  const zincirDenenenRef = useRef<Set<string>>(new Set());
   const zincirZamanlayiciRef = useRef<number | null>(null);
   const zincirSurumRef = useRef(0);
   const yuklemeZamanlayiciRef = useRef<number | null>(null);
@@ -378,6 +384,7 @@ export default function IzleIstemci() {
       const s = (sira + adim) % kaynaklar.length;
       const kaynak = kaynaklar[s];
       if (!kaynak) continue;
+      if (zincirDenenenRef.current.has(kaynak[2])) continue;
       if (denenenler[kaynak[2]]?.durum === 'basarisiz') continue;
       adaylar.push(s);
     }
@@ -404,6 +411,8 @@ export default function IzleIstemci() {
       return;
     }
     const sonraki = adaylar[0];
+    const sonrakiKaynak = zincirRef.current.kaynaklar[sonraki];
+    if (sonrakiKaynak) zincirDenenenRef.current.add(sonrakiKaynak[2]);
     zincirSayacRef.current += 1;
     setZincirBilgi({ durum: 'deniyor', denenen: zincirSayacRef.current });
     setKaynakSira(sonraki);
@@ -426,6 +435,7 @@ export default function IzleIstemci() {
   /** Elle "dene" seçiminde sayaç sıfırlanır: zincir seçilen kaynaktan sürer. */
   const zincirSifirla = useCallback(() => {
     zincirTemizle();
+    zincirDenenenRef.current.clear();
     zincirSayacRef.current = 0;
     setZincirBilgi({ durum: 'bos', denenen: 0 });
   }, [zincirTemizle]);
@@ -474,6 +484,7 @@ export default function IzleIstemci() {
      açılıp açılmadığını okuyamadığımız için orada otomatik deneme anlamsız. */
   useEffect(() => {
     zincirTemizle();
+    zincirDenenenRef.current.clear();
     zincirSayacRef.current = 0;
     setZincirBilgi({ durum: 'bos', denenen: 0 });
   }, [playerModu, bolum?.n, zincirTemizle]);
