@@ -60,6 +60,8 @@ export interface Anime {
   sezon: string | null;
   sure: number | null;
   poster: string | null;
+  /** Yüksek yoğunluk kapağı (AniList 460×662) — `tools/poster-xl.mjs` yazar; yoksa alan bulunmaz. */
+  p2?: string | null;
   banner: string | null;
   /** TMDB backdrop'u (≥3000 px) — hero/bant için gerçek 4K kaynak; yoksa null */
   banner4k: string | null;
@@ -112,6 +114,8 @@ export interface AnaSayfaKarti {
   puan: number | null;
   format: string | null;
   p: string;
+  /** Yüksek yoğunluk kapağı (AniList 460×662); yoksa alan hiç bulunmaz. */
+  p2?: string | null;
   ban: string | null;
   /** 4K backdrop (varsa hero onu kullanır) */
   ban4k: string | null;

@@ -130,7 +130,7 @@ export default async function AnimeSayfasi({ params }: { params: Promise<{ slug:
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={anime.poster}
-                srcSet={posterSrcSet(anime.poster) ?? undefined}
+                srcSet={posterSrcSet(anime.poster, anime.p2) ?? undefined}
                 sizes="(max-width: 520px) 90px, 130px"
                 alt={`${anime.ad} afişi`}
                 fetchPriority="high"

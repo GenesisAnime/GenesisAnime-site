@@ -101,15 +101,68 @@ test('poster yardımcıları MAL küçültme yolunu üretir', async () => {
   const kitsu = 'https://media.kitsu.app/anime/45515/poster_image/small-x.jpeg';
   assert.equal(gorsel.malOlcek(kitsu, 178, 254), kitsu);
   assert.equal(gorsel.posterSrcSet(kitsu), null);
-  // srcSet üç aday bildirir ve 178w adayı küçültülmüş yoldur
+  // srcSet: 178 (1×) + 225 (MAL'ın gerçek kaynağı) — ve **büyütme yok**
   const srcSet = gorsel.posterSrcSet(tam);
   assert.match(srcSet, /\/r\/178x254\/images\/.*178w/);
-  assert.match(srcSet, /\/r\/356x508\/images\/.*356w/);
+  assert.match(srcSet, /\/r\/225x319\/images\/.*225w/);
+  // MAL CDN'i 225 px kaynağı /r/356x508/ ile büyütüyordu: 31–38 KB ve bulanık
+  // (mobilde telefon 284–426 px ister, MAL 356 verir). Büyütme adayı yasak;
+  // yüksek yoğunluk artık AniList'in gerçek 460 px kapağından gelir.
+  assert.ok(
+    !srcSet.includes('/r/356x508/'),
+    'posterSrcSet: MAL büyütme adayı geri gelmiş — kalite düşer, bayt artar'
+  );
+  const buyuk = 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx114129-RLgSuh6YbeYx.jpg';
+  const xl = gorsel.posterSrcSet(tam, buyuk);
+  assert.match(xl, /anilistcdn\/media\/anime\/cover\/large\/.* 460w/, 'p2 adayı 460w olarak bildirilmeli');
+  // Yalnız p2 verildiğinde (MAL'sız) da tek aday kalır; geçersiz/anlamsız adres eklenmez
+  assert.equal(gorsel.posterSrcSet(null, buyuk), `${buyuk} 460w`);
+  assert.equal(gorsel.posterSrcSet(null, 'https://kotu-ornek/gorsel.jpg'), null);
+});
+
+test('yüksek yoğunlukta AniList 460 px kapağı seçilir (MAL büyütmesi değil)', async () => {
+  let gorsel;
+  try {
+    gorsel = await import('../../src/lib/gorsel.ts');
+  } catch {
+    return;
+  }
+  /** Tarayıcının `srcSet` + `sizes` seçimi: gereken = slot × DPR; en küçük
+   *  yeterli aday, yoksa en büyük aday (HTML spec, “select an image source”). */
+  const sec = (srcSet, sizesPx, dpr) => {
+    const adaylar = srcSet.split(',').map((p) => {
+      const [u, w] = p.trim().split(/\s+/);
+      return { u, w: Number(String(w).replace('w', '')) };
+    });
+    const gereken = sizesPx * dpr;
+    const yeterli = adaylar.filter((a) => a.w >= gereken).sort((a, b) => a.w - b.w)[0];
+    return (yeterli || adaylar.sort((a, b) => b.w - a.w)[0]).u;
+  };
+  const tam = 'https://cdn.myanimelist.net/images/anime/1245/116760.jpg';
+  const buyuk = 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx114129-RLgSuh6YbeYx.jpg';
+  const srcSet = gorsel.posterSrcSet(tam, buyuk);
+  const mobilSlot = 142;
+  assert.match(sec(srcSet, mobilSlot, 1), /\/r\/178x254\//, 'mobil 1×: MAL 178 (ucuz yol) inmeli');
+  assert.equal(sec(srcSet, mobilSlot, 2), buyuk, 'mobil 2×: AniList 460 inmeli — eski hâlde MAL\'ın bulanık 356 büyütmesi geliyordu');
+  assert.equal(sec(srcSet, mobilSlot, 3), buyuk, 'mobil 3×: AniList 460');
+  assert.match(sec(srcSet, 178, 1), /\/r\/178x254\//, 'masaüstü 1×: MAL 178 (bayt artmaz)');
+  assert.equal(sec(srcSet, 178, 2), buyuk, 'retina masaüstü: AniList 460');
+});
+
+test('kart p2 (yüksek yoğunluk kapağı) verisini görsele geçirir', () => {
+  assert.match(oku('src', 'components', 'Kart.tsx'), /posterSrcSet\(poster, buyuk\)/, 'Kart: p2 aktarılmıyor');
+  assert.match(oku('src', 'app', 'page.tsx'), /buyuk=\{o\.p2\}/, 'ana sayfa: kartlara p2 aktarılmıyor');
+  assert.match(
+    oku('src', 'components', 'TembelSatirlar.tsx'),
+    /buyuk=\{o\.p2\}/,
+    'tembel satırlar: kartlara p2 geçilmiyor'
+  );
+  assert.match(oku('tools', 'ana-sayfa-kartlar.mjs'), /'p2'/, 'kırpılmış kart dosyası p2 alanını taşımalı');
 });
 
 test('kart görseli srcSet + sizes bildirir (tarayıcı küçük varyantı seçebilsin)', () => {
   const kart = oku('src', 'components', 'Kart.tsx');
-  assert.match(kart, /posterSrcSet\(poster\)/, 'Kart: poster srcSet kullanmalı');
+  assert.match(kart, /posterSrcSet\(poster, buyuk\)/, 'Kart: poster srcSet kullanmalı (p2 ile birlikte)');
   assert.match(kart, /sizes=\{POSTER_SIZES\}/, 'Kart: sizes bildirmeli');
   assert.match(kart, /decoding="async"/, 'Kart: kod çözme ana iş parçacığını bloklamamalı');
 });

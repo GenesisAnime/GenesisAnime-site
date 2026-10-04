@@ -19,7 +19,7 @@ import path from 'node:path';
 import { ROOT } from './lib/ortak.mjs';
 
 /** Kart bileşeninin okuduğu alanlar (ada göre; eksik olan yazılmaz). */
-export const KART_ALANLARI = ['s', 'ad', 'p', 'yil', 'puan', 'format', 'bs', 'ks'];
+export const KART_ALANLARI = ['s', 'ad', 'p', 'p2', 'yil', 'puan', 'format', 'bs', 'ks'];
 
 export function kaynakYolu() {
   return path.join(ROOT, 'public', 'data', 'ana-sayfa.json');

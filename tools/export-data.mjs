@@ -469,6 +469,11 @@ for (const a of animeSatirlari) {
   if (animeKaynak === 0) sayac.kaynaksizAnime++;
 
   const poster = meta?.poster_url || an?.xl || null;
+  /* Yüksek yoğunluk kapağı: AniList'in **460×662** JPEG'i (`/cover/large/`).
+     Yalnız yüksek yoğunluk adayı olarak kullanılır (2×/3× ekranlar); PNG'ler
+     (300–490 KB) ve `/cover/medium/` (230×331, MAL'ın 225×320'sinden büyük
+     değil) dışlanır — ayrıntı: tools/poster-xl.mjs, src/lib/gorsel.ts. */
+  const kapiBuyuk = typeof an?.xl === 'string' && /\/cover\/large\/.+\.jpe?g$/i.test(an.xl) ? an.xl : null;
   const banner = an?.ban || null;
   // 4K banner yalnızca gerçekten geniş bir TMDB backdrop'u varsa yazılır: eşit
   // veya daha küçük bir görsel için kaynak değiştirmenin anlamı yok.
@@ -549,6 +554,7 @@ for (const a of animeSatirlari) {
     sezon,
     sure,
     poster,
+    p2: kapiBuyuk,
     banner,
     banner4k,
     banner4kGenislik,
@@ -591,6 +597,7 @@ for (const a of animeSatirlari) {
       puan,
       format,
       p: poster,
+      p2: kapiBuyuk,
       ban: banner,
       ban4k: banner4k,
       bw: dortK ? dortK.genislik : null,

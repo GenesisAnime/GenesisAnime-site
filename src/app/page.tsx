@@ -44,6 +44,7 @@ export default function AnaSayfa() {
                 slug={o.s}
                 ad={o.ad}
                 poster={o.p}
+                buyuk={o.p2}
                 yil={o.yil}
                 puan={o.puan}
                 format={o.format}

@@ -6,6 +6,9 @@ export interface KartVerisi {
   slug: string;
   ad: string;
   poster: string | null;
+  /** Yüksek yoğunluk kapağı (AniList 460×662) — 2×/3× ekranlarda MAL'ın küçük
+      varyantı yerine bu iner; veri hattı `tools/poster-xl.mjs` üretir. */
+  buyuk?: string | null;
   yil: number | null;
   puan: number | null;
   format: string | null;
@@ -24,6 +27,7 @@ export default function Kart({
   slug,
   ad,
   poster,
+  buyuk,
   yil,
   puan,
   format,
@@ -42,7 +46,7 @@ export default function Kart({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={poster}
-            srcSet={posterSrcSet(poster) ?? undefined}
+            srcSet={posterSrcSet(poster, buyuk) ?? undefined}
             sizes={POSTER_SIZES}
             alt={ad}
             loading="lazy"

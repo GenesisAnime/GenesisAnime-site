@@ -531,7 +531,38 @@ test('ana-sayfa-kartlar.json: ana-sayfa.json ile birebir (bayat dosya yok)', asy
     assert.deepEqual(fazla, [], 'hafif kart verisinde beklenmeyen alan var');
   }
 
-  /* Eski alanların gelmemesi performans sözleşmesi: dosya 128 KB'ın altında kalmalı. */
+  /* Performans sözleşmesi: ağır alanlar (`oz`, `ban4k`, `t`) dönmesin.
+     Bütçe 04.10'da 128 KB → 192 KB oldu: `p2` (yüksek yoğunluk kapağı) kart
+     başına ~110 baytlık **hash'li** URL ekler (sıkıştırılamaz), karşılığında
+     2×/3× ekranlarda bulanık MAL büyütmesi yerine gerçek 460 px kapak iner.
+     Ölçüm: 100 KB → 129 KB ham, 15 KB → 20 KB gzip. */
   const bayt = fs.statSync(hedefYolu()).size;
-  assert.ok(bayt < 128 * 1024, `ana-sayfa-kartlar.json çok büyüdü: ${(bayt / 1024).toFixed(0)} KB`);
+  assert.ok(bayt < 192 * 1024, `ana-sayfa-kartlar.json çok büyüdü: ${(bayt / 1024).toFixed(0)} KB`);
+});
+
+test('p2: yüksek yoğunluk kapakları AniList 460 px JPEG ve kapsam yeterli', async () => {
+  const dizin = 'public/data/anime';
+  const dosyalar = fs.readdirSync(dizin).filter((f) => f.endsWith('.json'));
+  const kapakDeseni = /^https:\/\/s4\.anilist\.co\/file\/anilistcdn\/media\/anime\/cover\/large\/.+\.jpe?g$/;
+  let p2li = 0;
+  const bozuk = [];
+  for (const ad of dosyalar) {
+    const j = JSON.parse(fs.readFileSync(path.join(dizin, ad), 'utf8'));
+    if (!j.p2) continue;
+    p2li++;
+    if (!kapakDeseni.test(j.p2)) bozuk.push(j.slug);
+  }
+  assert.deepEqual(bozuk.slice(0, 5), [], 'p2 yalnızca AniList `/cover/large/*.jpg` olabilir (PNG 300–490 KB, medium 230 px: kazanç yok)');
+  /* AniList eşleşmelerinin ~%54'ünde büyük JPEG var (rastgele 100 örnek:
+     54 JPEG · 28 PNG · 18 medium). Alt sınır, alanın sessizce boşaltılmasını
+     engeller; üst sınır yok çünkü kapsam veriye bağlı büyüyebilir. */
+  assert.ok(p2li >= 2_500, `p2 kapsamı düştü: ${p2li} anime (beklenen ≥ 2500)`);
+
+  const ana = JSON.parse(fs.readFileSync('public/data/ana-sayfa.json', 'utf8'));
+  const ogeler = [...(ana.hero || []), ...(ana.satirlar || []).flatMap((s) => s.ogeler || [])];
+  const anaP2 = ogeler.filter((o) => o.p2).length;
+  assert.ok(anaP2 >= 250, `ana sayfa kartlarında p2 kapsamı düştü: ${anaP2}`);
+  for (const o of ogeler) {
+    if (o.p2) assert.ok(kapakDeseni.test(o.p2), `ana sayfa kartı p2 bozuk: ${o.s}`);
+  }
 });

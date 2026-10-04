@@ -43,10 +43,46 @@ export function malOlcek(url: string, genislik: number, yukseklik: number): stri
   return `https://cdn.myanimelist.net/r/${genislik}x${yukseklik}/images/${url.slice(MAL_ONEK.length)}`;
 }
 
-/** İstenen ölçekte varyant varsa srcSet üretir; yoksa null (src yalnız kalır). */
-export function posterSrcSet(poster: string | null): string | null {
-  if (!poster || !poster.startsWith(MAL_ONEK)) return null;
-  return `${malOlcek(poster, 178, 254)} 178w, ${malOlcek(poster, 356, 508)} 356w, ${poster} 225w`;
+/** AniList kapak kökü: yalnız `/cover/large/` biçimi kabul edilir (460×662). */
+export const ANILIST_KAPAK_ONEK = 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/';
+
+/** AniList büyük kapağının gerçek genişliği (ölçüldü: bx5 460×662, bx6 460×690). */
+export const POSTER_XL_GENISLIK = 460;
+
+/**
+ * Kart posteri `srcSet`i. Adaylar ve **neden** bunlar:
+ *
+ *   178w  MAL `/r/178x254/` — 1× ekran (10–15 KB; bugünkü davranış, bayt aynı)
+ *   225w  MAL `/r/225x319/` — MAL'ın gerçek kaynağı (225×320); tavan
+ *   460w  AniList `/cover/large/` — yüksek yoğunluk (2×/3× telefon, retina masaüstü)
+ *
+ * Eskiden 356w adayı vardı: MAL CDN'i 225 px kaynağı **büyütüp** veriyordu
+ * (31–38 KB, bulanık). Ölçüm 04.10: `/r/356x508/` = bulanık büyütme; telefonlar
+ * bu yüzden hem yavaş hem bulanık kapak görüyordu. Büyütme adayı kaldırıldı;
+ * yüksek yoğunluk artık AniList'in gerçek 460 px kaynağından karşılanıyor
+ * (`p2` alanı, `tools/poster-xl.mjs` üretir). 1× ekranlar hiç etkilenmez.
+ */
+export function posterSrcSet(poster: string | null, buyuk?: string | null): string | null {
+  const adaylar: string[] = [];
+  if (poster && poster.startsWith(MAL_ONEK)) {
+    adaylar.push(`${malOlcek(poster, 178, 254)} 178w`);
+    adaylar.push(`${malOlcek(poster, 225, 319)} 225w`);
+  }
+  if (buyuk && buyuk.startsWith(ANILIST_KAPAK_ONEK)) adaylar.push(`${buyuk} ${POSTER_XL_GENISLIK}w`);
+  return adaylar.length ? adaylar.join(', ') : null;
+}
+
+/**
+ * Büyük görsel (hero / detay bandı) için `srcSet`: MAL'ın gerçek kaynağı ve
+ * varsa AniList'in 460 px kapağı. 178 px adayı burada işe yaramaz (görsel
+ * ekran genişliğinde çizilir); tarayıcı 1× ekranda 225'i, 2× ve üstünde 460'ı
+ * seçer — eskiden hero mobilde 16:9 afişin ortasından kesilip büyütülüyordu.
+ */
+export function posterKapakSrcSet(poster: string | null, buyuk?: string | null): string | null {
+  const adaylar: string[] = [];
+  if (poster && poster.startsWith(MAL_ONEK)) adaylar.push(`${malOlcek(poster, 225, 319)} 225w`);
+  if (buyuk && buyuk.startsWith(ANILIST_KAPAK_ONEK)) adaylar.push(`${buyuk} ${POSTER_XL_GENISLIK}w`);
+  return adaylar.length ? adaylar.join(', ') : null;
 }
 
 /** TMDB `original` adresinin 1280 px varyantı (ölçek adayı). */

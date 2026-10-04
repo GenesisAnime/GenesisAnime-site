@@ -363,6 +363,12 @@ button {
   border-bottom: 1px solid var(--line);
 }
 
+/* `<picture>` sarmalayıcısı düzende görünmez: içindeki `<img>` mutlak konumlu
+   kalır, sarmalayıcı flex öğesi olarak yükseklik eklemez. */
+.hero-resim {
+  display: contents;
+}
+
 .hero-gorsel {
   position: absolute;
   inset: 0;
@@ -466,6 +472,11 @@ button {
    dönüşür. Ayrıntı: mobil medya sorgusundaki `.hero-ikinciller`. */
 .hero-ikinciller {
   display: contents;
+}
+
+/** "Şansıma ne çıkarsa" düğmesinin dar ekran etiketi: masaüstünde gizli. */
+.etiket-kisa {
+  display: none;
 }
 
 .hero-noktalar {
@@ -1996,8 +2007,8 @@ a.etiket:hover {
     min-height: 0;
   }
   .hero-ic {
-    padding-top: 76px;
-    padding-bottom: 22px;
+    padding-top: 56px;
+    padding-bottom: 20px;
   }
   /* Dik ekranda 16:9 afişin kırpılması sertleşiyor: yüz bandını yukarı al. */
   .hero-gorsel {
@@ -2030,8 +2041,11 @@ a.etiket:hover {
     line-height: 1.5;
     margin-bottom: 14px;
   }
-  /* Birincil düğme tam satır; ikinciller tek satırda yatay kaydırılır.
-     Eskiden beş düğme alt alta dizilip 225 px yer kaplıyordu. */
+  /* Birincil düğme tam satır; ikinciller iki sütunda **sarılır**. Yatay kaydırma
+     denendi: "Detaylar" sağ kenarda kesiliyor ve kırpılmış düğme bozuk
+     görünüyordu (kullanıcı geri bildirimi). Sarma, dört düğmeyi de tam
+     gösterir; yükseklik iki satır (≈ 92 px), eskiden beş düğme alt alta
+     225 px alıyordu. */
   .hero-dugmeler {
     display: grid;
     grid-template-columns: 1fr;
@@ -2041,20 +2055,25 @@ a.etiket:hover {
     width: 100%;
   }
   .hero-ikinciller {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .hero-ikinciller::-webkit-scrollbar {
-    display: none;
   }
   .hero-dugmeler .dugme {
-    padding-left: 13px;
-    padding-right: 13px;
+    padding-left: 10px;
+    padding-right: 10px;
     min-height: 42px;
+    min-width: 0;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* "Şansıma ne çıkarsa" yarım sütuna kırpılıyordu: dar ekranda kısa etiket. */
+  .etiket-kisa {
+    display: inline;
+  }
+  .etiket-uzun {
+    display: none;
   }
   .hero-noktalar {
     margin-top: 12px;
@@ -2449,5 +2468,32 @@ a.etiket:hover {
   to {
     opacity: 1;
     transform: translate(-50%, 0);
+  }
+}
+
+/* ---------- kısa mobil ekranlar (ör. 320×568, iPhone SE 1. nesil) ---------- */
+/* Hero'nun altındaki sabit menü 68 px; 389 px'lik görünür alanda başlık,
+   meta, düğmeler ve özet birlikte sığmıyordu. Bu ekranlarda özet gizlenir:
+   okuma metni zaten detay sayfasında, oynatma düğmesi ise ekranda kalır.
+
+   Ölçüldü (320×568, 24 öne çıkanın en kötüsü — `npm run denetim:hero`): özet
+   gizliyken bile ikincil düğme sırasının alt kenarı 507 px'e iniyordu, sabit
+   menünün üstü 500 px — yani “Detaylar” düğmesinin alt kenarı menünün altında
+   kalıyordu (kullanıcı geri bildirimi: kırpılmış/kesik düğme). Dekoratif
+   “ÖNE ÇIKAN” etiketi (18 px satır + 14 px boşluk) ve sıkılaştırılmış boşluklar
+   düğmeleri 33 px yukarı taşıyor; hiçbir düğme menünün altında kalmıyor. */
+@media (max-width: 860px) and (max-height: 660px) {
+  .hero-ozet {
+    display: none;
+  }
+  .hero-etiket {
+    display: none;
+  }
+  .hero-dugmeler,
+  .hero-ikinciller {
+    gap: 6px;
+  }
+  .hero-dugmeler .dugme {
+    min-height: 40px;
   }
 }

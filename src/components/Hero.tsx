@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { AnaSayfaKarti } from '@/lib/tipler';
 import { formatAd, kisalt, puanBicim, sayiBicim } from '@/lib/bicim';
-import { backdropSrcSet, tmdbKucuk } from '@/lib/gorsel';
+import { backdropSrcSet, posterKapakSrcSet, tmdbKucuk } from '@/lib/gorsel';
 import { ArtiIkon, OynatIkon, TikIkon } from './Ikon';
 import { listede, listeDegistir, abone } from '@/lib/depo/yerel';
 import { useBaglandi } from '@/lib/depo/kanca';
@@ -57,24 +57,43 @@ export default function Hero({ ogeler }: Props) {
       onMouseLeave={() => setDuraklat(false)}
       aria-label="Öne çıkan yapım"
     >
-      {aktif.ban4k ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          className="hero-gorsel"
-          src={tmdbKucuk(aktif.ban4k)}
-          srcSet={backdropSrcSet(aktif.ban4k, aktif.bw)}
-          sizes="100vw"
-          alt=""
-          aria-hidden="true"
-          fetchPriority="high"
-        />
-      ) : aktif.ban ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="hero-gorsel" src={aktif.ban} alt="" aria-hidden="true" fetchPriority="high" decoding="async" />
-      ) : aktif.p ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="hero-gorsel" src={aktif.p} alt="" aria-hidden="true" fetchPriority="high" decoding="async" />
-      ) : null}
+      {/*
+        Mobilde (≤860 px) 16:9 afişin ortasından kesilip **büyütülmüş** görünüm
+        yerine dikey kapak seçilir. `<picture>` bunu “art direction” ile yapar:
+        tarayıcı **tek** görsel indirir, CSS ile iki `<img>` tutup birini
+        gizlemek gerekmez (gizli görsel yine de inerdi). Kaynak sırası:
+        AniList 460 px kapağı (varsa) → MAL'ın 225 px kaynağı.
+        Masaüstü yolu değişmez: 4K backdrop srcSet'i aynen kalır. */}
+      <picture className="hero-resim">
+        {aktif.p ? (
+          <source
+            media="(max-width: 860px)"
+            srcSet={posterKapakSrcSet(aktif.p, aktif.p2) ?? aktif.p2 ?? aktif.p}
+          />
+        ) : null}
+        {aktif.ban4k ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            className="hero-gorsel"
+            src={tmdbKucuk(aktif.ban4k)}
+            srcSet={backdropSrcSet(aktif.ban4k, aktif.bw)}
+            sizes="100vw"
+            alt=""
+            aria-hidden="true"
+            fetchPriority="high"
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            className="hero-gorsel"
+            src={aktif.ban ?? aktif.p}
+            alt=""
+            aria-hidden="true"
+            fetchPriority="high"
+            decoding="async"
+          />
+        )}
+      </picture>
       <div className="hero-perde" />
 
       <div className="hero-ic">

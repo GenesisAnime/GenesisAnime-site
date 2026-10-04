@@ -695,7 +695,30 @@ kabul edecek biçimde tanımlıdır.
 - **Kural:** yeni bir karar kuralı/imza eklerken `tools/testler/tarama.test.mjs` içine sentetik bir
   örnek yazılır; testler ağsız koşmalıdır (canlı sınama `npm run link:test`'in işidir)
 - Otomatik uçtan uca test (Playwright): ana sayfa → arama → detay → oynatıcı → kaynak değiştir
+  (Playwright artık devDependency; hero **yerleşim** denetimi CI'da koşuyor — bkz. yukarıdaki
+  “Mobil hero denetimi”. Bu madde akış testlerini kapsar)
 - Veri bütünlüğü testi: `katalog.json` satır sayısı = anime dosyası sayısı = 6.107;
   her `src` girdisinin `tip` değeri `url`; ölü URL'lerin hiçbir dosyada geçmediği kontrolü
 - Lighthouse CI (performans/erişilebilirlik bütçesi)
-- Görsel regresyon: hero, kart, oynatıcı ekran görüntüleri
+- Görsel regresyon: hero, kart, oynatıcı ekran görüntüleri (hero'nun **yerleşim** sözleşmesi
+  `npm run denetim:hero` ile CI'da otomatik; piksel farkı (referans görüntü) hâlâ açık)
+
+### Mobil hero denetimi (gerçek tarayıcı): `npm run denetim:hero`
+
+CSS metni doğru olsa da “düğme ekranda mı” sorusu yalnız gerçek yerleşimde yanıtlanır.
+`tools/hero-denetim.mjs` derlenmiş `out/` klasörünü yerel bir sunucudan açar (ya da
+`-- --canli https://genesisanime.github.io/GenesisAnime-site/`), Playwright ile
+**320×568** ve **390×844** (DPR 2, `isMobile`) ölçer ve hero'nun **24 öne çıkanını tek tek
+gezerek en kötü durumu** ölçer (dönen hero yüzünden tek kare ölçmek zamanlamaya bağlı kalır;
+ilk sürümde iki koşu farklı sonuç verdi). Denetlenen sözleşme:
+
+1. “Hemen İzle” tamamen görünür ve sabit alt menünün **üstünde** biter,
+2. hiçbir hero düğmesi metin olarak kırpılmaz (`scrollWidth ≤ clientWidth`),
+3. **hiçbir hero düğmesi sabit menünün altında kalmaz** (ayrı hata sınıfı: “Detaylar” 320×568'de
+   tam bu yüzden görünmezdi),
+4. sayfada yatay taşma yok; hero yüksekliği görünür alanın 1,35 katını aşmaz.
+
+Ölçülen düzeltme (320×568, en kötü öne çıkan): hero 751 px → **387 px**, “Detaylar” alt kenarı
+**507 px → 462 px** (sabit menü üstü 500 px), 5 düğme de kırpılmadan görünür. 390×844'te
+“Detaylar” 577 px, menü üstü 776 px. Denetim CI'da derlemeden sonra koşar
+(`npx playwright install --with-deps chromium` + `npm run denetim:hero`).

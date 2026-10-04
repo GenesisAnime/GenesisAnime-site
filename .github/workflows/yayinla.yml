@@ -69,6 +69,15 @@ jobs:
       - name: Testler (birim + veri/çıktı bütünlüğü)
         run: npm test
 
+      # Mobil hero sözleşmesi CSS metninden değil **gerçek yerleşimden** doğrulanır:
+      # 320×568 ve 390×844'te 24 öne çıkanın hepsi gezilir, hiçbir düğme sabit
+      # alt menünün altında kalmamalı (eski hata: “Detaylar” menünün altındaydı).
+      - name: Chromium kur (mobil hero denetimi)
+        run: npx playwright install --with-deps chromium
+
+      - name: Mobil hero denetimi (gerçek tarayıcı)
+        run: npm run denetim:hero
+
       - name: Pages yapılandırması
         uses: actions/configure-pages@v5
 

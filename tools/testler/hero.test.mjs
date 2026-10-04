@@ -54,7 +54,7 @@ test('hero başlığı mobilde iki satıra kırpılır', () => {
   assert.ok(/overflow:\s*hidden/.test(govde), '.hero-ad: satır kırpma için overflow: hidden gerekir');
 });
 
-test('birincil düğme mobilde tam satır, ikinciller tek satırda kayar', () => {
+test('birincil düğme tam satır, ikinciller kırpılmadan sarılır', () => {
   const dugmeler = kural('.hero-dugmeler');
   assert.ok(
     /grid-template-columns:\s*1fr\b/.test(dugmeler),
@@ -64,9 +64,31 @@ test('birincil düğme mobilde tam satır, ikinciller tek satırda kayar', () =>
     /width:\s*100%/.test(kural('.hero-dugmeler .dugme-birincil')),
     '.hero-dugmeler .dugme-birincil: mobilde tam satır genişliğinde olmalı'
   );
+  /* Yatay kaydırma denendi ve geri alındı: sağ kenarda "Detaylar" yarım
+     görünüyordu (kullanıcı geri bildirimi: "detaylar düğmesi kesilmiş").
+     İkinciller artık iki sütunda sarılır — hiçbir düğme kırpılmaz. */
   assert.ok(
-    /overflow-x:\s*auto/.test(kural('.hero-ikinciller')) && /display:\s*flex/.test(kural('.hero-ikinciller')),
-    '.hero-ikinciller: ikincil düğmeler mobilde tek satırda yatay kaydırılmalı (eskiden beş düğme alt alta 225 px yer kaplıyordu)'
+    /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/.test(kural('.hero-ikinciller')),
+    '.hero-ikinciller: iki sütunlu ızgara bekleniyor (kırpılan düğme geri gelmesin)'
+  );
+  assert.ok(
+    !/overflow-x:\s*auto/.test(kural('.hero-ikinciller')),
+    '.hero-ikinciller: yatay kaydırma kaldırıldı — düğmeler kırpılıyordu'
+  );
+});
+
+test('hero mobilde dikey kapak kullanır (16:9 afiş kırpılmaz)', () => {
+  const hero = fs.readFileSync(path.join(ROOT, 'src', 'components', 'Hero.tsx'), 'utf8');
+  assert.match(hero, /<picture/, 'Hero: mobil için <picture> art-direction yok');
+  assert.match(
+    hero,
+    /media="\(max-width: 860px\)"/,
+    'Hero: mobil kaynak medya sorgusu eksik — 16:9 afiş ortasından kesilip büyütülür'
+  );
+  assert.match(hero, /posterKapakSrcSet\(/, 'Hero: dikey kapak srcSet\u2019i (MAL 225 + AniList 460) kullanılmıyor');
+  assert.ok(
+    /hero-resim/.test(fs.readFileSync(path.join(ROOT, 'src', 'app', 'globals.css'), 'utf8')),
+    '.hero-resim: <picture> sarmalayıcısı düzende görünmez olmalı (display: contents)'
   );
 });
 

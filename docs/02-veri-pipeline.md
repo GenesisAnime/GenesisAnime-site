@@ -258,3 +258,31 @@ GENESIS_DB=/başka/yol.db npm run veri          # farklı veritabanı
 - Faz 7: 317 bin bağlantının partiler halinde taranması → `health.json` kapsamının %100'e çıkarılması
 - Özetlerin Türkçeleştirilmesi (AniList özetleri İngilizce)
 - `anime_meta` eksik 22 yapım için AniList eşleştirmesi (şu an 6.085/6.107)
+
+## Kapak kalitesi: `p2` (AniList 460 px)
+
+Arşiv kapaklarının %98'i MyAnimeList'ten gelir ve MAL'ın en büyük anime kapağı **225×320**.
+Kart görseli mobilde 142 CSS px, masaüstünde 178 CSS px'tir; 2×/3× yoğunluklu telefon
+284–426 px ister. MAL CDN'i bu isteği **büyütme** ile karşılıyordu (`/r/356x508/` = 225 px
+kaynağın şişirilmiş hâli: 31–38 KB ve bulanık). Ölçüm (04.10, 6 poster): orijinal 225×320
+35/42/15/15/16/18 KB · `/r/178x254/` 10–15 KB · `/r/225x319/` 15–24 KB · `/r/356x508/` 31–38 KB.
+
+Çözüm: aynı yapımın **AniList** kapağı gerçek 460×662 kaynaktır (~95–100 KB) ve anime
+dosyalarına `p2` alanı olarak yazılır (`npm run poster:xl` → `tools/poster-xl.mjs`):
+`anime_meta.anilist_id` eşleşmeleri 50'lik `Page(media(id_in:…))` istekleriyle çekilir
+(117 istek, 1,5 sn aralık, 429/5xx'te artan bekleme), parçalar `tools/cache/poster-xl/`
+altında önbelleklenir, yalnız `/cover/large/*.jpe?g` kabul edilir (aynı yolun PNG'leri
+326–489 KB iniyor). Kapsam: **3.067/6.107** anime dosyası (AniList kimliği eşleşen ve JPEG
+kapağı olanlar); ana sayfa verisine 353, kırpılmış kart dosyasına 339 `p2` düştü.
+
+İstemci sözleşmesi (`src/lib/gorsel.ts`):
+
+| aday | kaynak | nerede seçilir |
+|---|---|---|
+| `178w` | MAL `/r/178x254/` (10–15 KB) | 1× ekran — bayt aynı kaldı |
+| `225w` | MAL `/r/225x319/` (15–24 KB) | 1× geniş kart / 2× küçük kart |
+| `460w` | AniList `p2` (95–100 KB) | 2×/3× telefon, retina masaüstü |
+
+`/r/356x508/` adayı **kaldırıldı** (büyütme = bulanıklık). Mobil hero ise `<picture>` ile
+sanat yönetimi yapar: ≤860 px'te dikey kapak (`p2` → MAL 225), üstünde 4K backdrop;
+tarayıcı yalnız tek görsel indirir (iki `<img>` + CSS gizleme hilesi gizli görseli de indirir).

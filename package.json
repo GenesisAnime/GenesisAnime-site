@@ -17,6 +17,7 @@
     "tmdb:ara": "node --no-warnings tools/tmdb-ara-esle.mjs",
     "tmdb:zenginlestir": "node --no-warnings tools/tmdb-zenginlestir.mjs",
     "tmdb:kapsam": "node --no-warnings tools/tmdb-kapsam.mjs",
+    "poster:xl": "node --no-warnings tools/poster-xl.mjs",
     "akis:olcum": "node --no-warnings tools/akis-olcum.mjs",
     "veri:rapor": "node --no-warnings tools/report-data.mjs",
     "test": "node --no-warnings --test \"tools/testler/*.test.mjs\"",
@@ -24,6 +25,7 @@
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "yayin:hazirla": "node --no-warnings tools/yayin-hazirla.mjs",
+    "denetim:hero": "node --no-warnings tools/hero-denetim.mjs",
     "lint": "next lint"
   },
   "dependencies": {
@@ -36,6 +38,7 @@
     "@types/node": "^22.10.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "playwright": "^1.63.0",
     "typescript": "^5.7.0"
   },
   "engines": {

@@ -13,7 +13,16 @@ interface Oge {
   bs: number;
 }
 
-export default function RastgeleDugme({ havuz, etiket = 'Şansıma ne çıkarsa' }: { havuz: Oge[]; etiket?: string }) {
+export default function RastgeleDugme({
+  havuz,
+  etiket = 'Şansıma ne çıkarsa',
+  kisaEtiket = 'Şansıma',
+}: {
+  havuz: Oge[];
+  etiket?: string;
+  /** Dar ekranda gösterilen kısa etiket (hero düğmesi yarım sütuna sığsın). */
+  kisaEtiket?: string;
+}) {
   const router = useRouter();
 
   const tikla = () => {
@@ -28,8 +37,16 @@ export default function RastgeleDugme({ havuz, etiket = 'Şansıma ne çıkarsa'
   };
 
   return (
-    <button type="button" className="dugme dugme-ikincil" onClick={tikla}>
-      <span aria-hidden="true">🎲</span> {etiket}
+    <button type="button" className="dugme dugme-ikincil" onClick={tikla} aria-label={etiket}>
+      <span aria-hidden="true">🎲</span>
+      {/* Uzun etiket masaüstünde, kısası dar ekranda: hero düğmesi yarım
+          sütunda kırpılıyordu (bkz. globals.css .etiket-kisa). */}
+      <span className="etiket-uzun" aria-hidden="true">
+        {etiket}
+      </span>
+      <span className="etiket-kisa" aria-hidden="true">
+        {kisaEtiket}
+      </span>
     </button>
   );
 }
