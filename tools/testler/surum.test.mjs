@@ -46,3 +46,25 @@ test('yapısal: çubuk stili ve servis çalışanı sürüm damgası', () => {
   const sw = oku('public', 'sw.js');
   assert.match(sw, /skipWaiting\(\)/, 'yeni çalışan bekletilmez (çubuk devralmayı anlatır)');
 });
+
+/* Mobilde alt menü sabit ve 68 px yüksekliğinde: çubuk onun üstüne çıkmalı,
+   yoksa "Yeni sürüm hazır" metni menünün altında kalır (canlı ölçüm: 8 px
+   çakışma). Ölçü CSS'e bağlanır — alt menü büyürse test kırmızıya döner. */
+test('mobil: sürüm çubuğu alt menünün üstünde kalır (çakışma yok)', () => {
+  const css = oku('src', 'app', 'globals.css');
+  const medya = css.match(/@media \(max-width: 860px\) \{\s*\.surum-cubugu \{[^}]*\}/);
+  assert.ok(medya, '860px altında çubuk konumu tanımlanmalı (alt menü yalnız orada görünür)');
+  const alt = Number(medya[0].match(/bottom:\s*calc\((\d+)px/)?.[1]);
+  assert.ok(Number.isFinite(alt), 'çubuk `bottom: calc(<sayı>px + env(safe-area-inset-bottom))` biçiminde olmalı');
+
+  const menu = css.match(/\.alt-menu \{([^}]*)\}/);
+  assert.ok(menu, '.alt-menu kuralı bulunamadı');
+  assert.ok(css.includes('env(safe-area-inset-bottom)'), 'güvenli alan (çentik) hesaba katılmalı');
+
+  // Canlı ölçüm (390×844 görünüm): sabit alt menü 68 px yüksekliğinde.
+  const menuYuksekligi = 68;
+  assert.ok(
+    alt > menuYuksekligi + 8,
+    `çubuk tabanı ${alt}px, alt menü ${menuYuksekligi}px — arada nefes yok, metin menüye değer/altında kalır`
+  );
+});
