@@ -40,6 +40,23 @@ test('offscreen catalog rows defer rendering and progress timer avoids one-secon
   assert.doesNotMatch(player, /setSaniye/);
 });
 
+test('site player automatically tries the next source when one fails', () => {
+  assert.match(player, /const ZINCIR_SINIRI = \d+/);
+  assert.match(player, /const zincirAdaylari = useCallback/);
+  assert.match(player, /const zincirIlerle = useCallback/);
+  assert.match(player, /const zincirZamanla = useCallback/);
+  assert.match(player, /Otomatik dene/);
+  assert.match(player, /Sıradaki kaynak deneniyor/);
+  assert.match(player, /Otomatik deneme çalışan kaynağı buldu/);
+  assert.match(player, /Denenen kaynakların tümü açılmadı/);
+  assert.match(player, /zincirSayacRef\.current >= ZINCIR_SINIRI/);
+  // sıra: kanıtlanmış kaynak > kapsam içi > kalan (kullanıcı bilinmeyen host'ları boşa denemesin)
+  assert.match(player, /denenenler\[kaynak\[2\]\]\?\.durum === 'calisiyor'\) return 0/);
+  assert.match(player, /if \(sonuc\.hata === 'cok-fazla-istek'\) setZincirBilgi\(\{ durum: 'sinir'/);
+  assert.match(css, /\.zincir-satir\s*\{/);
+  assert.match(css, /\.zincir-durum\s*\{/);
+});
+
 test('player modes separate external embed from site playback and source outcomes', () => {
   assert.match(player, /Kaynağın playerı/);
   assert.match(player, /Sitenin playerı/);

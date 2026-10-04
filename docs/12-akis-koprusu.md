@@ -65,6 +65,16 @@ tüm katalog topluca taranmaz. Panel; gerçek `<video>` oynatımı doğrulananla
 deneme bekleyenleri, başarısız olanları ve API bekleyenleri birbirinden ayırır. Başarısız bir
 çözümleme kaynak iframe'inin de başarısız olduğu anlamına gelmez; mod düğmesiyle iframe'e geçilir.
 
+**Otomatik zincir (04.10):** Sitenin playerında bir kaynak açılmazsa sıradaki kaynak kendiliğinden
+denenir; kullanıcı "hiçbiri açılmıyor" duvarına çarpmaz. Aday sırası mevcut sıradan başlar ve şöyle
+dizilir: bu oturumda çalıştığı görülen kaynak → kapsam içi host'lar → kalanlar; bilinen
+başarısızlar atlanır. Zincir, ilk denemeden sonra en çok **8 kaynağı** otomatik dener (900 ms
+aralıkla): `/akis/coz` IP başına günde 300 istekle sınırlı olduğundan tek bölümde kota
+tüketilmez. Akış çözülüp de video **20 saniyede** oynamaya başlamazsa kaynak başarısız sayılır
+(takılma koruması); 429 gelirse zincir durur ve durum satırı bunu söyler. Panelde açma/kapama
+anahtarı vardır: başarıda "çalışan kaynağı buldu (n kaynak denendi)", tükenişte "kalanları elle
+deneyebilirsin" yazar.
+
 1. Kullanıcı “Sitenin playerı”nı seçer; seçili kaynak kapsamdaysa `GET /akis/coz?kaynak=<embed>`
    (12 sn üst sınır) başlar. Başka kaynaklar topluca taranmaz. Kapsam dışındakiler “Dene” düğmesiyle
    birer birer zorlanabilir.
@@ -100,11 +110,13 @@ Sunucu tarafında bu tur eklenenler: `/akis/coz` `?t=<rastgele>` görürse **ön
 sonucu yazar (= tazeleme); `/akis/aktar` yanıtları `Access-Control-Expose-Headers` ile aralık
 başlıklarını JS'e açar; CORS izinli başlıklara `Range` eklendi (yoklama ön uçuş ister).
 
-**Dağıtım durumu (04.10):** bu turdaki kapsam uç noktası, genel statik resolver ve site-player
-seçim/listeleri yalnız yerel kaynak değişiklikleridir; üretim Worker'ına veya siteye dağıtılmadı.
-Üretimde eski Worker'a bağlanan derlemede `/akis/kapsam` 404 verebilir; Mail.ru dışı kaynakların
-çalıştığı varsayılamaz. `NEXT_PUBLIC_API` adresi olan mevcut sitelerde kullanıcı arayüzü değişikliği
-yeni site build gerektirir; yeni resolver için Worker da güncellenmelidir.
+**Dağıtım durumu (04.10):** Worker `genesisanime-api` yeni kapsam ucu, genişletilmiş resolver ve
+`SITE_ORIGIN=https://genesisanime.github.io` ile üretime alındı; site
+`https://genesisanime.github.io/GenesisAnime-site/` adresine GitHub Actions ile dağıtıldı.
+Canlı doğrulama: `/akis/kapsam` 200; sitenin playerında **Mail.ru akışı oynadı** (`/akis/aktar`
+206 Media, 0:24 / 22:55); VK kaynağı çözülemedi ve "sitenin playerında çalışmayan" listesinde ayrı
+göründü. Yani canlıda yalnız Mail.ru yolu kanıtlıdır; diğer host'lar desteklenen **aday**
+listesindedir, doğrulanmış değil.
 
 ## Sınırlar ve riskler (dürüst liste)
 

@@ -82,6 +82,16 @@ import { AraIkon, DisBaglantiIkon, OynatIkon, SagIkon, SolIkon, TikIkon } from '
 
 const IZLENDI_SAYILMA_SANIYESI = 90;
 
+/* Otomatik zincir: bir kaynak sitenin playerında açılmazsa sıradaki denenir.
+   Amaç kullanıcının "bu bölümde hiçbir kaynak açılmıyor" duvarına çarpmaması.
+   Sınır bilinçli: `/akis/coz` IP başına günde 300 istekle sınırlı, tek bir
+   bölümde kotayı tüketmemek için zincir en çok 8 kaynak dener. */
+const ZINCIR_SINIRI = 8;
+/** İki deneme arası bekleme: kullanıcı hangi kaynağın denendiğini görebilsin. */
+const ZINCIR_GECIKME_MS = 900;
+/** Akış çözüldü ama video bu sürede oynamaya başlamazsa kaynak başarısız sayılır. */
+const ZINCIR_YUKLEME_SINIRI_MS = 20000;
+
 export default function IzleIstemci() {
   const aramalar = useSearchParams();
   const router = useRouter();
@@ -284,6 +294,17 @@ export default function IzleIstemci() {
   const [akisDenenenler, setAkisDenenenler] = useState<
     Record<string, { hata?: string; durum: 'bekliyor' | 'basarisiz' | 'calisiyor' }>
   >({});
+  /** Otomatik zincir: kullanıcı isterse kapatabilir (varsayılan açık). */
+  const [zincirAktif, setZincirAktif] = useState(true);
+  const [zincirBilgi, setZincirBilgi] = useState<{
+    durum: 'bos' | 'deniyor' | 'basarili' | 'tukendi' | 'sinir';
+    denenen: number;
+  }>({ durum: 'bos', denenen: 0 });
+  /** Zincirde denenen kaynak sayısı (sınır için) ve bekleyen zamanlayıcılar. */
+  const zincirSayacRef = useRef(0);
+  const zincirZamanlayiciRef = useRef<number | null>(null);
+  const zincirSurumRef = useRef(0);
+  const yuklemeZamanlayiciRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!akisVarMi()) {
@@ -307,6 +328,105 @@ export default function IzleIstemci() {
       (!akisVarMi() || zorlaCoz || kapsamdaMi(akisKapsam, sarmalayiciCoz(aktifKaynak[2])))
   );
 
+  /* ------------------------- otomatik kaynak zinciri ------------------------- */
+  /* Sıradaki kaynak, mevcut sıradan başlayarak seçilir; kapsam içi host'lar öne
+     alınır, bilinen başarısızlar atlanır. Tüm değerler ref üzerinden okunur:
+     zincir, çözümleme sözünün (promise) içinden tetiklendiği için kapanışın
+     bayatlaması engellenir. Fonksiyonlar burada, kendilerini kullanan
+     efektlerden **önce** tanımlanır (TDZ güvenliği). */
+  const zincirRef = useRef({
+    aktif: true,
+    mod: 'kaynak' as 'kaynak' | 'site',
+    kaynaklar: gosterilenKaynaklar,
+    denenenler: akisDenenenler,
+    kapsam: akisKapsam,
+    sira: kaynakSira,
+  });
+  zincirRef.current.aktif = zincirAktif;
+  zincirRef.current.mod = playerModu;
+  zincirRef.current.kaynaklar = gosterilenKaynaklar;
+  zincirRef.current.denenenler = akisDenenenler;
+  zincirRef.current.kapsam = akisKapsam;
+  zincirRef.current.sira = kaynakSira;
+
+  /** Bekleyen zincir zamanlayıcılarını iptal eder (mod/bölüm değişimi, elle seçim). */
+  const zincirTemizle = useCallback(() => {
+    zincirSurumRef.current += 1;
+    if (zincirZamanlayiciRef.current !== null) {
+      window.clearTimeout(zincirZamanlayiciRef.current);
+      zincirZamanlayiciRef.current = null;
+    }
+    if (yuklemeZamanlayiciRef.current !== null) {
+      window.clearTimeout(yuklemeZamanlayiciRef.current);
+      yuklemeZamanlayiciRef.current = null;
+    }
+  }, []);
+
+  const zincirAdaylari = useCallback(() => {
+    const { kaynaklar, denenenler, kapsam, sira } = zincirRef.current;
+    const adaylar: number[] = [];
+    for (let adim = 1; adim < kaynaklar.length; adim++) {
+      const s = (sira + adim) % kaynaklar.length;
+      const kaynak = kaynaklar[s];
+      if (!kaynak) continue;
+      if (denenenler[kaynak[2]]?.durum === 'basarisiz') continue;
+      adaylar.push(s);
+    }
+    /* Sıra: bu oturumda kanıtlanmış kaynak > kapsam içi host > geri kalan.
+       Kanıtlanmış kaynak, ilk denemenin başarılı olduğu kaynaktır; zincir ona
+       doğrudan dönerse kullanıcı 8 bilinmeyen host'u boşa izlemez. */
+    const puan = (s: number) => {
+      const kaynak = kaynaklar[s];
+      if (denenenler[kaynak[2]]?.durum === 'calisiyor') return 0;
+      return kapsamdaMi(kapsam, sarmalayiciCoz(kaynak[2])) ? 1 : 2;
+    };
+    return adaylar.sort((a, b) => puan(a) - puan(b));
+  }, []);
+
+  /** Sıradaki kaynağa geç; aday kalmadıysa veya sınır dolduysa zinciri bitir. */
+  const zincirIlerle = useCallback(() => {
+    const { aktif, mod } = zincirRef.current;
+    if (!aktif || mod !== 'site') return;
+    const adaylar = zincirAdaylari();
+    if (zincirSayacRef.current >= ZINCIR_SINIRI || !adaylar.length) {
+      setZincirBilgi({ durum: 'tukendi', denenen: zincirSayacRef.current });
+      return;
+    }
+    const sonraki = adaylar[0];
+    zincirSayacRef.current += 1;
+    setZincirBilgi({ durum: 'deniyor', denenen: zincirSayacRef.current });
+    setKaynakSira(sonraki);
+    setZorlaCoz(true);
+  }, [zincirAdaylari]);
+
+  /** Kısa gecikmeyle sıradakini dene (kullanıcı denemeyi görebilsin). */
+  const zincirZamanla = useCallback(() => {
+    const { aktif, mod } = zincirRef.current;
+    if (!aktif || mod !== 'site') return;
+    if (zincirZamanlayiciRef.current !== null) window.clearTimeout(zincirZamanlayiciRef.current);
+    const surum = ++zincirSurumRef.current;
+    zincirZamanlayiciRef.current = window.setTimeout(() => {
+      zincirZamanlayiciRef.current = null;
+      if (zincirSurumRef.current !== surum) return;
+      zincirIlerle();
+    }, ZINCIR_GECIKME_MS);
+  }, [zincirIlerle]);
+
+  /** Elle "dene" seçiminde sayaç sıfırlanır: zincir seçilen kaynaktan sürer. */
+  const zincirSifirla = useCallback(() => {
+    zincirTemizle();
+    zincirSayacRef.current = 0;
+    setZincirBilgi({ durum: 'bos', denenen: 0 });
+  }, [zincirTemizle]);
+
+  /* Embed moduna dönünce ya da bölüm değişince zincir sıfırlanır: iframe'in
+     açılıp açılmadığını okuyamadığımız için orada otomatik deneme anlamsız. */
+  useEffect(() => {
+    zincirTemizle();
+    zincirSayacRef.current = 0;
+    setZincirBilgi({ durum: 'bos', denenen: 0 });
+  }, [playerModu, bolum?.n, zincirTemizle]);
+
   const [akis, setAkis] = useState<{ cozum: AkisCozumu; baslangic: number } | null>(null);
   const [akisDurum, setAkisDurum] = useState<'yok' | 'cozuluyor' | 'yenileniyor' | 'hazir' | 'basarisiz'>('yok');
   const [akisNotu, setAkisNotu] = useState<AkisNotu | null>(null);
@@ -328,6 +448,8 @@ export default function IzleIstemci() {
     const kaynak = aktifKaynak;
     const surum = ++akisSurumRef.current;
     akisTazeRef.current = false;
+    /* Yeni deneme başlıyor: önceki kaynağın bekleyen zincir/yükleme zamanlayıcısı iptal. */
+    zincirTemizle();
     setAkis(null);
     setAkisNotu(null);
     setVideoSaat({ konum: 0, sure: 0 });
@@ -368,6 +490,9 @@ export default function IzleIstemci() {
         setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { hata: sonuc.hata, durum: 'basarisiz' } }));
         /* Sunucudaki günlük sınır (429) ayrı anlatılır: sebep kullanıcıya görünsün. */
         setAkisNotu(sonuc.hata === 'cok-fazla-istek' ? 'akis-yogun' : 'cozulemedi');
+        /* Sınır dolduysa zincir durur: sıradakileri denemek kotayı kurtarmaz. */
+        if (sonuc.hata === 'cok-fazla-istek') setZincirBilgi({ durum: 'sinir', denenen: zincirSayacRef.current });
+        else zincirZamanla();
         return;
       }
       if (!akisOynatilirMi(sonuc.akis.tur)) {
@@ -376,6 +501,7 @@ export default function IzleIstemci() {
         setAkisSorun(hata);
         setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { hata, durum: 'basarisiz' } }));
         setAkisNotu('tur-desteklenmiyor');
+        zincirZamanla();
         return;
       }
       akisBolumRef.current = anahtar;
@@ -383,6 +509,20 @@ export default function IzleIstemci() {
       setAkisSorun('');
       setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { durum: 'bekliyor' } }));
       setAkisDurum('cozuluyor');
+      /* Takılma koruması: akış çözüldü ama video makul sürede oynamaya başlamazsa
+         kaynak başarısız sayılır ve zincir sıradakine geçer (onCanPlay timer'ı siler). */
+      if (yuklemeZamanlayiciRef.current !== null) window.clearTimeout(yuklemeZamanlayiciRef.current);
+      yuklemeZamanlayiciRef.current = window.setTimeout(() => {
+        yuklemeZamanlayiciRef.current = null;
+        if (akisSurumRef.current !== surum) return;
+        if ((videoRef.current?.readyState ?? 0) >= 3) return;
+        setAkis(null);
+        setAkisDurum('basarisiz');
+        setAkisSorun('akis-durdu');
+        setAkisNotu('akis-durdu');
+        setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { hata: 'akis-durdu', durum: 'basarisiz' } }));
+        zincirZamanla();
+      }, ZINCIR_YUKLEME_SINIRI_MS);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aktifKaynak, bolum, kendiVideoAdayi, akisYenidenDeneme, zorlaCoz, akisKapsam]);
@@ -406,6 +546,7 @@ export default function IzleIstemci() {
       setAkisNotu(not);
       setAkisSorun(not);
       setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { hata: not, durum: 'basarisiz' } }));
+      zincirZamanla();
     };
     if (akisTazeRef.current) return dur('akis-durdu');
     if (!medyaHatasiTazeGerektirir(video.error?.code)) return dur('medya-desteklemiyor');
@@ -423,7 +564,13 @@ export default function IzleIstemci() {
     setAkis({ cozum: sonuc.akis, baslangic });
     setAkisDurum('hazir');
     setAkisNotu('akis-tazelendi');
-  }, [akis, aktifKaynak]);
+    /* Tazeleme de oynatmayı başlattıysa zincir başarıyla durur. */
+    if (yuklemeZamanlayiciRef.current !== null) {
+      window.clearTimeout(yuklemeZamanlayiciRef.current);
+      yuklemeZamanlayiciRef.current = null;
+    }
+    if (zincirSayacRef.current > 0) setZincirBilgi({ durum: 'basarili', denenen: zincirSayacRef.current });
+  }, [akis, aktifKaynak, zincirZamanla]);
 
   /* Kendi oynatıcıda gerçek konum cihazda saklanır: bölüm yeniden açılınca
      "kaldığın yerden" çalışsın (iframe yolunda bu bilgi yoktu). */
@@ -694,6 +841,7 @@ export default function IzleIstemci() {
       return yeni;
     });
     setAkisYenidenDeneme((onceki) => onceki + 1);
+    zincirSifirla();
   };
 
   const oncekiVar = bolum ? anime?.bolumler.some((b) => b.n === bolum.n - 1) : false;
@@ -860,6 +1008,12 @@ export default function IzleIstemci() {
                   if (!kaynak) return;
                   setAkisDurum('hazir');
                   setAkisDenenenler((onceki) => ({ ...onceki, [kaynak[2]]: { durum: 'calisiyor' } }));
+                  /* Oynatma başladı: takılma koruması düşer, zincir başarıyla kapanır. */
+                  if (yuklemeZamanlayiciRef.current !== null) {
+                    window.clearTimeout(yuklemeZamanlayiciRef.current);
+                    yuklemeZamanlayiciRef.current = null;
+                  }
+                  if (zincirSayacRef.current > 0) setZincirBilgi({ durum: 'basarili', denenen: zincirSayacRef.current });
                 }}
                 onTimeUpdate={(olay) => {
                   const v = olay.currentTarget;
@@ -1169,6 +1323,41 @@ export default function IzleIstemci() {
                   Kaynakları tek tek deneyip MP4/WebM olarak çözülebilenleri kendi playerımızda açarız.
                   Her host desteklenmez; başarısız olanlar ayrı listelenir.
                 </p>
+                <div className="zincir-satir">
+                  <label className="zincir-anahtar">
+                    <input
+                      type="checkbox"
+                      checked={zincirAktif}
+                      onChange={(olay) => {
+                        const acik = olay.currentTarget.checked;
+                        setZincirAktif(acik);
+                        if (!acik) zincirSifirla();
+                      }}
+                    />
+                    <span>Otomatik dene — açılmayan kaynakta sıradakini dener</span>
+                  </label>
+                  {zincirBilgi.durum === 'deniyor' ? (
+                    <span className="zincir-durum" role="status">
+                      Sıradaki kaynak deneniyor ({zincirBilgi.denenen}/{ZINCIR_SINIRI})
+                      {aktifKaynak ? `: ${playerAd(aktifKaynak[0])} · #${kaynakSira + 1}` : ''}…
+                    </span>
+                  ) : null}
+                  {zincirBilgi.durum === 'basarili' && zincirBilgi.denenen > 0 ? (
+                    <span className="zincir-durum" role="status">
+                      Otomatik deneme çalışan kaynağı buldu ({zincirBilgi.denenen} kaynak denendi).
+                    </span>
+                  ) : null}
+                  {zincirBilgi.durum === 'tukendi' ? (
+                    <span className="zincir-durum" role="status">
+                      Denenen kaynakların tümü açılmadı; kalanları elle deneyebilirsin.
+                    </span>
+                  ) : null}
+                  {zincirBilgi.durum === 'sinir' ? (
+                    <span className="zincir-durum" role="status">
+                      Günlük akış sınırına gelindi; otomatik deneme durdu.
+                    </span>
+                  ) : null}
+                </div>
                 {akisKapsamHatasi ? <p className="site-player-sorun">{akisKapsamSorunuMetni(akisKapsamHatasi)}</p> : null}
                 <section className="site-player-grup">
                   <h4>Sitenin playerında çalışan ({kendiPlayeriCalisanlar.length})</h4>

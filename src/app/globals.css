@@ -1216,6 +1216,35 @@ a.etiket:hover {
   color: var(--tx3);
 }
 
+.zincir-satir {
+  display: grid;
+  gap: 6px;
+}
+
+.zincir-anahtar {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--tx2);
+  cursor: pointer;
+}
+
+.zincir-anahtar input {
+  flex: none;
+  margin-top: 2px;
+  accent-color: var(--ac);
+}
+
+.zincir-durum {
+  padding: 7px 9px;
+  border: 1px solid var(--ac-yumusak);
+  border-radius: var(--rad-kucuk);
+  background: var(--ac-yumusak);
+  color: var(--tx2);
+  font-size: 12px;
+}
+
 .site-player-sorun,
 .site-player-bos {
   color: var(--tx3);

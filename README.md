@@ -44,14 +44,14 @@ depodadır. Kapalı bileşen, gizli veri işleme veya reklam/izleyici betiği yo
 |---|---|
 | Veri | 6.107 anime · 71.694 bölüm · 316.820 kaynak · 961 seri · 363 fansub grubu |
 | Banner görselleri | TMDB kimliği **5.266** yapımda (%86,2; Fribb 4.907 + arama 359) · 4K katmanı **2.495** · HD katmanı **2.269** · anime detay bandı **5.306/6.107** sayfada dolu (hero 20/24 · kart 391/540 · bant 3,4:1 → kaynağın ~%52'si; TMDB atfı `/kunye/` ve alt bilgide) |
-| Site derlemesi | 7.448 sayfa → `out/` 21.049 dosya / 873,51 MB; yayın hedefi yok, Windows'ta yerel sunucuyla açılır |
+| Site derlemesi | 7.448 sayfa → `out/` 21.049 dosya / 873,51 MB; **GitHub Pages'te yayında**: https://genesisanime.github.io/GenesisAnime-site/ (yerelde Windows başlatıcısıyla) |
 | Link sağlığı | kapsam **%58,72** — 173.030 `ok` · 301 `ölü` · 34 `engelli` · 12.861 `belirsiz` (ölçülebilir havuz tükendi) |
 | Otomasyon | günlük link döngüsü zamanlayıcıda (saatlik uyanır, günde bir koşar) · `/yonetim/` panelinden ayar + koşu geçmişi |
 | Testler | `npm test` **212 geçti / 1 koşullu atlandı** (ağsız; 0 hata) · `npm run api:test` uzakta **46/46** (oran sınırı dahil) |
-| Site playerı | “Kaynağın playerı / Sitenin playerı” seçimi + çalışan/başarısız/denenmeyen ayrı listeler ve genişletilmiş statik çözümleyici **yerelde** doğrulandı (yerel Worker 8789 + site 3000 üzerinden Mail.ru akışı kendi `<video>`'muzda oynadı); **henüz dağıtılmadı** |
-| API | Cloudflare Worker + D1 yayında (bölge WEUR; Mail.ru akış köprüsü uçları 03.10'dan beri üretimde). Kapsam ucu (`/akis/kapsam`) ve genel statik resolver yerel değişiklikte; üretim Worker güncellenince etkinleşir · CORS yalnızca site kaynağına açık |
+| Site playerı | “Kaynağın playerı / Sitenin playerı” seçimi, çalışan/başarısız/denenmeyen ayrı listeler, genişletilmiş statik çözümleyici ve **otomatik kaynak zinciri** (kaynak açılmazsa sıradakini dener, en çok 8 kaynak) **canlıda**: Mail.ru akışı kendi `<video>`'muzda oynadı; çözülemeyen kaynak ayrı listede gösterildi |
+| API | Cloudflare Worker + D1 yayında (bölge WEUR): kapsam ucu `/akis/kapsam`, genel statik resolver ve akış köprüsü 04.10'dan beri üretimde · CORS yalnızca `https://genesisanime.github.io` kaynağına açık |
 | Son güncelleme | 4 Ekim 2026 |
-| Sıradaki işler | **yeni site playerı + genişletilmiş resolver'ı üretime alma** (Worker deploy + site build) · canlı kaynak doğrulaması (hangi host gerçekten oynuyor) · analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · Odnoklassniki çözümleyicisi · akış köprüsünde gözlemlenebilirlik (istek sayacı/oran) · markalı kontrol çubuğu ([docs/12](docs/12-akis-koprusu.md) · [docs/10](docs/10-yol-haritasi.md)) |
+| Sıradaki işler | **canlı kaynak doğrulaması** (hangi host gerçekten oynuyor; şu an yalnız Mail.ru kanıtlı) · analytics kararı · gece döngüsünün çok günlük gözlemi · e-posta doğrulama + parola sıfırlama · yayın boyutunu ~400 MB küçültme · Odnoklassniki çözümleyicisi · akış köprüsünde gözlemlenebilirlik (istek sayacı/oran) · markalı kontrol çubuğu ([docs/12](docs/12-akis-koprusu.md) · [docs/10](docs/10-yol-haritasi.md)) |
 
 ## Hızlı başlangıç (Windows)
 
