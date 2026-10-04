@@ -225,6 +225,19 @@ Kapsam okunamazsa eleme yapılmaz (bilgi yoksa varsayılmaz).
 **Aktarım dürüstlüğü:** yukarı akış ≥400 dönerse artık medya sanılmaz; yanıt 502 `kaynak-reddetti`
 + `ayrinti: upstream-<kod>` olur (boş HLS listesi de 200 diye geçirilmez).
 
+**Kaynak ağırlıklı kapsam (04.10 · `ana/data` taraması + `/akis/kapsam` surum 3):**
+
+| durum | kaynak | pay |
+|---|---|---|
+| kendi altyapımızda çözülebilir (19 host: mail, VK, OK, Drive, Yandex, uqload, luluvdo) | 169.348 | %53,5 |
+| çözülemez (13 sağlayıcı, `kapsamDisi`) | 147.471 | %46,5 |
+| bilinmeyen host | 0 | %0 |
+
+Engelli payın dağılımı: sibnet 133.290, mp4upload 3.692, dailymotion 2.650, voe 2.517,
+videa 1.288, cyberfile 1.150, hdvid 969, doodstream 783, mega 733, streamwish 323, byse 57,
+pixeldrain 14, cda 5. Yani “bütün player'lar bizim altyapıyı kullanıyor” **doğru değil**: kaynakların
+%53,5'i kendi oynatıcımızda, kalan %46,5'i yalnız kaynağın player'ında (iframe) oynar.
+
 ## 04.10 · Sürüm çubuğu ve kanıt penceresi
 
 - **Sürüm çubuğu:** `sw.js` yeni sürümü `skipWaiting()` ile devralınca açık sekme eski chunk'ta
