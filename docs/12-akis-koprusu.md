@@ -234,3 +234,63 @@ Kapsam okunamazsa eleme yapılmaz (bilgi yoksa varsayılmaz).
 - **Kanıt penceresi:** cihazdaki “bu host oynadı” kanıtı artık **14 gün** sonra düşer (`sonOk`).
   Ölü URL tekrarları iyi bir host'u hemen demote etmez: hata sayısı başarıların ~3 katını (artı 3
   taban) geçmedikçe kanıt korunur. Puan her 14 günde yarılanan tazelikle çarpılır.
+
+## 04.10 · Kaydırma kasması (jank) — ölçüm ve düzeltme
+
+Kullanıcının bildirdiği "site kasıyor" şikâyeti canlı sayfada ölçümle kaynağına
+kadar izlendi. İki bağımsız yük vardı:
+
+### 1 · Bin küsur `backdrop-filter` katmanı
+
+`document.querySelectorAll('*')` üzerinde hesaplanan stil taraması ana sayfada
+**1.085** bulanık katman gösterdi: 540 kart × 2 rozet (`.kart-rozet`), sabit üst
+bar (`.ust`) ve sabit alt menü (`.alt-menu`). Her bulanık katman kaydırma
+karesinde arkasındaki içeriği yeniden rasterlamak zorunda olduğundan mobil
+GPU'da kare düşüşünün doğrudan sebebiydi.
+
+Düzeltme: rozetler ve iki sabit çubuk opak zemine geçti; bulanık katman
+yalnızca **tek seferlik** katmanlarda kaldı (fragman penceresi `.katman`,
+ikincil düğme `.dugme-ikincil`). Canlı doğrulama: **1.085 → 4**.
+
+### 2 · Tam boy posterler
+
+Kartlar 142–178 px genişliğinde, ama arşivdeki MAL posterleri 225×319 ve
+ortalama ~36 KB. 540 kart birlikte ~19 MB görsel demekti. MyAnimeList CDN'i
+`/r/<GxY>/images/...` yolunda gerçek küçültme sunuyor:
+
+| varyant | ölçü | ort. boyut |
+|---|---|---|
+| `/images/...` | 225×319 | ~36 KB |
+| `/r/356x508/images/...` | 356×508 | ~47 KB (retina adayı) |
+| `/r/178x254/images/...` | 178×254 | ~14 KB |
+
+`srcSet` üç adayı bildirir, tarayıcı DPR'a göre seçer. Ölçülen tasarruf:
+**%62** (240 kartlık ilk açılış 8,5 MB → 3,2 MB). 9.762 poster tarandı;
+küçültülemeyen adres yok (Kitsu/Simkl/ANN zaten küçük varyant servis ediyor).
+
+**`sizes` tuzağı:** çıplak uzunluk listesi (`"142px, 178px"`) geçersiz bir
+`sizes` değeridir — tarayıcı son değeri (178px) uygular ve mobilde büyük
+varyantı indirir (canlı ölçüm: kart 142 px görünürken 340×481 indi). Doğru
+biçim medya koşulludur: `(max-width: 860px) 142px, 178px`.
+
+### 3 · Doğrulama
+
+| ölçüm | önce | sonra |
+|---|---|---|
+| ana sayfa bulanık katman | 1.085 | 4 |
+| keşfet bulanık katman | — | 1 |
+| oynatıcı sayfası bulanık katman | — | 0 |
+| ana sayfa tam boy poster isteği | 240 | 0 |
+| ilk açılış poster baytı (240 kart) | ~8,5 MB | ~3,2 MB |
+| kaydırma boyunca uzun görev (long task) | — | 2 (toplam 107 ms) |
+
+Kurallar `tools/testler/kasma.test.mjs` ile kilitlendi (bulanık katman bütçesi,
+poster küçültme, `sizes` medya koşulu, `contain: paint`).
+
+### 4 · Sürüm çubuğu mobilde
+
+Sabit alt menü 68 px yüksekliğinde ölçüldü; çubuk 70 px'lik varsayımla
+konumlanınca metin menüye değiyordu. Taban 88 px'e alındı (`calc(88px +
+env(safe-area-inset-bottom))`) — canlı doğrulama: menü üstü 776 px, çubuk altı
+766 px, **10 px boşluk**. Ölçü `tools/testler/surum.test.mjs` içinde alt menü
+yüksekliğine bağlandı.
